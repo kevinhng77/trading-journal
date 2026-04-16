@@ -1,0 +1,5 @@
+{
+  "name": "trading-journal-chart-proxy",
+  "private": true,
+  "description": "Deploy this folder to Vercel; GitHub Pages app calls it via VITE_CHART_API_ORIGIN"
+}
