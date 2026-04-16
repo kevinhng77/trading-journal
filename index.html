@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Goatedvue</title>
+    <style>
+      #file-protocol-warning {
+        display: none;
+        font-family: system-ui, "Segoe UI", sans-serif;
+        padding: 32px 24px;
+        max-width: 560px;
+        margin: 0 auto;
+        line-height: 1.5;
+        color: #1e293b;
+      }
+      #file-protocol-warning.is-visible {
+        display: block;
+      }
+      #file-protocol-warning h1 {
+        font-size: 1.25rem;
+        margin: 0 0 12px;
+      }
+      #file-protocol-warning code {
+        background: #f1f5f9;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.9em;
+      }
+      #file-protocol-warning .muted {
+        margin: 16px 0 0;
+        font-size: 0.9rem;
+        color: #64748b;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="file-protocol-warning">
+      <h1>This page must run through the dev server</h1>
+      <p>
+        Opening <code>index.html</code> directly uses a <code>file://</code> URL. This app is built with Vite + React;
+        the browser cannot load <code>/src/main.jsx</code> from disk that way, so the area below stays blank.
+      </p>
+      <p><strong>Do this instead:</strong></p>
+      <ol>
+        <li>Open a terminal in this project folder (where <code>package.json</code> lives).</li>
+        <li>Run <code>npm install</code> once if you have not already.</li>
+        <li>Run <code>npm run dev</code>.</li>
+        <li>Open the URL Vite prints (usually <code>http://localhost:5173</code>).</li>
+      </ol>
+      <p class="muted">Static build: <code>npm run build</code> then <code>npm run preview</code>.</p>
+    </div>
+    <div id="root"></div>
+    <script>
+      if (location.protocol === "file:") {
+        document.getElementById("file-protocol-warning").classList.add("is-visible");
+      }
+    </script>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

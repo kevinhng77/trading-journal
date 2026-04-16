@@ -1,0 +1,373 @@
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { REPORT_DURATION_OPTIONS } from "../lib/tradeDuration";
+import { removeTagFromAllTrades } from "../lib/tradeTags";
+import DateRangePicker from "./DateRangePicker";
+import ReportsFilterCombobox from "./ReportsFilterCombobox";
+
+function IconTrash() {
+  return (
+    <svg
+      className="reports-action-icon reports-action-icon--stroke"
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M3 6h18" />
+      <path d="M8 6V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+      <path d="M10 11v5M14 11v5" />
+    </svg>
+  );
+}
+
+function IconCheck() {
+  return (
+    <svg
+      className="reports-action-icon reports-action-icon--stroke"
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.65"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
+/**
+ * @param {object} props
+ * @param {import("../lib/reportFilters").ReportFilters} props.draft
+ * @param {(f: import("../lib/reportFilters").ReportFilters) => void} props.setDraft
+ * @param {() => void} props.onApply
+ * @param {() => void} props.onClear
+ * @param {string[]} props.allTags
+ * @param {{ value: string, label: string }[]} [props.durationOptions]
+ * @param {string} [props.symbolPlaceholder]
+ * @param {import("react").ReactNode} [props.trailingSlot]
+ */
+export default function ReportsFilterStrip({
+  draft,
+  setDraft,
+  onApply,
+  onClear,
+  allTags,
+  durationOptions = REPORT_DURATION_OPTIONS,
+  symbolPlaceholder = "Symbol",
+  trailingSlot = null,
+}) {
+  const [tagSearch, setTagSearch] = useState("");
+  const [tagsPopOpen, setTagsPopOpen] = useState(false);
+  const tagsClusterRef = useRef(null);
+  const tagQueryInputRef = useRef(null);
+  const tagsPopId = useId();
+  const tagsMatchId = useId();
+  const symbolInputId = useId();
+  const tagsFieldLabelId = useId();
+  const sideSelectId = useId();
+  const sideSelectLabelId = useId();
+  const durationSelectId = useId();
+  const durationSelectLabelId = useId();
+  const dateFieldLabelId = useId();
+  const reportsDateFieldRef = useRef(null);
+  const reportsStripActionsRef = useRef(null);
+
+  useEffect(() => {
+    if (!tagsPopOpen) return;
+    function onDocMouseDown(e) {
+      const el = /** @type {Node | null} */ (e.target);
+      if (!tagsClusterRef.current || !el || tagsClusterRef.current.contains(el)) return;
+      /* Defer so native controls (select, input) receive this mousedown before we re-render closed */
+      window.setTimeout(() => setTagsPopOpen(false), 0);
+    }
+    document.addEventListener("mousedown", onDocMouseDown);
+    return () => document.removeEventListener("mousedown", onDocMouseDown);
+  }, [tagsPopOpen]);
+
+  useEffect(() => {
+    if (!tagsPopOpen) return;
+    function onKey(e) {
+      if (e.key === "Escape") setTagsPopOpen(false);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [tagsPopOpen]);
+
+  function patch(partial) {
+    setDraft({ ...draft, ...partial });
+  }
+
+  function removeTag(tag) {
+    patch({
+      selectedTags: draft.selectedTags.filter((t) => t.toLowerCase() !== tag.toLowerCase()),
+    });
+  }
+
+  function deleteTagFromAllTrades(tag) {
+    const msg = `Remove tag “${tag}” from every trade? This cannot be undone.`;
+    if (!window.confirm(msg)) return;
+    removeTagFromAllTrades(tag);
+    removeTag(tag);
+  }
+
+  function addTag(value) {
+    const t = String(value ?? "").trim();
+    if (!t) return;
+    if (draft.selectedTags.some((x) => x.toLowerCase() === t.toLowerCase())) return;
+    patch({ selectedTags: [...draft.selectedTags, t] });
+  }
+
+  const available = allTags.filter(
+    (s) => !draft.selectedTags.some((t) => t.toLowerCase() === s.toLowerCase()),
+  );
+
+  /** Selected tags matching the search box (shown at top of dropdown with remove control). */
+  const tagsDropdownSelected = useMemo(() => {
+    const q = tagSearch.trim().toLowerCase();
+    const pool = q ? draft.selectedTags.filter((t) => t.toLowerCase().includes(q)) : [...draft.selectedTags];
+    pool.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+    return pool.slice(0, 40);
+  }, [tagSearch, draft.selectedTags]);
+
+  /** Tags not yet selected — click row to add (search filters both sections). */
+  const tagsDropdownAddable = useMemo(() => {
+    const q = tagSearch.trim().toLowerCase();
+    const pool = q ? available.filter((t) => t.toLowerCase().includes(q)) : [...available];
+    pool.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+    return pool.slice(0, 60);
+  }, [tagSearch, available]);
+
+  const tagsTriggerLabel = useMemo(() => {
+    const tags = draft.selectedTags ?? [];
+    const n = tags.length;
+    if (n === 0) return "Select";
+    if (n === 1) {
+      const t = tags[0];
+      return t.length > 24 ? `${t.slice(0, 22)}…` : t;
+    }
+    return `${n} selected`;
+  }, [draft.selectedTags]);
+
+  useEffect(() => {
+    if (!tagsPopOpen) return;
+    const id = window.requestAnimationFrame(() => {
+      tagQueryInputRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [tagsPopOpen]);
+
+  return (
+    <div className="reports-filter-strip">
+      <form
+        className="reports-filter-strip-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          onApply();
+        }}
+      >
+      <div className="reports-filter-fields">
+        <div className="reports-filter-fields-left">
+          <div className="reports-filter-field reports-filter-field--stacked reports-filter-field--symbol">
+            <label className="reports-filter-field-label" htmlFor={symbolInputId}>
+              Symbol
+            </label>
+            <input
+              id={symbolInputId}
+              className="reports-filter-input reports-filter-symbol-input"
+              placeholder={symbolPlaceholder}
+              value={draft.symbol}
+              onChange={(e) => patch({ symbol: e.target.value })}
+            />
+          </div>
+
+          <div className="reports-filter-field reports-filter-field--stacked reports-filter-field--tags">
+            <span className="reports-filter-field-label" id={tagsFieldLabelId}>
+              Tags
+            </span>
+            <div
+              className="reports-filter-tags-wrap"
+              ref={tagsClusterRef}
+              role="group"
+              aria-labelledby={tagsFieldLabelId}
+            >
+              <div className="reports-filter-tags-anchor">
+                <button
+                  type="button"
+                  className="reports-filter-select reports-filter-tags-trigger"
+                  aria-haspopup="dialog"
+                  aria-expanded={tagsPopOpen}
+                  aria-controls={tagsPopId}
+                  onClick={() => setTagsPopOpen((o) => !o)}
+                >
+                  {tagsTriggerLabel}
+                </button>
+                {tagsPopOpen ? (
+                  <div id={tagsPopId} className="reports-filter-tags-pop" role="dialog" aria-label="Tag filters">
+                    <input
+                      ref={tagQueryInputRef}
+                      type="text"
+                      className="reports-filter-input reports-filter-tag-query reports-filter-tag-query--pop"
+                      placeholder="Search tags…"
+                      value={tagSearch}
+                      onChange={(e) => setTagSearch(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") e.preventDefault();
+                      }}
+                      aria-label="Search tags"
+                    />
+                    {tagsDropdownSelected.length > 0 || tagsDropdownAddable.length > 0 ? (
+                      <div className="reports-filter-tag-dropdown" role="group" aria-label="Tags">
+                        {tagsDropdownSelected.map((t) => (
+                          <div
+                            key={`sel-${t}`}
+                            className="reports-filter-tag-dropdown-row reports-filter-tag-dropdown-row--selected"
+                          >
+                            <span className="reports-filter-tag-dropdown-name">{t}</span>
+                            <button
+                              type="button"
+                              className="reports-filter-tag-dropdown-remove"
+                              aria-label={`Remove tag ${t}`}
+                              title={`Remove ${t}`}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                removeTag(t);
+                              }}
+                            >
+                              <span aria-hidden>×</span>
+                            </button>
+                          </div>
+                        ))}
+                        {tagsDropdownAddable.map((t) => (
+                          <div
+                            key={t}
+                            className="reports-filter-tag-dropdown-row reports-filter-tag-dropdown-row--add reports-filter-tag-dropdown-row--split"
+                          >
+                            <button
+                              type="button"
+                              className="reports-filter-tag-dropdown-add-hit"
+                              onClick={() => {
+                                addTag(t);
+                                setTagSearch("");
+                              }}
+                            >
+                              <span className="reports-filter-tag-dropdown-name">{t}</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="reports-filter-tag-dropdown-remove"
+                              aria-label={`Delete tag ${t} from all trades`}
+                              title={`Remove “${t}” from every trade`}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                deleteTagFromAllTrades(t);
+                              }}
+                            >
+                              <span aria-hidden>×</span>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : available.length === 0 && draft.selectedTags.length === 0 ? (
+                      <p className="reports-filter-tag-dropdown-empty">No tags left to add.</p>
+                    ) : (
+                      <p className="reports-filter-tag-dropdown-empty">No matching tags.</p>
+                    )}
+                    <label className="reports-filter-tags-match reports-filter-tags-match-check" htmlFor={tagsMatchId}>
+                      <input
+                        id={tagsMatchId}
+                        type="checkbox"
+                        checked={draft.tagsMatchAll}
+                        onChange={(e) => patch({ tagsMatchAll: e.target.checked })}
+                      />
+                      <span>Must have all tags</span>
+                    </label>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
+          <div className="reports-filter-field reports-filter-field--stacked reports-filter-field--side">
+            <label className="reports-filter-field-label" id={sideSelectLabelId} htmlFor={sideSelectId}>
+              Side
+            </label>
+            <ReportsFilterCombobox
+              id={sideSelectId}
+              ariaLabelledBy={sideSelectLabelId}
+              variant="side"
+              value={draft.side}
+              onChange={(v) => patch({ side: v })}
+              options={[
+                { value: "all", label: "All" },
+                { value: "long", label: "Long" },
+                { value: "short", label: "Short" },
+              ]}
+            />
+          </div>
+
+          <div className="reports-filter-field reports-filter-field--stacked reports-filter-field--duration">
+            <label className="reports-filter-field-label" id={durationSelectLabelId} htmlFor={durationSelectId}>
+              Duration
+            </label>
+            <ReportsFilterCombobox
+              id={durationSelectId}
+              ariaLabelledBy={durationSelectLabelId}
+              variant="duration"
+              value={draft.duration ?? "all"}
+              onChange={(v) => patch({ duration: v })}
+              options={durationOptions}
+            />
+          </div>
+        </div>
+
+        <div className="reports-filter-fields-spacer" aria-hidden="true" />
+
+        <div className="reports-filter-strip-date-actions">
+          <div className="reports-filter-fields-right">
+            <div
+              ref={reportsDateFieldRef}
+              className="reports-filter-field reports-filter-field--stacked reports-filter-field--date"
+            >
+              <span className="reports-filter-field-label" id={dateFieldLabelId}>
+                Date
+              </span>
+              <DateRangePicker
+                className="reports-filter-drp"
+                aria-labelledby={dateFieldLabelId}
+                alignPopoverEnd
+                positionAnchorRef={reportsDateFieldRef}
+                clampRightBeforeRef={reportsStripActionsRef}
+                dateFrom={draft.dateFrom}
+                dateTo={draft.dateTo}
+                onChange={(r) => patch(r)}
+              />
+            </div>
+          </div>
+
+          <div ref={reportsStripActionsRef} className="reports-filter-strip-actions">
+            <button type="button" className="reports-action-btn reports-action-btn--clear" onClick={onClear} title="Clear filters" aria-label="Clear filters">
+              <IconTrash />
+            </button>
+            <button type="submit" className="reports-action-btn reports-action-btn--apply" title="Apply filters" aria-label="Apply filters">
+              <IconCheck />
+            </button>
+            {trailingSlot}
+          </div>
+        </div>
+      </div>
+      </form>
+    </div>
+  );
+}
