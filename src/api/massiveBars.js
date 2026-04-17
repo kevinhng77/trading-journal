@@ -3,6 +3,8 @@
  * Dev server proxies /api/massive → https://api.massive.com with MASSIVE_API_KEY as apiKey query param.
  */
 
+import { assertLiveChartProxyOrThrow, chartProxyUrl } from "../lib/chartApiEnv";
+
 /**
  * @param {Response} res
  * @param {string} text
@@ -17,7 +19,7 @@ function parseMassiveJson(res, text) {
   const lower = trimmed.slice(0, 64).toLowerCase();
   if (lower.startsWith("<!doctype") || lower.startsWith("<html") || trimmed.startsWith("<")) {
     const err = new Error(
-      "Received HTML instead of Massive JSON. Use npm run dev so /api/massive is proxied and MASSIVE_API_KEY is set.",
+      "Received HTML instead of Massive JSON. Use npm run dev, or set VITE_CHART_API_ORIGIN and deploy the vercel-chart-proxy with MASSIVE_API_KEY.",
     );
     err.status = res.status;
     err.isHtmlFallback = true;
@@ -109,6 +111,8 @@ export async function fetchMassiveStockBars({
   maxTotalBars = 50_000,
   maxPages = 10,
 }) {
+  assertLiveChartProxyOrThrow();
+
   const sym = String(symbol || "").toUpperCase();
   const { mult, span } = massiveMultSpan(timeframe);
 
@@ -129,7 +133,10 @@ export async function fetchMassiveStockBars({
     pathTo = String(b);
   }
 
-  let url = `/api/massive/v2/aggs/ticker/${encodeURIComponent(sym)}/range/${mult}/${span}/${pathFrom}/${pathTo}?adjusted=true&sort=asc&limit=50000`;
+  let url = chartProxyUrl(
+    "massive",
+    `/v2/aggs/ticker/${encodeURIComponent(sym)}/range/${mult}/${span}/${pathFrom}/${pathTo}?adjusted=true&sort=asc&limit=50000`,
+  );
 
   const out = [];
   let truncated = false;
@@ -166,7 +173,7 @@ export async function fetchMassiveStockBars({
     if (!next || typeof next !== "string") break;
     const rel = proxiedMassivePath(next);
     if (!rel) break;
-    url = `/api/massive${rel.startsWith("/") ? "" : "/"}${rel}`;
+    url = chartProxyUrl("massive", `${rel.startsWith("/") ? "" : "/"}${rel}`);
   }
 
   return { bars: out, truncated };

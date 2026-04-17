@@ -5,9 +5,8 @@ import {
   intervalHistoryKey,
   isDailyLikeInterval,
 } from "../lib/chartIntervals";
+import { assertLiveChartProxyOrThrow, chartProxyUrl } from "../lib/chartApiEnv";
 import { fetchMassiveStockBars } from "./massiveBars";
-
-const BARS_URL = "/api/alpaca/v2/stocks/bars";
 
 /**
  * Calendar days before the trade date (intraday). Wide window so we can request deep history; the
@@ -58,7 +57,7 @@ function parseAlpacaJsonBody(res, text) {
   const lower = trimmed.slice(0, 64).toLowerCase();
   if (lower.startsWith("<!doctype") || lower.startsWith("<html") || trimmed.startsWith("<")) {
     const err = new Error(
-      "Received a web page instead of market data. Run the app with npm run dev so /api/alpaca is proxied to Alpaca. Preview/production static hosting cannot load this chart without a backend.",
+      "Received a web page instead of market data. Use npm run dev, or set VITE_CHART_API_ORIGIN to your Vercel chart proxy and rebuild.",
     );
     err.status = res.status;
     err.isHtmlFallback = true;
@@ -274,6 +273,8 @@ export async function fetchAlpacaStockBars({
   maxTotalBars = 25_000,
   maxPages = 10,
 }) {
+  assertLiveChartProxyOrThrow();
+
   const startMs = Date.parse(start);
   const endMs = Date.parse(end);
   const clipStart = Number.isFinite(startMs);
@@ -297,7 +298,7 @@ export async function fetchAlpacaStockBars({
     if (feed) params.set("feed", feed);
     if (pageToken) params.set("page_token", pageToken);
 
-    const res = await fetch(`${BARS_URL}?${params.toString()}`);
+    const res = await fetch(chartProxyUrl("alpaca", `/v2/stocks/bars?${params.toString()}`));
     const text = await res.text();
     const data = parseAlpacaJsonBody(res, text);
 
