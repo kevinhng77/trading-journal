@@ -22,6 +22,7 @@ import { mergeTradesByStableIds, splitTradeIntoRoundTripsByStableId } from "../l
 import ReportsFilterStrip from "../components/ReportsFilterStrip";
 import { REPORT_DURATION_OPTIONS } from "../lib/tradeDuration";
 import { tradeNetPnl } from "../lib/tradeExecutionMetrics";
+import { prefetchTradeExecutionChart } from "../lib/tradeChartPrefetch";
 
 const TRADES_PAGE_SIZE = 20;
 
@@ -120,6 +121,24 @@ function Trades() {
   useEffect(() => {
     if (selected.size === 0) setBulkAction("");
   }, [selected.size]);
+
+  /** Warm chart chunk so first trade open does not wait on network parse of the heavy module. */
+  useEffect(() => {
+    let cancelled = false;
+    const run = () => {
+      if (!cancelled) void prefetchTradeExecutionChart();
+    };
+    const idleId =
+      typeof requestIdleCallback !== "undefined"
+        ? requestIdleCallback(run, { timeout: 2200 })
+        : null;
+    const timeoutId = idleId == null ? setTimeout(run, 350) : null;
+    return () => {
+      cancelled = true;
+      if (idleId != null) cancelIdleCallback(idleId);
+      if (timeoutId != null) clearTimeout(timeoutId);
+    };
+  }, []);
 
   const allTags = useMemo(() => collectAllTagsFromTrades(trades), [trades]);
 
@@ -337,6 +356,9 @@ function Trades() {
                   className="trades-row-trade-link"
                   to={`/trades/${encodeURIComponent(rowId)}`}
                   aria-label={`Open trade ${trade.symbol} ${trade.date}`}
+                  onPointerEnter={() => {
+                    void prefetchTradeExecutionChart();
+                  }}
                 >
                   <div>{formatTradeTableDate(trade.date)}</div>
                   <div className="trades-symbol">{trade.symbol}</div>

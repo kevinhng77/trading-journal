@@ -21,6 +21,7 @@ import ReportsFilterStrip from "../components/ReportsFilterStrip";
 import { REPORTS_DURATION_OPTIONS } from "../lib/tradeDuration";
 import { aggregateDayExecutionMetrics } from "../lib/tradeExecutionMetrics";
 import DayPnLSparkline from "../components/DayPnLSparkline";
+import { prefetchTradeExecutionChart } from "../lib/tradeChartPrefetch";
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 const JOURNAL_NOTES_KEY = "tradingJournalDayNotes";
@@ -79,6 +80,23 @@ function Journal() {
     }
     window.addEventListener(REPORT_FILTERS_DATES_EVENT, onDates);
     return () => window.removeEventListener(REPORT_FILTERS_DATES_EVENT, onDates);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = () => {
+      if (!cancelled) void prefetchTradeExecutionChart();
+    };
+    const idleId =
+      typeof requestIdleCallback !== "undefined"
+        ? requestIdleCallback(run, { timeout: 2200 })
+        : null;
+    const timeoutId = idleId == null ? setTimeout(run, 350) : null;
+    return () => {
+      cancelled = true;
+      if (idleId != null) cancelIdleCallback(idleId);
+      if (timeoutId != null) clearTimeout(timeoutId);
+    };
   }, []);
 
   const allTags = useMemo(() => collectAllTagsFromTrades(trades), [trades]);
@@ -332,6 +350,9 @@ function Journal() {
                               className="journal-row-trade-link"
                               to={`/trades/${encodeURIComponent(rowKey)}`}
                               aria-label={`Open trade ${trade.symbol} ${trade.time || ""}`}
+                              onPointerEnter={() => {
+                                void prefetchTradeExecutionChart();
+                              }}
                             >
                               <div className="journal-time-cell">{trade.time || "—"}</div>
                               <div className="trades-symbol">{trade.symbol}</div>

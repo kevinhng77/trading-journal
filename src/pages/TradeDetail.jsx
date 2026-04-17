@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import { collectAllTagsFromTrades } from "../lib/tradeTags";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -12,7 +12,7 @@ import { loadChartIndicatorPrefs, saveChartIndicatorPrefs } from "../storage/cha
 import { useLiveTrades } from "../hooks/useLiveTrades";
 import ChartIndicatorsModal from "../components/ChartIndicatorsModal";
 import ChartPresetsDropdown from "../components/ChartPresetsDropdown";
-import TradeExecutionChart from "../components/TradeExecutionChart";
+const TradeExecutionChart = lazy(() => import("../components/TradeExecutionChart.jsx"));
 import TradeNotesEditor from "../components/TradeNotesEditor";
 import TradeTagsEditor from "../components/TradeTagsEditor";
 import {
@@ -435,19 +435,27 @@ export default function TradeDetail() {
           }}
         />
         <div className="trade-detail-execution-wrap">
-          <TradeExecutionChart
-            symbol={trade.symbol}
-            tradeDate={trade.date}
-            fills={fills}
-            chartInterval={chartInterval}
-            onChartIntervalChange={setChartInterval}
-            fillTimeZone={fillTimeZone}
-            indicatorPrefs={indicatorPrefs}
-            onPatchEma={patchEma}
-            onPatchVwap={patchVwap}
-            onPatchMarkers={patchMarkers}
-            onRemoveEmaLine={removeEmaLine}
-          />
+          <Suspense
+            fallback={
+              <div className="trade-execution-chart trade-execution-chart--state trade-detail-chart-suspense-fallback">
+                <p className="trade-execution-chart-msg">Loading chart…</p>
+              </div>
+            }
+          >
+            <TradeExecutionChart
+              symbol={trade.symbol}
+              tradeDate={trade.date}
+              fills={fills}
+              chartInterval={chartInterval}
+              onChartIntervalChange={setChartInterval}
+              fillTimeZone={fillTimeZone}
+              indicatorPrefs={indicatorPrefs}
+              onPatchEma={patchEma}
+              onPatchVwap={patchVwap}
+              onPatchMarkers={patchMarkers}
+              onRemoveEmaLine={removeEmaLine}
+            />
+          </Suspense>
         </div>
       </section>
 
