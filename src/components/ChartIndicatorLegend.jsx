@@ -26,6 +26,40 @@ function LineWidthPick({ value, onChange, disabled = false }) {
   );
 }
 
+/** @param {{ visible: boolean, onToggle: () => void, name: string }} props */
+function LegendVisibilityToggle({ visible, onToggle, name }) {
+  return (
+    <button
+      type="button"
+      className={`chart-indicator-legend-visibility${visible ? "" : " is-off"}`}
+      title={visible ? "Hide on chart" : "Show on chart"}
+      aria-label={visible ? `Hide ${name} on chart` : `Show ${name} on chart`}
+      aria-pressed={visible}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onToggle();
+      }}
+    >
+      {visible ? (
+        <svg className="chart-indicator-legend-visibility-svg" viewBox="0 0 24 24" width="16" height="16" aria-hidden>
+          <g fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
+            <circle cx="12" cy="12" r="3" />
+          </g>
+        </svg>
+      ) : (
+        <svg className="chart-indicator-legend-visibility-svg" viewBox="0 0 24 24" width="16" height="16" aria-hidden>
+          <g fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" />
+            <line x1="1" y1="1" x2="23" y2="23" />
+          </g>
+        </svg>
+      )}
+    </button>
+  );
+}
+
 /** @param {{ value: 0 | 1 | 2, onChange: (s: 0 | 1 | 2) => void, disabled?: boolean }} props */
 function LineStylePick({ value, onChange, disabled = false }) {
   const v = value ?? 0;
@@ -202,11 +236,35 @@ export default function ChartIndicatorLegend({
         const rowMuted =
           (row.study === "ma" && row.enabled === false) || (row.study === "vwap" && row.enabled === false);
 
+        const visible = row.enabled !== false;
+
         return (
           <div
             key={row.id}
             className={`chart-indicator-legend-row ${rowMuted ? "chart-indicator-legend-row--muted" : ""}`}
           >
+            {row.study === "ma" && onPatchEma ? (
+              <LegendVisibilityToggle
+                visible={visible}
+                name={row.label}
+                onToggle={() => {
+                  const next = !visible;
+                  onPatchEma(row.id, { enabled: next });
+                  if (!next && settingsId === row.id) setSettingsId(null);
+                }}
+              />
+            ) : null}
+            {row.study === "vwap" && onPatchVwap ? (
+              <LegendVisibilityToggle
+                visible={visible}
+                name="VWAP"
+                onToggle={() => {
+                  const next = !prefs.vwap.enabled;
+                  onPatchVwap({ enabled: next });
+                  if (!next && settingsId === "__vwap__") setSettingsId(null);
+                }}
+              />
+            ) : null}
             <span className="chart-indicator-legend-line" style={{ background: row.color }} aria-hidden />
             <span className="chart-indicator-legend-text" style={{ color: row.color }}>
               {row.label}

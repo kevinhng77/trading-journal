@@ -4250,6 +4250,39 @@ a.journal-row-trade-link:visited {
   flex-shrink: 0;
 }
 
+.chart-indicator-legend-visibility {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(226, 232, 240, 0.88);
+  cursor: pointer;
+  line-height: 0;
+}
+
+.chart-indicator-legend-visibility-svg {
+  display: block;
+}
+
+.chart-indicator-legend-visibility:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.chart-indicator-legend-visibility.is-off {
+  color: rgba(148, 163, 184, 0.55);
+}
+
+.chart-indicator-legend-visibility.is-off:hover {
+  color: rgba(226, 232, 240, 0.75);
+}
+
 .chart-indicator-legend-exec-icon {
   display: flex;
   align-items: center;
