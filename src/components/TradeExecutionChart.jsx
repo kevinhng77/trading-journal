@@ -221,11 +221,14 @@ function blendRgb(a, b, t) {
   };
 }
 
-/** Dark pane-ish anchor so small fills read softer; large fills stay vivid and slightly deeper. */
+/** Dark pane-ish anchor so small fills read softer. */
 const MARKER_SIZE_BLEND_BG = { r: 20, g: 22, b: 30 };
 
+/** Slight lift toward white so large fills read brighter on dark charts. */
+const MARKER_SIZE_HIGHLIGHT = { r: 255, g: 255, b: 255 };
+
 /**
- * Bolder / deeper fill for larger qty (triangle size stays fixed in prefs).
+ * Brighter / more vivid fill for larger qty; small stays washed (triangle size from prefs only).
  * @param {string} baseHex marker pref color
  * @param {number | undefined} qty
  * @param {number} qMin
@@ -236,8 +239,8 @@ function executionQuantityToMarkerFill(baseHex, qty, qMin, qMax) {
   const u = executionQuantityStrengthOrNull(qty, qMin, qMax);
   const uBlend = u === null ? 0.5 : u;
   const washed = blendRgb(base, MARKER_SIZE_BLEND_BG, 0.64);
-  const rich = blendRgb(base, { r: 0, g: 0, b: 0 }, 0.26);
-  return rgbToHex(blendRgb(washed, rich, uBlend));
+  const vivid = blendRgb(base, MARKER_SIZE_HIGHLIGHT, 0.22);
+  return rgbToHex(blendRgb(washed, vivid, uBlend));
 }
 
 /**
@@ -852,9 +855,12 @@ export default function TradeExecutionChart({
           fillWallTimeToUnixSeconds(tradeDate, f.time, fillTimeZone),
         );
         for (const sp of spans) {
+          const pnl = Number(sp.pnl);
+          const tone =
+            !Number.isFinite(pnl) || pnl === 0 ? "flat" : pnl > 0 ? "win" : "loss";
           appendTimeBand(
             rtWrap,
-            `trade-chart-roundtrip-band trade-chart-roundtrip-band--${sp.index % 5}`,
+            `trade-chart-roundtrip-band trade-chart-roundtrip-band--${tone}`,
             sp.from - pad,
             sp.to + pad,
           );

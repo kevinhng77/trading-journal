@@ -5678,24 +5678,17 @@ a.journal-row-trade-link:visited {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
-.trade-chart-roundtrip-band--0 {
-  background: rgba(120, 185, 255, 0.1);
+/* Same light alpha as prior cycle bands; hue encodes round-trip P+L (FIFO on fills). */
+.trade-chart-roundtrip-band--win {
+  background: rgba(74, 190, 120, 0.1);
 }
 
-.trade-chart-roundtrip-band--1 {
-  background: rgba(190, 150, 255, 0.09);
+.trade-chart-roundtrip-band--loss {
+  background: rgba(230, 108, 108, 0.1);
 }
 
-.trade-chart-roundtrip-band--2 {
-  background: rgba(110, 210, 165, 0.09);
-}
-
-.trade-chart-roundtrip-band--3 {
-  background: rgba(255, 185, 110, 0.09);
-}
-
-.trade-chart-roundtrip-band--4 {
-  background: rgba(150, 195, 235, 0.08);
+.trade-chart-roundtrip-band--flat {
+  background: rgba(130, 165, 210, 0.09);
 }
 
 /* Drawn in HTML above session tints (z-index 6); library horz is hidden because it sits under those overlays.
