@@ -83,6 +83,12 @@ export default function ReportsLayout() {
           Overview
         </NavLink>
         <NavLink
+          to="/reports/table"
+          className={({ isActive }) => `reports-primary-tab ${isActive ? "active" : ""}`}
+        >
+          Table
+        </NavLink>
+        <NavLink
           to="/reports/detailed"
           className={({ isActive }) => `reports-primary-tab ${isActive ? "active" : ""}`}
         >

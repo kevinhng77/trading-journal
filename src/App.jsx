@@ -5,6 +5,7 @@ import ReportsLayout from "./pages/reports/ReportsLayout";
 import ReportsOverview from "./pages/reports/ReportsOverview";
 import ReportsDetailed from "./pages/reports/ReportsDetailed";
 import ReportsCalendar from "./pages/reports/ReportsCalendar";
+import ReportsTable from "./pages/reports/ReportsTable";
 import ReportsWinLossDays from "./pages/reports/ReportsWinLossDays";
 import ReportsDrawdown from "./pages/reports/ReportsDrawdown";
 import ReportsCompare from "./pages/reports/ReportsCompare";
@@ -25,6 +26,7 @@ function App() {
           <Route index element={<ReportsOverview />} />
           <Route path="detailed" element={<ReportsDetailed />} />
           <Route path="calendar" element={<ReportsCalendar />} />
+          <Route path="table" element={<ReportsTable />} />
           <Route path="win-loss-days" element={<ReportsWinLossDays />} />
           <Route path="drawdown" element={<ReportsDrawdown />} />
           <Route path="compare" element={<ReportsCompare />} />

@@ -36,6 +36,13 @@ function Sidebar() {
         </NavLink>
 
         <NavLink
+          to="/reports/table"
+          className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+        >
+          Table
+        </NavLink>
+
+        <NavLink
           to="/reports"
           end
           className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}

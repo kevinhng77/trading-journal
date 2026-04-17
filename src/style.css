@@ -2825,6 +2825,119 @@ a.reports-primary-tab {
   margin-top: 2px;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.reports-table-page-toolbar {
+  margin-bottom: 0;
+}
+
+.reports-table-hint {
+  margin: 10px 0 14px;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.45;
+  max-width: 52rem;
+}
+
+.reports-table-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.reports-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.reports-table-main {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.reports-table-main caption {
+  padding: 0;
+}
+
+.reports-table-main th,
+.reports-table-main td {
+  padding: 10px 12px;
+  text-align: right;
+  border-bottom: 1px solid rgba(42, 49, 64, 0.75);
+  vertical-align: middle;
+}
+
+.reports-table-main thead th {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.reports-table-main tbody th[scope="row"] {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.reports-table-month-cell {
+  white-space: nowrap;
+}
+
+.reports-table-num-input {
+  width: 100%;
+  min-width: 6.5rem;
+  max-width: 11rem;
+  margin-left: auto;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.reports-table-num-input:focus {
+  outline: 2px solid rgba(74, 222, 128, 0.35);
+  outline-offset: 1px;
+}
+
+.reports-table-num-input::placeholder {
+  color: rgba(148, 163, 184, 0.45);
+}
+
+.reports-table-pnl {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.reports-table-muted {
+  color: rgba(148, 163, 184, 0.65);
+}
+
+.reports-table-foot-row th,
+.reports-table-foot-row td {
+  border-bottom: none;
+  background: rgba(0, 0, 0, 0.22);
+  font-weight: 700;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
 @media (max-width: 1024px) {
   .reports-chart-grid {
     grid-template-columns: 1fr;
