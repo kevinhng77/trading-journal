@@ -34,6 +34,7 @@ import {
   barPeriodSecondsForInterval,
 } from "../lib/chartIntervals";
 import ChartIndicatorLegend from "./ChartIndicatorLegend";
+import { completedRoundTripUnixSpans } from "../lib/fillRoundTrips";
 
 /** @param {number | undefined} ls */
 function prefsLineStyleToLw(ls) {
@@ -272,6 +273,7 @@ export default function TradeExecutionChart({
   onRemoveEmaLine,
 }) {
   const containerRef = useRef(null);
+  const roundTripShadeRef = useRef(null);
   const sessionShadeRef = useRef(null);
   const crosshairTimeRef = useRef(null);
   const resetChartViewRef = useRef(() => {});
@@ -652,15 +654,18 @@ export default function TradeExecutionChart({
     const prevBounds = getNySessionUnixBounds(prevIso);
     function paintSessionBands() {
       const wrap = sessionLayer;
-      if (!wrap) return;
-      wrap.innerHTML = "";
+      const rtWrap = roundTripShadeRef.current;
+      if (wrap) wrap.innerHTML = "";
+      if (rtWrap) rtWrap.innerHTML = "";
       if (daily) return;
       const ts = chart.timeScale();
       /**
        * lightweight-charts only maps times inside the loaded / visible logical range; session edges
        * (e.g. 04:00) often fall between bars and return null. Clamp to the current visible range first.
+       * @param {HTMLElement} targetEl
+       * @param {string} className
        */
-      function addBand(t0, t1) {
+      function appendTimeBand(targetEl, className, t0, t1) {
         const tLo = Math.min(t0, t1);
         const tHi = Math.max(t0, t1);
         const vr = ts.getVisibleRange();
@@ -700,15 +705,32 @@ export default function TradeExecutionChart({
         const w = Math.abs(x1 - x0);
         if (w < 1) return;
         const d = document.createElement("div");
-        d.className = "trade-chart-session-band";
+        d.className = className;
         d.style.left = `${left}px`;
         d.style.width = `${w}px`;
-        wrap.appendChild(d);
+        targetEl.appendChild(d);
       }
-      addBand(prevBounds.dayOpen, prevBounds.regularOpen);
-      addBand(prevBounds.regularClose, prevBounds.dayClose);
-      addBand(bounds.dayOpen, bounds.regularOpen);
-      addBand(bounds.regularClose, bounds.dayClose);
+      if (wrap) {
+        appendTimeBand(wrap, "trade-chart-session-band", prevBounds.dayOpen, prevBounds.regularOpen);
+        appendTimeBand(wrap, "trade-chart-session-band", prevBounds.regularClose, prevBounds.dayClose);
+        appendTimeBand(wrap, "trade-chart-session-band", bounds.dayOpen, bounds.regularOpen);
+        appendTimeBand(wrap, "trade-chart-session-band", bounds.regularClose, bounds.dayClose);
+      }
+      if (rtWrap && fills?.length) {
+        const periodSec = barPeriodSecondsForInterval(chartInterval);
+        const pad = periodSec;
+        const spans = completedRoundTripUnixSpans(fills, (f) =>
+          fillWallTimeToUnixSeconds(tradeDate, f.time, fillTimeZone),
+        );
+        for (const sp of spans) {
+          appendTimeBand(
+            rtWrap,
+            `trade-chart-roundtrip-band trade-chart-roundtrip-band--${sp.index % 5}`,
+            sp.from - pad,
+            sp.to + pad,
+          );
+        }
+      }
     }
 
     const onTsChange = () => requestAnimationFrame(paintSessionBands);
@@ -787,6 +809,7 @@ export default function TradeExecutionChart({
         series.detachPrimitive(markersPrimitive);
       }
       if (sessionLayer) sessionLayer.innerHTML = "";
+      if (roundTripShadeRef.current) roundTripShadeRef.current.innerHTML = "";
       ro.disconnect();
       chart.remove();
     };
@@ -909,6 +932,7 @@ export default function TradeExecutionChart({
         >
           <div className="trade-execution-chart trade-execution-chart-canvas" ref={containerRef} />
           <div ref={crosshairTimeRef} className="trade-chart-crosshair-time" aria-hidden />
+          <div ref={roundTripShadeRef} className="trade-chart-roundtrip-shades" aria-hidden />
           <div ref={sessionShadeRef} className="trade-chart-session-shades" aria-hidden />
           <div className="trade-execution-chart-legend-slot">
             <button

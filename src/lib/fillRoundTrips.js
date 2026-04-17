@@ -1,13 +1,7 @@
 /**
  * Detect completed share round-trips (flat → … → flat) in chronological fill order.
- * Used to band rows in the trade detail fills table; incomplete tails (still open) are not banded.
+ * Used by the execution chart overlay; incomplete tails (still open) are not banded.
  */
-
-/** @param {object} f */
-export function fillStableKey(f) {
-  if (f?.id != null && String(f.id) !== "") return String(f.id);
-  return `t:${f.time}|${f.side}|${f.quantity}|${f.price}`;
-}
 
 /** @param {object} f @returns {number} signed share delta (BOT +, SOLD -), 0 if unknown */
 export function fillSignedQtyDelta(f) {
@@ -20,34 +14,33 @@ export function fillSignedQtyDelta(f) {
 }
 
 /**
- * Maps each fill key → round-trip index (0, 1, …) for fills that belong to a **completed**
- * flat-to-flat leg. Fills after the last flat (open remainder) are omitted from the map.
+ * Completed round trips as time spans (first fill → last fill in that leg), for chart overlays.
  *
  * @param {object[] | undefined} fills
- * @returns {Map<string, number>}
+ * @param {(f: object) => number | null | undefined} fillToUnix
+ * @returns {{ from: number, to: number, index: number }[]}
  */
-export function buildCompletedRoundTripIndexByFillKey(fills) {
-  /** @type {Map<string, number>} */
-  const out = new Map();
+export function completedRoundTripUnixSpans(fills, fillToUnix) {
   const sorted = [...(fills || [])].sort((a, b) => String(a.time ?? "").localeCompare(String(b.time ?? "")));
-
   let pos = 0;
-  /** @type {string[]} */
-  let curKeys = [];
-  let rt = 0;
+  /** @type {number[]} */
+  let curUnix = [];
+  /** @type {{ from: number, to: number, index: number }[]} */
+  const out = [];
+  let idx = 0;
 
   for (const f of sorted) {
     const delta = fillSignedQtyDelta(f);
     if (delta === 0) continue;
-
-    if (pos === 0) curKeys = [];
-    curKeys.push(fillStableKey(f));
+    const u = fillToUnix(f);
+    if (u == null || !Number.isFinite(u)) continue;
+    if (pos === 0) curUnix = [];
+    curUnix.push(u);
     pos += delta;
-
-    if (pos === 0 && curKeys.length) {
-      for (const k of curKeys) out.set(k, rt);
-      rt += 1;
-      curKeys = [];
+    if (pos === 0 && curUnix.length) {
+      out.push({ from: curUnix[0], to: curUnix[curUnix.length - 1], index: idx });
+      idx += 1;
+      curUnix = [];
     }
   }
 
