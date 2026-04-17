@@ -19,6 +19,8 @@ import { groupTradesByDate } from "../../storage/storage";
 import { tradesInLastDays, buildDailySeriesForRange } from "../../lib/dashboardStats";
 
 import { CHART_GREEN, CHART_RED } from "../../lib/chartPalette";
+import MetricHintIcon from "../../components/MetricHintIcon";
+import { REPORTS_OVERVIEW_CHART_HINTS } from "../../lib/metricHints";
 const GRID_STROKE = "#2a3140";
 const AXIS_TICK = { fill: "#94a3b8", fontSize: 11 };
 
@@ -96,10 +98,8 @@ export default function ReportsOverview() {
       <div className="reports-chart-grid">
         <div className="card reports-chart-card">
           <div className="panel-title reports-chart-title">
-            Gross daily P&amp;L ({rangeDays} days)
-            <span className="reports-chart-info" title="Daily gross P&amp;L">
-              i
-            </span>
+            <span className="reports-chart-title-text">Gross daily P&amp;L ({rangeDays} days)</span>
+            <MetricHintIcon text={REPORTS_OVERVIEW_CHART_HINTS.grossDaily} />
           </div>
           <div className="chart-area reports-chart-area">
             {tradesScoped.length === 0 ? (
@@ -125,10 +125,8 @@ export default function ReportsOverview() {
 
         <div className="card reports-chart-card">
           <div className="panel-title reports-chart-title">
-            Gross cumulative P&amp;L ({rangeDays} days)
-            <span className="reports-chart-info" title="Running total">
-              i
-            </span>
+            <span className="reports-chart-title-text">Gross cumulative P&amp;L ({rangeDays} days)</span>
+            <MetricHintIcon text={REPORTS_OVERVIEW_CHART_HINTS.grossCumulative} />
           </div>
           <div className="chart-area reports-chart-area">
             {tradesScoped.length === 0 ? (
@@ -157,10 +155,8 @@ export default function ReportsOverview() {
 
         <div className="card reports-chart-card">
           <div className="panel-title reports-chart-title">
-            Daily volume ({rangeDays} days)
-            <span className="reports-chart-info" title="Shares/contracts per day">
-              i
-            </span>
+            <span className="reports-chart-title-text">Daily volume ({rangeDays} days)</span>
+            <MetricHintIcon text={REPORTS_OVERVIEW_CHART_HINTS.dailyVolume} />
           </div>
           <div className="chart-area reports-chart-area">
             {tradesScoped.length === 0 ? (
@@ -181,10 +177,8 @@ export default function ReportsOverview() {
 
         <div className="card reports-chart-card">
           <div className="panel-title reports-chart-title">
-            Win % ({rangeDays} days)
-            <span className="reports-chart-info" title="Winning trades / total trades per day">
-              i
-            </span>
+            <span className="reports-chart-title-text">Win % ({rangeDays} days)</span>
+            <MetricHintIcon text={REPORTS_OVERVIEW_CHART_HINTS.winPct} />
           </div>
           <div className="chart-area reports-chart-area">
             {tradesScoped.length === 0 ? (

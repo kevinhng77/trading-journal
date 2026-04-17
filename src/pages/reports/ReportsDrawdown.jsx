@@ -13,6 +13,8 @@ import { useLiveTrades } from "../../hooks/useLiveTrades";
 import { filterTradesForReport, reportFiltersActive, DEFAULT_REPORT_FILTERS } from "../../lib/reportFilters";
 import { tradesInLastDays, buildDailySeriesForRange, buildDrawdownSeries } from "../../lib/dashboardStats";
 import { CHART_RED, CHART_RED_FILL_SOFT } from "../../lib/chartPalette";
+import MetricHintIcon from "../../components/MetricHintIcon";
+import { REPORTS_DRAWDOWN_CHART_HINT } from "../../lib/metricHints";
 
 const GRID = "#2a3140";
 const TICK = { fill: "#94a3b8", fontSize: 10 };
@@ -72,7 +74,10 @@ export default function ReportsDrawdown() {
         </div>
       </div>
       <div className="card reports-detailed-chart-card">
-        <div className="panel-title reports-chart-title">Drawdown ({rangeDays} days)</div>
+        <div className="panel-title reports-chart-title">
+          <span className="reports-chart-title-text">Drawdown ({rangeDays} days)</span>
+          <MetricHintIcon text={REPORTS_DRAWDOWN_CHART_HINT} />
+        </div>
         <div className="reports-detailed-chart-area" style={{ height: 280 }}>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={dd} margin={{ top: 8, right: 12, left: 4, bottom: 4 }}>

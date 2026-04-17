@@ -7,6 +7,18 @@ import { computeDashboardStats, computeProfitFactor, sumTradePnl } from "../../l
 import { REPORTS_DURATION_OPTIONS } from "../../lib/tradeDuration";
 import { formatMoney, pnlClass } from "../../storage/storage";
 import { loadCompareGroupFilters, saveCompareGroupFilters } from "../../storage/compareFiltersPersist";
+import MetricHintIcon from "../../components/MetricHintIcon";
+import { COMPARE_STAT_HINTS } from "../../lib/metricHints";
+
+function CompareHintLabel({ label, children }) {
+  const text = COMPARE_STAT_HINTS[label];
+  return (
+    <span className="reports-compare-metric-label">
+      <span>{children ?? label}</span>
+      {text ? <MetricHintIcon text={text} /> : null}
+    </span>
+  );
+}
 
 /** @param {number | null | undefined} m */
 function fmtHoldMinutes(m) {
@@ -112,7 +124,8 @@ export default function ReportsCompare() {
           <div className="reports-compare-group-head">
             <h2 id="reports-compare-group-a-title" className="reports-compare-group-title">
               <span className="reports-compare-dot reports-compare-dot--a" aria-hidden />
-              Group A
+              <span className="reports-compare-group-title-text">Group A</span>
+              <MetricHintIcon text={COMPARE_STAT_HINTS["Group A"]} />
             </h2>
             <button
               type="button"
@@ -139,7 +152,8 @@ export default function ReportsCompare() {
           <div className="reports-compare-group-head">
             <h2 id="reports-compare-group-b-title" className="reports-compare-group-title">
               <span className="reports-compare-dot reports-compare-dot--b" aria-hidden />
-              Group B
+              <span className="reports-compare-group-title-text">Group B</span>
+              <MetricHintIcon text={COMPARE_STAT_HINTS["Group B"]} />
             </h2>
             <button
               type="button"
@@ -164,45 +178,67 @@ export default function ReportsCompare() {
       </div>
 
       <div className="card reports-compare-stats-card">
-        <h3 className="reports-compare-stats-heading">Statistics</h3>
+        <div className="reports-compare-stats-heading-row">
+          <h3 className="reports-compare-stats-heading">Statistics</h3>
+          <MetricHintIcon text="Side-by-side cohort metrics from the two filter groups below. Each row is the same formula applied to Group A trades, Group B trades, then the numeric difference." />
+        </div>
         <p className="reports-compare-stats-caption">
-          <strong>Δ</strong> is Group B minus Group A (positive Δ on P&amp;L means B was higher).
+          <span className="reports-compare-stats-caption-text">
+            <strong>Δ</strong> is Group B minus Group A (positive Δ on P&amp;L means B was higher).
+          </span>
+          <MetricHintIcon text={COMPARE_STAT_HINTS["Δ (B − A)"]} />
         </p>
         <div className="reports-compare-table-wrap">
           <table className="reports-compare-stats-table">
             <thead>
               <tr>
-                <th scope="col">Metric</th>
                 <th scope="col">
-                  <span className="reports-compare-th-label">
-                    <span className="reports-compare-dot reports-compare-dot--a" aria-hidden />
-                    Group A
+                  <CompareHintLabel label="Metric" />
+                </th>
+                <th scope="col">
+                  <span className="reports-compare-th-label reports-th-hint-wrap">
+                    <span className="reports-compare-th-label-text">
+                      <span className="reports-compare-dot reports-compare-dot--a" aria-hidden />
+                      Group A
+                    </span>
+                    <MetricHintIcon text={COMPARE_STAT_HINTS["Group A"]} />
                   </span>
                 </th>
                 <th scope="col">
-                  <span className="reports-compare-th-label">
-                    <span className="reports-compare-dot reports-compare-dot--b" aria-hidden />
-                    Group B
+                  <span className="reports-compare-th-label reports-th-hint-wrap">
+                    <span className="reports-compare-th-label-text">
+                      <span className="reports-compare-dot reports-compare-dot--b" aria-hidden />
+                      Group B
+                    </span>
+                    <MetricHintIcon text={COMPARE_STAT_HINTS["Group B"]} />
                   </span>
                 </th>
-                <th scope="col">Δ (B − A)</th>
+                <th scope="col">
+                  <CompareHintLabel label="Δ (B − A)" />
+                </th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <th scope="row">Trades</th>
+                <th scope="row">
+                  <CompareHintLabel label="Trades" />
+                </th>
                 <td>{ma.count}</td>
                 <td>{mb.count}</td>
                 <td>{dCount === 0 ? "0" : dCount > 0 ? `+${dCount}` : String(dCount)}</td>
               </tr>
               <tr>
-                <th scope="row">Net P&amp;L</th>
+                <th scope="row">
+                  <CompareHintLabel label="NetPnL">Net P&amp;L</CompareHintLabel>
+                </th>
                 <td className={pnlClass(ma.totalPnl)}>{formatMoney(ma.totalPnl)}</td>
                 <td className={pnlClass(mb.totalPnl)}>{formatMoney(mb.totalPnl)}</td>
                 <td className={pnlClass(dPnl)}>{dPnl === 0 ? formatMoney(0) : formatMoney(dPnl)}</td>
               </tr>
               <tr>
-                <th scope="row">Win rate</th>
+                <th scope="row">
+                  <CompareHintLabel label="Win rate" />
+                </th>
                 <td>{ma.count ? `${ma.winRate.toFixed(1)}%` : "—"}</td>
                 <td>{mb.count ? `${mb.winRate.toFixed(1)}%` : "—"}</td>
                 <td>
@@ -212,7 +248,9 @@ export default function ReportsCompare() {
                 </td>
               </tr>
               <tr>
-                <th scope="row">Wins / losses</th>
+                <th scope="row">
+                  <CompareHintLabel label="Wins / losses" />
+                </th>
                 <td>
                   {ma.count ? `${ma.winCount} / ${ma.lossCount}` : "—"}
                   {ma.breakeven ? ` (${ma.breakeven} BE)` : ""}
@@ -230,7 +268,9 @@ export default function ReportsCompare() {
                 </td>
               </tr>
               <tr>
-                <th scope="row">Avg winning trade</th>
+                <th scope="row">
+                  <CompareHintLabel label="Avg winning trade" />
+                </th>
                 <td>{ma.winCount ? formatMoney(ma.avgWin) : "—"}</td>
                 <td>{mb.winCount ? formatMoney(mb.avgWin) : "—"}</td>
                 <td className={pnlClass(mb.avgWin - ma.avgWin)}>
@@ -238,7 +278,9 @@ export default function ReportsCompare() {
                 </td>
               </tr>
               <tr>
-                <th scope="row">Avg losing trade</th>
+                <th scope="row">
+                  <CompareHintLabel label="Avg losing trade" />
+                </th>
                 <td>{ma.lossCount ? formatMoney(ma.avgLoss) : "—"}</td>
                 <td>{mb.lossCount ? formatMoney(mb.avgLoss) : "—"}</td>
                 <td className={pnlClass(mb.avgLoss - ma.avgLoss)}>
@@ -246,7 +288,9 @@ export default function ReportsCompare() {
                 </td>
               </tr>
               <tr>
-                <th scope="row">Profit factor</th>
+                <th scope="row">
+                  <CompareHintLabel label="Profit factor" />
+                </th>
                 <td>{fmtProfitFactor(ma.profitFactor)}</td>
                 <td>{fmtProfitFactor(mb.profitFactor)}</td>
                 <td>
@@ -257,7 +301,9 @@ export default function ReportsCompare() {
                 </td>
               </tr>
               <tr>
-                <th scope="row">Largest win</th>
+                <th scope="row">
+                  <CompareHintLabel label="Largest win" />
+                </th>
                 <td>{ma.winCount ? formatMoney(ma.maxWin) : "—"}</td>
                 <td>{mb.winCount ? formatMoney(mb.maxWin) : "—"}</td>
                 <td className={pnlClass(mb.maxWin - ma.maxWin)}>
@@ -265,7 +311,9 @@ export default function ReportsCompare() {
                 </td>
               </tr>
               <tr>
-                <th scope="row">Largest loss</th>
+                <th scope="row">
+                  <CompareHintLabel label="Largest loss" />
+                </th>
                 <td>{ma.lossCount ? formatMoney(ma.maxLoss) : "—"}</td>
                 <td>{mb.lossCount ? formatMoney(mb.maxLoss) : "—"}</td>
                 <td className={pnlClass(mb.maxLoss - ma.maxLoss)}>
@@ -273,7 +321,9 @@ export default function ReportsCompare() {
                 </td>
               </tr>
               <tr>
-                <th scope="row">Avg hold (winners)</th>
+                <th scope="row">
+                  <CompareHintLabel label="Avg hold (winners)" />
+                </th>
                 <td>{ma.hasHold ? fmtHoldMinutes(ma.avgHoldWin) : "—"}</td>
                 <td>{mb.hasHold ? fmtHoldMinutes(mb.avgHoldWin) : "—"}</td>
                 <td>
@@ -283,7 +333,9 @@ export default function ReportsCompare() {
                 </td>
               </tr>
               <tr>
-                <th scope="row">Avg hold (losers)</th>
+                <th scope="row">
+                  <CompareHintLabel label="Avg hold (losers)" />
+                </th>
                 <td>{ma.hasHold ? fmtHoldMinutes(ma.avgHoldLoss) : "—"}</td>
                 <td>{mb.hasHold ? fmtHoldMinutes(mb.avgHoldLoss) : "—"}</td>
                 <td>
@@ -293,7 +345,9 @@ export default function ReportsCompare() {
                 </td>
               </tr>
               <tr>
-                <th scope="row">Avg MFE</th>
+                <th scope="row">
+                  <CompareHintLabel label="Avg MFE" />
+                </th>
                 <td>{ma.hasMfeMae && ma.avgMfe != null ? formatMoney(ma.avgMfe) : "—"}</td>
                 <td>{mb.hasMfeMae && mb.avgMfe != null ? formatMoney(mb.avgMfe) : "—"}</td>
                 <td className={pnlClass((mb.avgMfe ?? 0) - (ma.avgMfe ?? 0))}>
@@ -303,7 +357,9 @@ export default function ReportsCompare() {
                 </td>
               </tr>
               <tr>
-                <th scope="row">Avg MAE</th>
+                <th scope="row">
+                  <CompareHintLabel label="Avg MAE" />
+                </th>
                 <td>{ma.hasMfeMae && ma.avgMae != null ? formatMoney(ma.avgMae) : "—"}</td>
                 <td>{mb.hasMfeMae && mb.avgMae != null ? formatMoney(mb.avgMae) : "—"}</td>
                 <td className={pnlClass((mb.avgMae ?? 0) - (ma.avgMae ?? 0))}>

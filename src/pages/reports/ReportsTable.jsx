@@ -5,6 +5,8 @@ import { useLiveTrades } from "../../hooks/useLiveTrades";
 import { filterTradesForReport, DEFAULT_REPORT_FILTERS } from "../../lib/reportFilters";
 import { formatMonthTitle, sumMonthPnl } from "../../lib/calendarGrid";
 import { loadMonthlyBalanceTable, saveMonthlyBalanceTable, getMonthlyBalanceRow } from "../../storage/monthlyBalanceTable";
+import MetricHintIcon from "../../components/MetricHintIcon";
+import { REPORTS_TABLE_COLUMN_HINTS } from "../../lib/metricHints";
 
 function parseYear(searchParams) {
   const y = Number(searchParams.get("year"));
@@ -145,14 +147,54 @@ export default function ReportsTable() {
             <caption className="sr-only">Monthly balances and trade P&amp;L for {selectedYear}</caption>
             <thead>
               <tr>
-                <th scope="col">Month</th>
-                <th scope="col">Start ($)</th>
-                <th scope="col">End ($)</th>
-                <th scope="col">P&amp;L (trades)</th>
-                <th scope="col">Δ balances</th>
-                <th scope="col">% (balances)</th>
-                <th scope="col">% on start (trades)</th>
-                <th scope="col">Wire out ($)</th>
+                <th scope="col">
+                  <span className="reports-table-th-inner reports-table-th-inner--month">
+                    <span>Month</span>
+                    <MetricHintIcon text={REPORTS_TABLE_COLUMN_HINTS.colMonth} />
+                  </span>
+                </th>
+                <th scope="col">
+                  <span className="reports-table-th-inner">
+                    <span>Start ($)</span>
+                    <MetricHintIcon text={REPORTS_TABLE_COLUMN_HINTS.colStart} />
+                  </span>
+                </th>
+                <th scope="col">
+                  <span className="reports-table-th-inner">
+                    <span>End ($)</span>
+                    <MetricHintIcon text={REPORTS_TABLE_COLUMN_HINTS.colEnd} />
+                  </span>
+                </th>
+                <th scope="col">
+                  <span className="reports-table-th-inner">
+                    <span>P&amp;L (trades)</span>
+                    <MetricHintIcon text={REPORTS_TABLE_COLUMN_HINTS.colPnlTrades} />
+                  </span>
+                </th>
+                <th scope="col">
+                  <span className="reports-table-th-inner">
+                    <span>Δ balances</span>
+                    <MetricHintIcon text={REPORTS_TABLE_COLUMN_HINTS.colDeltaBalances} />
+                  </span>
+                </th>
+                <th scope="col">
+                  <span className="reports-table-th-inner">
+                    <span>% (balances)</span>
+                    <MetricHintIcon text={REPORTS_TABLE_COLUMN_HINTS.colPctBalances} />
+                  </span>
+                </th>
+                <th scope="col">
+                  <span className="reports-table-th-inner">
+                    <span>% on start (trades)</span>
+                    <MetricHintIcon text={REPORTS_TABLE_COLUMN_HINTS.colPctTradesStart} />
+                  </span>
+                </th>
+                <th scope="col">
+                  <span className="reports-table-th-inner">
+                    <span>Wire out ($)</span>
+                    <MetricHintIcon text={REPORTS_TABLE_COLUMN_HINTS.colWireOut} />
+                  </span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -236,7 +278,12 @@ export default function ReportsTable() {
             </tbody>
             <tfoot>
               <tr className="reports-table-foot-row">
-                <th scope="row">Year total</th>
+                <th scope="row">
+                  <span className="reports-table-th-inner reports-table-th-inner--month">
+                    <span>Year total</span>
+                    <MetricHintIcon text={REPORTS_TABLE_COLUMN_HINTS.colYearTotal} />
+                  </span>
+                </th>
                 <td colSpan={2} className="reports-table-muted">
                   —
                 </td>

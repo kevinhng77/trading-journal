@@ -393,16 +393,19 @@ export default function TradeExecutionChart({
   onPatchMarkers,
   onPatchRoundTripShading,
   onRemoveEmaLine,
-  /** @type {{ id: string, price: number }[]} */
+  /** @type {{ id: string, t1: import("lightweight-charts").Time, t2: import("lightweight-charts").Time, price: number }[]} */
   riskLines = [],
-  /** @param {number} price */
-  onAddRiskLineAtPrice,
+  /** @param {{ t1: import("lightweight-charts").Time, t2: import("lightweight-charts").Time, price: number }} seg */
+  onAddRiskLine,
   riskLineMarkMode = false,
-  /** @type {{ id: string, t1: number | string, p1: number, t2: number | string, p2: number }[]} */
+  /** Numbered note anchors: one chart click each — `{ id, t, p }` (time + price). */
   trendlines = [],
-  /** @param {(prev: { id: string, t1: number | string, p1: number, t2: number | string, p2: number }[]) => { id: string, t1: number | string, p1: number, t2: number | string, p2: number }[]} updater */
+  /** @param {(prev: { id: string, t: number | string, p: number }[]) => { id: string, t: number | string, p: number }[]} updater */
   onTrendlinesChange,
+  /** When true, chart clicks add the next numbered marker (linked to notes in the trade panel). */
   trendlineDrawMode = false,
+  /** Shown on the right side of the bottom interval bar (e.g. screenshot / playbook actions). */
+  chartIntervalBarEnd = null,
 }) {
   const containerRef = useRef(null);
   const trendlineSvgRef = useRef(/** @type {SVGSVGElement | null} */ (null));
@@ -425,18 +428,18 @@ export default function TradeExecutionChart({
   riskLinesRef.current = riskLines;
   const riskLineMarkModeRef = useRef(riskLineMarkMode);
   riskLineMarkModeRef.current = riskLineMarkMode;
-  const onAddRiskLineAtPriceRef = useRef(onAddRiskLineAtPrice);
-  onAddRiskLineAtPriceRef.current = onAddRiskLineAtPrice;
+  const onAddRiskLineRef = useRef(onAddRiskLine);
+  onAddRiskLineRef.current = onAddRiskLine;
 
-  /** @type {import("react").MutableRefObject<{ syncRiskLines: () => void } | null>} */
-  const chartRiskApiRef = useRef(null);
+  const riskSegmentDraftRef = useRef(/** @type {{ t1: import("lightweight-charts").Time, price: number } | null} */ (null));
+  const riskSegmentPreviewRef = useRef(/** @type {{ t2: import("lightweight-charts").Time } | null} */ (null));
 
   const trendlinesRef = useRef(trendlines);
   trendlinesRef.current = trendlines;
   const trendlineDrawModeRef = useRef(trendlineDrawMode);
   trendlineDrawModeRef.current = trendlineDrawMode;
   const onTrendlinesChangeRef = useRef(onTrendlinesChange);
-  const trendlineDraftRef = useRef(/** @type {{ t: number | string, p: number } | null} */ (null));
+  /** Crosshair position while placing numbered notes (preview only). */
   const previewPointRef = useRef(/** @type {{ t: number | string, p: number } | null} */ (null));
   /** @type {import("react").MutableRefObject<{ paintTrendlines: () => void } | null>} */
   const chartTrendRef = useRef(null);
@@ -447,11 +450,18 @@ export default function TradeExecutionChart({
 
   useEffect(() => {
     if (!trendlineDrawMode) {
-      trendlineDraftRef.current = null;
       previewPointRef.current = null;
       requestAnimationFrame(() => chartTrendRef.current?.paintTrendlines?.());
     }
   }, [trendlineDrawMode]);
+
+  useEffect(() => {
+    if (!riskLineMarkMode) {
+      riskSegmentDraftRef.current = null;
+      riskSegmentPreviewRef.current = null;
+      requestAnimationFrame(() => chartTrendRef.current?.paintTrendlines?.());
+    }
+  }, [riskLineMarkMode]);
 
   useEffect(() => {
     requestAnimationFrame(() => chartTrendRef.current?.paintTrendlines?.());
@@ -624,36 +634,34 @@ export default function TradeExecutionChart({
     series.setData(lwBars);
     trendlineChartSeriesRef.current = { chart, series };
 
-    /** @type {import("lightweight-charts").IPriceLine[]} */
-    const riskLineHandles = [];
-    function syncRiskLines() {
-      for (const h of riskLineHandles) {
-        try {
-          series.removePriceLine(h);
-        } catch {
-          /* ignore */
-        }
-      }
-      riskLineHandles.length = 0;
-      for (const row of riskLinesRef.current) {
-        if (!row || !Number.isFinite(row.price)) continue;
-        try {
-          const pl = series.createPriceLine({
-            price: row.price,
-            color: "rgba(245, 158, 11, 0.95)",
-            lineWidth: 2,
-            lineStyle: LineStyle.Dashed,
-            axisLabelVisible: true,
-            title: "Risk",
-          });
-          riskLineHandles.push(pl);
-        } catch {
-          /* ignore */
-        }
+    /** @param {number} span */
+    function nicePriceStepForSpan(span) {
+      if (!Number.isFinite(span) || span <= 0) return 0.01;
+      const target = span / 50;
+      const pow10 = Math.pow(10, Math.floor(Math.log10(Math.max(target, 1e-12))));
+      const m = target / pow10;
+      const f = m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10;
+      return f * pow10;
+    }
+
+    /** @param {number} price */
+    function snapPriceToHorizontalGrid(price) {
+      try {
+        const c0 = series.priceToCoordinate(price);
+        if (c0 == null || !Number.isFinite(c0)) return price;
+        const rawUp = series.coordinateToPrice(c0 - 36);
+        const rawDn = series.coordinateToPrice(c0 + 36);
+        const pUp = typeof rawUp === "number" ? rawUp : NaN;
+        const pDn = typeof rawDn === "number" ? rawDn : NaN;
+        if (!Number.isFinite(pUp) || !Number.isFinite(pDn)) return price;
+        const span = Math.abs(pUp - pDn);
+        const step = nicePriceStepForSpan(span);
+        if (!(step > 0)) return price;
+        return Math.round(price / step) * step;
+      } catch {
+        return price;
       }
     }
-    syncRiskLines();
-    chartRiskApiRef.current = { syncRiskLines };
 
     /** @param {number} y */
     function priceFromSeriesY(y) {
@@ -691,84 +699,207 @@ export default function TradeExecutionChart({
       svg.setAttribute("height", String(h));
       while (svg.firstChild) svg.removeChild(svg.firstChild);
       const ns = "http://www.w3.org/2000/svg";
-      const defs = document.createElementNS(ns, "defs");
-      const marker = document.createElementNS(ns, "marker");
-      marker.setAttribute("id", "trade-tl-arrow");
-      marker.setAttribute("markerWidth", "9");
-      marker.setAttribute("markerHeight", "9");
-      marker.setAttribute("refX", "8");
-      marker.setAttribute("refY", "3");
-      marker.setAttribute("orient", "auto");
-      const mp = document.createElementNS(ns, "path");
-      mp.setAttribute("d", "M0,0 L0,6 L9,3 z");
-      mp.setAttribute("fill", "#60a5fa");
-      marker.appendChild(mp);
-      defs.appendChild(marker);
-      svg.appendChild(defs);
 
-      const lines = trendlinesRef.current ?? [];
-      for (let i = 0; i < lines.length; i += 1) {
-        const L = lines[i];
-        const x1 = ch.timeScale().timeToCoordinate(L.t1);
-        const y1 = se.priceToCoordinate(L.p1);
-        const x2 = ch.timeScale().timeToCoordinate(L.t2);
-        const y2 = se.priceToCoordinate(L.p2);
-        if (x1 == null || y1 == null || x2 == null || y2 == null) continue;
-        const ln = document.createElementNS(ns, "line");
-        ln.setAttribute("x1", String(x1));
-        ln.setAttribute("y1", String(y1));
-        ln.setAttribute("x2", String(x2));
-        ln.setAttribute("y2", String(y2));
-        ln.setAttribute("stroke", "#60a5fa");
-        ln.setAttribute("stroke-width", "2");
-        ln.setAttribute("marker-end", "url(#trade-tl-arrow)");
-        svg.appendChild(ln);
+      const markers = trendlinesRef.current ?? [];
+      for (let i = 0; i < markers.length; i += 1) {
+        const M = markers[i];
+        const row = /** @type {{ id: string, t?: unknown, p?: unknown, t1?: unknown, p1?: unknown }} */ (M);
+        const t = row.t != null ? row.t : row.t1;
+        const rawP = typeof row.p === "number" && Number.isFinite(row.p) ? row.p : row.p1;
+        const p = typeof rawP === "number" && Number.isFinite(rawP) ? rawP : NaN;
+        if (t == null || !Number.isFinite(p)) continue;
+        const cx = ch.timeScale().timeToCoordinate(t);
+        const cy = se.priceToCoordinate(p);
+        if (cx == null || cy == null) continue;
+        const disc = document.createElementNS(ns, "circle");
+        disc.setAttribute("cx", String(cx));
+        disc.setAttribute("cy", String(cy));
+        disc.setAttribute("r", "12");
+        disc.setAttribute("fill", "#3b82f6");
+        disc.setAttribute("stroke", "#93c5fd");
+        disc.setAttribute("stroke-width", "2");
+        disc.setAttribute("pointer-events", "none");
+        svg.appendChild(disc);
         const tx = document.createElementNS(ns, "text");
-        tx.setAttribute("x", String(x1 + 6));
-        tx.setAttribute("y", String(y1 - 5));
-        tx.setAttribute("fill", "#60a5fa");
+        tx.setAttribute("x", String(cx));
+        tx.setAttribute("y", String(cy));
+        tx.setAttribute("fill", "#fff");
         tx.setAttribute("font-size", "13");
         tx.setAttribute("font-weight", "800");
         tx.setAttribute("font-family", "system-ui, sans-serif");
+        tx.setAttribute("text-anchor", "middle");
+        tx.setAttribute("dominant-baseline", "central");
         tx.textContent = String(i + 1);
+        tx.setAttribute("pointer-events", "none");
         svg.appendChild(tx);
       }
 
-      const draft = trendlineDraftRef.current;
-      const prev = previewPointRef.current;
-      if (draft && prev) {
-        const x1 = ch.timeScale().timeToCoordinate(draft.t);
-        const y1 = se.priceToCoordinate(draft.p);
-        const x2 = ch.timeScale().timeToCoordinate(prev.t);
-        const y2 = se.priceToCoordinate(prev.p);
-        if (x1 != null && y1 != null && x2 != null && y2 != null) {
+      const preview = previewPointRef.current;
+      if (trendlineDrawModeRef.current && preview) {
+        const cx = ch.timeScale().timeToCoordinate(preview.t);
+        const cy = se.priceToCoordinate(preview.p);
+        if (cx != null && cy != null) {
+          const ghostN = markers.length + 1;
+          const c = document.createElementNS(ns, "circle");
+          c.setAttribute("cx", String(cx));
+          c.setAttribute("cy", String(cy));
+          c.setAttribute("r", "12");
+          c.setAttribute("fill", "rgba(59, 130, 246, 0.35)");
+          c.setAttribute("stroke", "#93c5fd");
+          c.setAttribute("stroke-width", "2");
+          c.setAttribute("stroke-dasharray", "4 3");
+          c.setAttribute("pointer-events", "none");
+          svg.appendChild(c);
+          const gtx = document.createElementNS(ns, "text");
+          gtx.setAttribute("x", String(cx));
+          gtx.setAttribute("y", String(cy));
+          gtx.setAttribute("fill", "rgba(255,255,255,0.85)");
+          gtx.setAttribute("font-size", "13");
+          gtx.setAttribute("font-weight", "800");
+          gtx.setAttribute("font-family", "system-ui, sans-serif");
+          gtx.setAttribute("text-anchor", "middle");
+          gtx.setAttribute("dominant-baseline", "central");
+          gtx.textContent = String(ghostN);
+          gtx.setAttribute("pointer-events", "none");
+          svg.appendChild(gtx);
+        }
+      }
+
+      const riskStroke = "#38bdf8";
+      const risks = riskLinesRef.current ?? [];
+      for (let ri = 0; ri < risks.length; ri += 1) {
+        const R = risks[ri];
+        if (!R || R.t1 == null || R.t2 == null || !Number.isFinite(R.price)) continue;
+        const x1 = ch.timeScale().timeToCoordinate(R.t1);
+        const x2 = ch.timeScale().timeToCoordinate(R.t2);
+        const y = se.priceToCoordinate(R.price);
+        if (x1 == null || x2 == null || y == null) continue;
+        const xa = Math.min(x1, x2);
+        const xb = Math.max(x1, x2);
+        const ln = document.createElementNS(ns, "line");
+        ln.setAttribute("x1", String(xa));
+        ln.setAttribute("x2", String(xb));
+        ln.setAttribute("y1", String(y));
+        ln.setAttribute("y2", String(y));
+        ln.setAttribute("stroke", riskStroke);
+        ln.setAttribute("stroke-width", "2");
+        ln.setAttribute("pointer-events", "none");
+        svg.appendChild(ln);
+      }
+
+      const rDraft = riskSegmentDraftRef.current;
+      const rPrev = riskSegmentPreviewRef.current;
+      if (rDraft && rPrev && Number.isFinite(rDraft.price)) {
+        const x1 = ch.timeScale().timeToCoordinate(rDraft.t1);
+        const x2 = ch.timeScale().timeToCoordinate(rPrev.t2);
+        const y = se.priceToCoordinate(rDraft.price);
+        if (x1 != null && x2 != null && y != null) {
           const pl = document.createElementNS(ns, "line");
           pl.setAttribute("x1", String(x1));
-          pl.setAttribute("y1", String(y1));
           pl.setAttribute("x2", String(x2));
-          pl.setAttribute("y2", String(y2));
-          pl.setAttribute("stroke", "#93c5fd");
+          pl.setAttribute("y1", String(y));
+          pl.setAttribute("y2", String(y));
+          pl.setAttribute("stroke", "rgba(56, 189, 248, 0.65)");
           pl.setAttribute("stroke-width", "2");
-          pl.setAttribute("stroke-dasharray", "6 4");
+          pl.setAttribute("stroke-dasharray", "5 4");
+          pl.setAttribute("pointer-events", "none");
           svg.appendChild(pl);
         }
-      } else if (draft) {
-        const cx = ch.timeScale().timeToCoordinate(draft.t);
-        const cy = se.priceToCoordinate(draft.p);
+      } else if (rDraft && Number.isFinite(rDraft.price)) {
+        const cx = ch.timeScale().timeToCoordinate(rDraft.t1);
+        const cy = se.priceToCoordinate(rDraft.price);
         if (cx != null && cy != null) {
           const c = document.createElementNS(ns, "circle");
           c.setAttribute("cx", String(cx));
           c.setAttribute("cy", String(cy));
           c.setAttribute("r", "5");
-          c.setAttribute("fill", "rgba(96, 165, 250, 0.35)");
-          c.setAttribute("stroke", "#60a5fa");
+          c.setAttribute("fill", "rgba(56, 189, 248, 0.35)");
+          c.setAttribute("stroke", riskStroke);
           c.setAttribute("stroke-width", "2");
+          c.setAttribute("pointer-events", "none");
           svg.appendChild(c);
         }
       }
     }
 
     chartTrendRef.current = { paintTrendlines };
+
+    function sortChartTimes(tA, tB) {
+      const c1 = chart.timeScale().timeToCoordinate(tA);
+      const c2 = chart.timeScale().timeToCoordinate(tB);
+      if (c1 == null || c2 == null) return [tA, tB];
+      return c1 <= c2 ? [tA, tB] : [tB, tA];
+    }
+
+    let riskDocListeners = false;
+    function detachRiskDrag() {
+      if (!riskDocListeners) return;
+      document.removeEventListener("pointermove", onRiskPointerMove);
+      document.removeEventListener("pointerup", onRiskPointerUp);
+      document.removeEventListener("pointercancel", onRiskPointerUp);
+      riskDocListeners = false;
+    }
+    function onRiskPointerMove(e) {
+      if (!riskSegmentDraftRef.current) return;
+      const rect = el.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const t = chart.timeScale().coordinateToTime(x);
+      if (t == null) return;
+      riskSegmentPreviewRef.current = { t2: t };
+      paintTrendlines();
+    }
+    function onRiskPointerUp(e) {
+      detachRiskDrag();
+      try {
+        el.releasePointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+      const draft = riskSegmentDraftRef.current;
+      const prev = riskSegmentPreviewRef.current;
+      riskSegmentDraftRef.current = null;
+      riskSegmentPreviewRef.current = null;
+      if (!draft || !prev || typeof onAddRiskLineRef.current !== "function") {
+        paintTrendlines();
+        return;
+      }
+      const [t1, t2] = sortChartTimes(draft.t1, prev.t2);
+      const xc1 = chart.timeScale().timeToCoordinate(t1);
+      const xc2 = chart.timeScale().timeToCoordinate(t2);
+      if (xc1 != null && xc2 != null && Math.abs(xc2 - xc1) < 2) {
+        paintTrendlines();
+        return;
+      }
+      onAddRiskLineRef.current({ t1, t2, price: draft.price });
+      paintTrendlines();
+    }
+    function onRiskPointerDown(e) {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      if (!riskLineMarkModeRef.current || trendlineDrawModeRef.current) return;
+      const rect = el.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      if (x < 0 || y < 0 || x > el.clientWidth || y > el.clientHeight) return;
+      const t = chart.timeScale().coordinateToTime(x);
+      const py = priceFromSeriesY(y);
+      if (t == null || !Number.isFinite(py)) return;
+      const price = snapPriceToHorizontalGrid(py);
+      riskSegmentDraftRef.current = { t1: t, price };
+      riskSegmentPreviewRef.current = { t2: t };
+      try {
+        el.setPointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+      document.addEventListener("pointermove", onRiskPointerMove);
+      document.addEventListener("pointerup", onRiskPointerUp);
+      document.addEventListener("pointercancel", onRiskPointerUp);
+      riskDocListeners = true;
+      paintTrendlines();
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    el.addEventListener("pointerdown", onRiskPointerDown);
 
     /** @param {import("lightweight-charts").MouseEventParams} param */
     function onChartClick(param) {
@@ -779,36 +910,14 @@ export default function TradeExecutionChart({
         if (t == null || !param.point || typeof param.point.y !== "number") return;
         const p = priceFromSeriesY(param.point.y);
         if (!Number.isFinite(p)) return;
-        const draft = trendlineDraftRef.current;
-        if (!draft) {
-          trendlineDraftRef.current = { t, p };
-          previewPointRef.current = null;
-          paintTrendlines();
-          return;
-        }
-        const a = draft;
-        trendlineDraftRef.current = null;
-        previewPointRef.current = null;
         const id =
           typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
             ? crypto.randomUUID()
-            : `tl-${Date.now()}`;
-        onTrendlinesChangeRef.current((prev) => [...(prev ?? []), { id, t1: a.t, p1: a.p, t2: t, p2: p }]);
+            : `note-${Date.now()}`;
+        onTrendlinesChangeRef.current((prev) => [...(prev ?? []), { id, t, p }]);
         paintTrendlines();
         return;
       }
-
-      if (!riskLineMarkModeRef.current || typeof onAddRiskLineAtPriceRef.current !== "function") return;
-      if (!param.point || typeof param.point.y !== "number") return;
-      const raw = series.coordinateToPrice(param.point.y);
-      const price =
-        typeof raw === "number"
-          ? raw
-          : raw && typeof raw === "object" && "close" in raw && typeof /** @type {{ close?: unknown }} */ (raw).close === "number"
-            ? /** @type {{ close: number }} */ (raw).close
-            : NaN;
-      if (!Number.isFinite(price)) return;
-      onAddRiskLineAtPriceRef.current(price);
     }
     chart.subscribeClick(onChartClick);
 
@@ -972,7 +1081,7 @@ export default function TradeExecutionChart({
       updateLegend(param);
       updateCrosshairTimeLabel(param);
       updateCrosshairHorizontalGuide(param);
-      if (trendlineDrawModeRef.current && trendlineDraftRef.current && param?.point && typeof param.point.x === "number" && typeof param.point.y === "number") {
+      if (trendlineDrawModeRef.current && param?.point && typeof param.point.x === "number" && typeof param.point.y === "number") {
         const t2 = chart.timeScale().coordinateToTime(param.point.x);
         const p2 = priceFromSeriesY(param.point.y);
         if (t2 != null && Number.isFinite(p2)) {
@@ -981,7 +1090,7 @@ export default function TradeExecutionChart({
         }
       } else {
         previewPointRef.current = null;
-        if (trendlineDrawModeRef.current && trendlineDraftRef.current) paintTrendlines();
+        if (trendlineDrawModeRef.current) paintTrendlines();
       }
     }
 
@@ -1215,17 +1324,11 @@ export default function TradeExecutionChart({
     return () => {
       chartTrendRef.current = null;
       trendlineChartSeriesRef.current = null;
-      trendlineDraftRef.current = null;
       previewPointRef.current = null;
-      chartRiskApiRef.current = null;
-      for (const h of riskLineHandles) {
-        try {
-          series.removePriceLine(h);
-        } catch {
-          /* ignore */
-        }
-      }
-      riskLineHandles.length = 0;
+      riskSegmentDraftRef.current = null;
+      riskSegmentPreviewRef.current = null;
+      detachRiskDrag();
+      el.removeEventListener("pointerdown", onRiskPointerDown);
       chart.unsubscribeClick(onChartClick);
       resetChartViewRef.current = () => {};
       window.removeEventListener("keydown", onWinKeyDown);
@@ -1264,7 +1367,7 @@ export default function TradeExecutionChart({
   ]);
 
   useEffect(() => {
-    chartRiskApiRef.current?.syncRiskLines();
+    requestAnimationFrame(() => chartTrendRef.current?.paintTrendlines?.());
   }, [riskLines]);
 
   const menuPos =
@@ -1280,18 +1383,29 @@ export default function TradeExecutionChart({
   const intervalBar =
     typeof onChartIntervalChange === "function" ? (
       <div className="trade-chart-interval-bar" role="toolbar" aria-label="Chart interval">
-        {CHART_INTERVAL_PRESETS.map((b) => (
-          <button
-            key={b.id}
-            type="button"
-            className={`trade-chart-interval-btn ${chartInterval === b.id ? "is-active" : ""}`}
-            onClick={() => onChartIntervalChange(b.id)}
-            aria-pressed={chartInterval === b.id}
-            title={b.id === "MAX" ? "1-minute bars with the widest loaded history" : undefined}
-          >
-            {b.label}
-          </button>
-        ))}
+        <div className="trade-chart-interval-bar-left">
+          {CHART_INTERVAL_PRESETS.map((b) => (
+            <button
+              key={b.id}
+              type="button"
+              className={`trade-chart-interval-btn ${chartInterval === b.id ? "is-active" : ""}`}
+              onClick={() => onChartIntervalChange(b.id)}
+              aria-pressed={chartInterval === b.id}
+              title={
+                b.id === "MAX"
+                  ? "1-minute bars over the same calendar window as Daily (5 years before the trade date)"
+                  : undefined
+              }
+            >
+              {b.label}
+            </button>
+          ))}
+        </div>
+        {chartIntervalBarEnd ? (
+          <div className="trade-chart-interval-bar-end" aria-label="Chart capture">
+            {chartIntervalBarEnd}
+          </div>
+        ) : null}
       </div>
     ) : null;
 
@@ -1328,7 +1442,7 @@ export default function TradeExecutionChart({
       <>
         <div
           className={`trade-execution-chart-host${riskLineMarkMode ? " trade-execution-chart-host--risk-mark" : ""}${
-            trendlineDrawMode ? " trade-execution-chart-host--trend-draw" : ""
+            trendlineDrawMode ? " trade-execution-chart-host--numbered-notes" : ""
           }`}
           onContextMenu={(e) => {
             e.preventDefault();

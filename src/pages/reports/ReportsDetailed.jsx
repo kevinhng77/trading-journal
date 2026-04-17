@@ -53,6 +53,8 @@ import {
   kRatioFromDailyPnL,
 } from "../../lib/tradeExecutionMetrics";
 import { CHART_GREEN, CHART_RED } from "../../lib/chartPalette";
+import MetricHintIcon from "../../components/MetricHintIcon";
+import { detailedStatHint, REPORTS_STATS_BLOCK_HINT } from "../../lib/metricHints";
 const GRID_STROKE = "#2a3140";
 const AXIS_TICK = { fill: "#94a3b8", fontSize: 11 };
 
@@ -75,11 +77,13 @@ function ChartEmpty({ children }) {
   return <div className="chart-empty">{children}</div>;
 }
 
-function Stat({ label, value, valueClass, locked, labelTitle }) {
+function Stat({ label, value, valueClass, locked, hintText }) {
+  const hint = hintText ?? detailedStatHint(label);
   return (
     <div className="reports-detailed-stat">
-      <div className="reports-detailed-stat-label" title={labelTitle || undefined}>
-        {label}
+      <div className="reports-detailed-stat-label reports-detailed-stat-label--with-hint">
+        <span className="reports-detailed-stat-label-text">{label}</span>
+        {hint ? <MetricHintIcon text={hint} /> : null}
       </div>
       <div className={`reports-detailed-stat-value ${valueClass ?? ""}`}>
         {locked ? (
@@ -95,6 +99,7 @@ function Stat({ label, value, valueClass, locked, labelTitle }) {
 }
 
 /** @typedef {{ label: string, value: import("react").ReactNode, valueClass?: string, locked?: boolean, labelTitle?: string }} StatSpec */
+/** `labelTitle` overrides the default hint text for this label. */
 /** @typedef {{ placeholder: true, text: string }} PlaceholderSpec */
 /** @typedef {StatSpec | PlaceholderSpec | null} StatsCellSpec */
 
@@ -110,15 +115,10 @@ function StatsCell({ spec }) {
     );
   }
   const s = /** @type {StatSpec} */ (spec);
+  const hintText = s.labelTitle ?? detailedStatHint(s.label);
   return (
     <td className="reports-detailed-stat-td">
-      <Stat
-        label={s.label}
-        value={s.value}
-        valueClass={s.valueClass}
-        locked={s.locked}
-        labelTitle={s.labelTitle}
-      />
+      <Stat label={s.label} value={s.value} valueClass={s.valueClass} locked={s.locked} hintText={hintText} />
     </td>
   );
 }
@@ -134,10 +134,8 @@ function ChartCard({ title, hint, children }) {
   return (
     <div className="card reports-detailed-chart-card">
       <div className="panel-title reports-chart-title">
-        {title}
-        <span className="reports-chart-info" title={hint || ""}>
-          i
-        </span>
+        <span className="reports-chart-title-text">{title}</span>
+        {hint ? <MetricHintIcon text={hint} /> : null}
       </div>
       <div className="reports-detailed-chart-area">{children}</div>
     </div>
@@ -516,7 +514,10 @@ export default function ReportsDetailed() {
       </div>
 
       <div className="card reports-detailed-card">
-        <h2 className="reports-detailed-title">Stats</h2>
+        <div className="reports-detailed-title-row">
+          <h2 className="reports-detailed-title">Stats</h2>
+          <MetricHintIcon text={REPORTS_STATS_BLOCK_HINT} />
+        </div>
         <p className="reports-detailed-sub">
           Filtered trades in the selected day window (same strip as Overview). Gross figures unless noted.
         </p>

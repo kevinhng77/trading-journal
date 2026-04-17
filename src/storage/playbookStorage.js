@@ -1,11 +1,15 @@
 export const PLAYBOOK_STORAGE_KEY = "tradingJournalPlaybook";
 
+/** Missed setups (same shape as plays, separate list). */
+export const PLAYBOOK_MISSED_STORAGE_KEY = "tradingJournalPlaybookMissed";
+
 export const PLAYBOOK_CHANGED_EVENT = "tradingJournalPlaybookChanged";
 
 /** Max screenshots stored on a single play (chart sends + manual uploads share this cap). */
 export const PLAYBOOK_MAX_SCREENSHOTS_PER_PLAY = 14;
 
 const STORAGE_KEY = PLAYBOOK_STORAGE_KEY;
+const MISSED_STORAGE_KEY = PLAYBOOK_MISSED_STORAGE_KEY;
 
 /** @typedef {{ id: string, dataUrl: string }} PlaybookScreenshot */
 
@@ -33,6 +37,20 @@ export function createEmptyPlay() {
   return {
     id: newId(),
     name: "Untitled play",
+    rules: "",
+    criteria: "",
+    entry: "",
+    exit: "",
+    rPlan: "",
+    screenshots: [],
+  };
+}
+
+/** @returns {PlaybookPlay} */
+export function createEmptyMissedPlay() {
+  return {
+    id: newId(),
+    name: "Untitled missed",
     rules: "",
     criteria: "",
     entry: "",
@@ -88,10 +106,19 @@ export function loadPlaybook() {
   }
 }
 
-/**
- * @param {PlaybookPlay[]} plays
- * @returns {{ ok: true } | { ok: false, message: string }}
- */
+/** @returns {PlaybookPlay[]} */
+export function loadMissedPlays() {
+  try {
+    const raw = localStorage.getItem(MISSED_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(normalizePlay).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Append one screenshot (data URL) to a play by id. Respects {@link PLAYBOOK_MAX_SCREENSHOTS_PER_PLAY}.
  * @param {string} playId
@@ -117,6 +144,55 @@ export function appendScreenshotToPlay(playId, dataUrl) {
     p.id === playId ? { ...p, screenshots: [...p.screenshots, { id: shotId, dataUrl }] } : p,
   );
   return savePlaybook(nextPlays);
+}
+
+/**
+ * @param {PlaybookPlay[]} missed
+ * @returns {{ ok: true } | { ok: false, message: string }}
+ */
+export function saveMissedPlays(missed) {
+  try {
+    const payload = JSON.stringify(missed);
+    localStorage.setItem(MISSED_STORAGE_KEY, payload);
+    window.dispatchEvent(new CustomEvent(PLAYBOOK_CHANGED_EVENT));
+    return { ok: true };
+  } catch (e) {
+    const name = e && typeof e === "object" && "name" in e ? String(/** @type {Error} */ (e).name) : "";
+    if (name === "QuotaExceededError" || name === "NS_ERROR_DOM_QUOTA_REACHED") {
+      return {
+        ok: false,
+        message: "Browser storage is full. Remove some screenshots or export data elsewhere.",
+      };
+    }
+    return { ok: false, message: "Could not save missed plays." };
+  }
+}
+
+/**
+ * Append a screenshot to a missed play by id.
+ * @param {string} playId
+ * @param {string} dataUrl
+ * @returns {{ ok: true } | { ok: false, message: string }}
+ */
+export function appendScreenshotToMissedPlay(playId, dataUrl) {
+  if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) {
+    return { ok: false, message: "Invalid image data." };
+  }
+  const missed = loadMissedPlays();
+  const play = missed.find((p) => p.id === playId);
+  if (!play) return { ok: false, message: "That missed play was not found." };
+  if (play.screenshots.length >= PLAYBOOK_MAX_SCREENSHOTS_PER_PLAY) {
+    return {
+      ok: false,
+      message: `That missed play already has the maximum of ${PLAYBOOK_MAX_SCREENSHOTS_PER_PLAY} screenshots. Remove one on the Playbook page first.`,
+    };
+  }
+  const shotId =
+    typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `shot-${Date.now()}`;
+  const nextMissed = missed.map((p) =>
+    p.id === playId ? { ...p, screenshots: [...p.screenshots, { id: shotId, dataUrl }] } : p,
+  );
+  return saveMissedPlays(nextMissed);
 }
 
 export function savePlaybook(plays) {

@@ -15,6 +15,8 @@ import { useLiveTrades } from "../../hooks/useLiveTrades";
 import { filterTradesForReport, reportFiltersActive, DEFAULT_REPORT_FILTERS } from "../../lib/reportFilters";
 import { tradesInLastDays, buildDailySeriesForRange } from "../../lib/dashboardStats";
 import { CHART_GREEN, CHART_RED } from "../../lib/chartPalette";
+import MetricHintIcon from "../../components/MetricHintIcon";
+import { REPORTS_WINLOSS_CHART_HINT } from "../../lib/metricHints";
 const GRID = "#2a3140";
 const TICK = { fill: "#94a3b8", fontSize: 10 };
 
@@ -82,7 +84,10 @@ export default function ReportsWinLossDays() {
         </div>
       </div>
       <div className="card reports-detailed-chart-card">
-        <div className="panel-title reports-chart-title">Daily outcome ({rangeDays} days)</div>
+        <div className="panel-title reports-chart-title">
+          <span className="reports-chart-title-text">Daily outcome ({rangeDays} days)</span>
+          <MetricHintIcon text={REPORTS_WINLOSS_CHART_HINT} />
+        </div>
         <div className="reports-detailed-chart-area" style={{ height: 280 }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 8, right: 12, left: 4, bottom: 4 }}>

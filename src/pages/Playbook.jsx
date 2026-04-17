@@ -1,10 +1,13 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import NotesVoiceInputButton from "../components/NotesVoiceInputButton";
 import { appendSpacedChunk } from "../lib/appendDictationChunk";
 import {
+  createEmptyMissedPlay,
   createEmptyPlay,
+  loadMissedPlays,
   loadPlaybook,
   PLAYBOOK_MAX_SCREENSHOTS_PER_PLAY,
+  saveMissedPlays,
   savePlaybook,
 } from "../storage/playbookStorage";
 
@@ -95,12 +98,39 @@ function imageFilesFromClipboard(cd) {
 
 export default function Playbook() {
   const [plays, setPlays] = useState(loadPlaybook);
-  const [selectedId, setSelectedId] = useState(() => loadPlaybook()[0]?.id ?? null);
+  const [missedPlays, setMissedPlays] = useState(loadMissedPlays);
+  const [selectedScope, setSelectedScope] = useState(() => {
+    const p = loadPlaybook();
+    if (p.length) return "plays";
+    return loadMissedPlays().length ? "missed" : "plays";
+  });
+  const [selectedId, setSelectedId] = useState(() => {
+    const p = loadPlaybook();
+    if (p.length) return p[0].id;
+    const m = loadMissedPlays();
+    return m.length ? m[0].id : null;
+  });
   const [saveError, setSaveError] = useState(null);
   const [imageError, setImageError] = useState(null);
   const [shotDropActive, setShotDropActive] = useState(false);
+  /** Data URL of screenshot shown full-screen; null when closed. */
+  const [lightboxUrl, setLightboxUrl] = useState(null);
   const fileInputRef = useRef(null);
   const shotDragDepthRef = useRef(0);
+
+  useEffect(() => {
+    if (!lightboxUrl) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    function onKey(e) {
+      if (e.key === "Escape") setLightboxUrl(null);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [lightboxUrl]);
 
   const applyPlays = useCallback((next) => {
     const r = savePlaybook(next);
@@ -113,10 +143,22 @@ export default function Playbook() {
     return true;
   }, []);
 
+  const applyMissedPlays = useCallback((next) => {
+    const r = saveMissedPlays(next);
+    if (!r.ok) {
+      setSaveError(r.message);
+      return false;
+    }
+    setSaveError(null);
+    setMissedPlays(next);
+    return true;
+  }, []);
+
   const appendPlayVoiceField = useCallback((playId, field, chunk) => {
     const t = String(chunk ?? "").trim();
     if (!t) return;
     setPlays((currentPlays) => {
+      if (!currentPlays.some((p) => p.id === playId)) return currentPlays;
       const next = currentPlays.map((p) => {
         if (p.id !== playId) return p;
         const merged = appendSpacedChunk(String(p[field] ?? ""), t);
@@ -130,36 +172,86 @@ export default function Playbook() {
       setSaveError(null);
       return next;
     });
+    setMissedPlays((currentMissed) => {
+      if (!currentMissed.some((p) => p.id === playId)) return currentMissed;
+      const next = currentMissed.map((p) => {
+        if (p.id !== playId) return p;
+        const merged = appendSpacedChunk(String(p[field] ?? ""), t);
+        return { ...p, [field]: merged };
+      });
+      const r = saveMissedPlays(next);
+      if (!r.ok) {
+        setSaveError(r.message);
+        return currentMissed;
+      }
+      setSaveError(null);
+      return next;
+    });
   }, []);
 
+  const activeList = selectedScope === "plays" ? plays : missedPlays;
+
   const resolvedSelectedId = useMemo(() => {
-    if (!plays.length) return null;
-    if (selectedId != null && plays.some((p) => p.id === selectedId)) return selectedId;
-    return plays[0].id;
-  }, [plays, selectedId]);
+    if (!activeList.length) return null;
+    if (selectedId != null && activeList.some((p) => p.id === selectedId)) return selectedId;
+    return activeList[0].id;
+  }, [activeList, selectedId]);
 
   const selectedPlay = useMemo(
     () =>
-      resolvedSelectedId ? (plays.find((p) => p.id === resolvedSelectedId) ?? null) : null,
-    [plays, resolvedSelectedId],
+      resolvedSelectedId ? (activeList.find((p) => p.id === resolvedSelectedId) ?? null) : null,
+    [activeList, resolvedSelectedId],
   );
+
+  useEffect(() => {
+    if (!lightboxUrl) return;
+    if (!selectedPlay || !selectedPlay.screenshots.some((s) => s.dataUrl === lightboxUrl)) {
+      setLightboxUrl(null);
+    }
+  }, [selectedPlay, lightboxUrl]);
 
   function addPlay() {
     const p = createEmptyPlay();
     const next = [p, ...plays];
-    if (applyPlays(next)) setSelectedId(p.id);
+    if (applyPlays(next)) {
+      setSelectedScope("plays");
+      setSelectedId(p.id);
+    }
+  }
+
+  function addMissedPlay() {
+    const p = createEmptyMissedPlay();
+    const next = [p, ...missedPlays];
+    if (applyMissedPlays(next)) {
+      setSelectedScope("missed");
+      setSelectedId(p.id);
+    }
   }
 
   function deletePlay(id) {
-    if (!window.confirm("Delete this play from your playbook?")) return;
-    const next = plays.filter((p) => p.id !== id);
-    applyPlays(next);
+    const isMissed = missedPlays.some((p) => p.id === id);
+    const msg = isMissed
+      ? "Delete this missed play from your playbook?"
+      : "Delete this play from your playbook?";
+    if (!window.confirm(msg)) return;
+    if (plays.some((p) => p.id === id)) {
+      const next = plays.filter((p) => p.id !== id);
+      applyPlays(next);
+    } else {
+      const next = missedPlays.filter((p) => p.id !== id);
+      applyMissedPlays(next);
+    }
   }
 
   /** @param {string} id @param {Record<string, unknown>} patch */
   function patchPlay(id, patch) {
-    const next = plays.map((p) => (p.id === id ? { ...p, ...patch } : p));
-    applyPlays(next);
+    if (plays.some((p) => p.id === id)) {
+      const next = plays.map((p) => (p.id === id ? { ...p, ...patch } : p));
+      applyPlays(next);
+    } else if (missedPlays.some((p) => p.id === id)) {
+      const next = missedPlays.map((p) => (p.id === id ? { ...p, ...patch } : p));
+      applyMissedPlays(next);
+    }
   }
 
   /** @param {import("../storage/playbookStorage").PlaybookPlay} play @param {File[]} files */
@@ -196,8 +288,10 @@ export default function Playbook() {
     if (!additions.length) return;
 
     const merged = [...play.screenshots, ...additions];
-    const next = plays.map((p) => (p.id === play.id ? { ...p, screenshots: merged } : p));
-    if (!applyPlays(next) && additions.length) {
+    const inPlays = plays.some((p) => p.id === play.id);
+    const next = (inPlays ? plays : missedPlays).map((p) => (p.id === play.id ? { ...p, screenshots: merged } : p));
+    const ok = inPlays ? applyPlays(next) : applyMissedPlays(next);
+    if (!ok && additions.length) {
       setImageError("Save failed (storage may be full). Remove images and try again.");
     }
   }
@@ -254,7 +348,7 @@ export default function Playbook() {
   }
 
   function removeScreenshot(playId, shotId) {
-    const play = plays.find((p) => p.id === playId);
+    const play = plays.find((p) => p.id === playId) ?? missedPlays.find((p) => p.id === playId);
     if (!play) return;
     const nextShots = play.screenshots.filter((s) => s.id !== shotId);
     patchPlay(playId, { screenshots: nextShots });
@@ -268,13 +362,18 @@ export default function Playbook() {
         <div>
           <h1>Playbook</h1>
           <p className="playbook-intro">
-            Document setups: rules, criteria, entries, exits, R multiples, and chart screenshots. Everything is stored
-            in this browser only.
+            Document executed setups under Plays and passed-on ideas under Missed plays — rules, criteria, entries,
+            exits, screenshots. Everything stays in this browser only.
           </p>
         </div>
-        <button type="button" className="import-btn playbook-header-btn" onClick={addPlay}>
-          New play
-        </button>
+        <div className="page-header-actions">
+          <button type="button" className="import-btn playbook-header-btn" onClick={addPlay}>
+            New play
+          </button>
+          <button type="button" className="playbook-header-btn-secondary" onClick={addMissedPlay}>
+            New missed play
+          </button>
+        </div>
       </div>
 
       {saveError && (
@@ -284,43 +383,93 @@ export default function Playbook() {
       )}
 
       <div className="playbook-layout">
-        <aside className="card playbook-list-card" aria-label="Plays">
-          <div className="playbook-list-head">
-            <h2 className="playbook-list-title">Plays</h2>
-            <span className="playbook-list-count">{plays.length}</span>
+        <aside className="playbook-sidebar" aria-label="Playbook lists">
+          <div className="card playbook-list-card">
+            <div className="playbook-list-head">
+              <h2 className="playbook-list-title">Plays</h2>
+              <span className="playbook-list-count">{plays.length}</span>
+            </div>
+            {plays.length === 0 ? (
+              <p className="playbook-list-empty">No plays yet. Use &quot;New play&quot; to add one.</p>
+            ) : (
+              <ul className="playbook-list">
+                {plays.map((p) => (
+                  <li key={p.id}>
+                    <button
+                      type="button"
+                      className={`playbook-list-item ${
+                        selectedScope === "plays" && p.id === resolvedSelectedId ? "playbook-list-item--active" : ""
+                      }`}
+                      onClick={() => {
+                        setSelectedScope("plays");
+                        setSelectedId(p.id);
+                      }}
+                    >
+                      <span className="playbook-list-item-name">{p.name || "Untitled"}</span>
+                      {p.screenshots.length > 0 && (
+                        <span className="playbook-list-item-meta">{p.screenshots.length} img</span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-          {plays.length === 0 ? (
-            <p className="playbook-list-empty">No plays yet. Use &quot;New play&quot; to add one.</p>
-          ) : (
-            <ul className="playbook-list">
-              {plays.map((p) => (
-                <li key={p.id}>
-                  <button
-                    type="button"
-                    className={`playbook-list-item ${p.id === resolvedSelectedId ? "playbook-list-item--active" : ""}`}
-                    onClick={() => setSelectedId(p.id)}
-                  >
-                    <span className="playbook-list-item-name">{p.name || "Untitled"}</span>
-                    {p.screenshots.length > 0 && (
-                      <span className="playbook-list-item-meta">{p.screenshots.length} img</span>
-                    )}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+
+          <div className="card playbook-list-card">
+            <div className="playbook-list-head">
+              <h2 className="playbook-list-title">Missed plays</h2>
+              <span className="playbook-list-count">{missedPlays.length}</span>
+            </div>
+            {missedPlays.length === 0 ? (
+              <p className="playbook-list-empty">No missed plays yet. Use &quot;New missed play&quot; to add one.</p>
+            ) : (
+              <ul className="playbook-list">
+                {missedPlays.map((p) => (
+                  <li key={p.id}>
+                    <button
+                      type="button"
+                      className={`playbook-list-item ${
+                        selectedScope === "missed" && p.id === resolvedSelectedId ? "playbook-list-item--active" : ""
+                      }`}
+                      onClick={() => {
+                        setSelectedScope("missed");
+                        setSelectedId(p.id);
+                      }}
+                    >
+                      <span className="playbook-list-item-name">{p.name || "Untitled"}</span>
+                      {p.screenshots.length > 0 && (
+                        <span className="playbook-list-item-meta">{p.screenshots.length} img</span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </aside>
 
         <section className="playbook-editor">
           {!selectedPlay ? (
             <div className="card playbook-empty-editor">
-              <p>Create a play to start documenting rules, entries, and screenshots.</p>
+              <p>
+                {plays.length === 0 && missedPlays.length === 0
+                  ? "Add a play or a missed play from the buttons above to start documenting setups and screenshots."
+                  : selectedScope === "missed"
+                    ? "No missed plays yet. Use \"New missed play\" above."
+                    : "No plays yet. Use \"New play\" above."}
+              </p>
             </div>
           ) : (
             <div className="card playbook-form-card">
               <div className="playbook-form-head">
+                {selectedScope === "missed" ? (
+                  <span className="playbook-form-scope-badge" aria-hidden>
+                    Missed
+                  </span>
+                ) : null}
                 <label className="playbook-field playbook-field--grow">
-                  <span className="playbook-field-label">Play name</span>
+                  <span className="playbook-field-label">{selectedScope === "missed" ? "Missed play name" : "Play name"}</span>
                   <input
                     type="text"
                     className="playbook-input"
@@ -334,7 +483,7 @@ export default function Playbook() {
                   className="playbook-delete-btn"
                   onClick={() => deletePlay(selectedPlay.id)}
                 >
-                  Delete play
+                  {selectedScope === "missed" ? "Delete missed play" : "Delete play"}
                 </button>
               </div>
 
@@ -467,9 +616,14 @@ export default function Playbook() {
                   <div className="playbook-shot-grid">
                     {selectedPlay.screenshots.map((shot) => (
                       <figure key={shot.id} className="playbook-shot">
-                        <a href={shot.dataUrl} target="_blank" rel="noreferrer" className="playbook-shot-link">
+                        <button
+                          type="button"
+                          className="playbook-shot-thumb"
+                          onClick={() => setLightboxUrl(shot.dataUrl)}
+                          aria-label="View screenshot full size"
+                        >
                           <img src={shot.dataUrl} alt="" className="playbook-shot-img" loading="lazy" />
-                        </a>
+                        </button>
                         <figcaption className="playbook-shot-cap">
                           <button
                             type="button"
@@ -490,6 +644,33 @@ export default function Playbook() {
           )}
         </section>
       </div>
+
+      {lightboxUrl ? (
+        <div
+          className="playbook-shot-lightbox"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Screenshot"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <button
+            type="button"
+            className="playbook-shot-lightbox-close"
+            onClick={(e) => {
+              e.stopPropagation();
+              setLightboxUrl(null);
+            }}
+          >
+            Close
+          </button>
+          <div
+            className="playbook-shot-lightbox-stage"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img src={lightboxUrl} alt="" className="playbook-shot-lightbox-img" />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

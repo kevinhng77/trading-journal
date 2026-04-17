@@ -6,6 +6,8 @@ import { filterTradesForReport, reportFiltersActive, DEFAULT_REPORT_FILTERS } fr
 import { tradesInLastDays, aggregateByTag, aggregateBySetup } from "../../lib/dashboardStats";
 import { CHART_GREEN, CHART_RED } from "../../lib/chartPalette";
 import { formatMoney } from "../../storage/storage";
+import MetricHintIcon from "../../components/MetricHintIcon";
+import { REPORTS_TAG_BREAKDOWN_CHART_HINT, REPORTS_TAG_BREAKDOWN_MODE_HINT } from "../../lib/metricHints";
 
 const GRID = "#2a3140";
 const TICK = { fill: "#94a3b8", fontSize: 10 };
@@ -93,24 +95,32 @@ export default function ReportsTagBreakdown() {
 
       <div className="card reports-detailed-chart-card">
         <div className="reports-tag-breakdown-card-head">
-          <div className="panel-title reports-chart-title">{isTags ? "Tags" : "Setups"} ({windowDays}d)</div>
-          <div className="reports-view-toggle reports-tag-breakdown-toggle" role="group" aria-label="Breakdown by">
-            <button
-              type="button"
-              className={`reports-view-btn ${isTags ? "active" : ""}`}
-              aria-pressed={isTags}
-              onClick={() => setMode("tags")}
-            >
-              Tags
-            </button>
-            <button
-              type="button"
-              className={`reports-view-btn ${!isTags ? "active" : ""}`}
-              aria-pressed={!isTags}
-              onClick={() => setMode("setups")}
-            >
-              Setups
-            </button>
+          <div className="panel-title reports-chart-title">
+            <span className="reports-chart-title-text">
+              {isTags ? "Tags" : "Setups"} ({windowDays}d)
+            </span>
+            <MetricHintIcon text={REPORTS_TAG_BREAKDOWN_CHART_HINT} />
+          </div>
+          <div className="reports-tag-breakdown-toggle-cluster">
+            <div className="reports-view-toggle reports-tag-breakdown-toggle" role="group" aria-label="Breakdown by">
+              <button
+                type="button"
+                className={`reports-view-btn ${isTags ? "active" : ""}`}
+                aria-pressed={isTags}
+                onClick={() => setMode("tags")}
+              >
+                Tags
+              </button>
+              <button
+                type="button"
+                className={`reports-view-btn ${!isTags ? "active" : ""}`}
+                aria-pressed={!isTags}
+                onClick={() => setMode("setups")}
+              >
+                Setups
+              </button>
+            </div>
+            <MetricHintIcon text={REPORTS_TAG_BREAKDOWN_MODE_HINT} />
           </div>
         </div>
         <div className="reports-detailed-chart-area" style={{ height: Math.max(220, rows.length * 36) }}>
