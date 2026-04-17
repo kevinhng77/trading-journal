@@ -60,6 +60,41 @@ function LegendVisibilityToggle({ visible, onToggle, name }) {
   );
 }
 
+/** @param {{ shape: string, buy: string, sell: string }} props */
+function ExecutionMarkersPreview({ shape, buy, sell }) {
+  const sh = String(shape || "triangle").toLowerCase();
+  if (sh === "circle") {
+    return (
+      <svg className="chart-indicator-legend-exec-svg" viewBox="0 0 26 14" width="26" height="14" aria-hidden>
+        <circle cx={6} cy={7} r={4.5} fill={buy} />
+        <circle cx={20} cy={7} r={4.5} fill={sell} />
+      </svg>
+    );
+  }
+  if (sh === "square") {
+    return (
+      <svg className="chart-indicator-legend-exec-svg" viewBox="0 0 26 14" width="26" height="14" aria-hidden>
+        <rect x={1.5} y={3.5} width={9} height={9} rx={1} fill={buy} />
+        <rect x={15.5} y={3.5} width={9} height={9} rx={1} fill={sell} />
+      </svg>
+    );
+  }
+  if (sh === "diamond") {
+    return (
+      <svg className="chart-indicator-legend-exec-svg" viewBox="0 0 26 14" width="26" height="14" aria-hidden>
+        <path fill={buy} d="M 6 1.5 L 11 7 L 6 12.5 L 1 7 Z" />
+        <path fill={sell} d="M 20 12.5 L 25 7 L 20 1.5 L 15 7 Z" />
+      </svg>
+    );
+  }
+  return (
+    <svg className="chart-indicator-legend-exec-svg" viewBox="0 0 26 14" width="26" height="14" aria-hidden>
+      <path fill={buy} d="M 6 1.5 L 1 13 L 11 13 Z" />
+      <path fill={sell} d="M 20 13 L 15 1.5 L 25 1.5 Z" />
+    </svg>
+  );
+}
+
 /** @param {{ value: 0 | 1 | 2, onChange: (s: 0 | 1 | 2) => void, disabled?: boolean }} props */
 function LineStylePick({ value, onChange, disabled = false }) {
   const v = value ?? 0;
@@ -130,6 +165,7 @@ function LineStylePick({ value, onChange, disabled = false }) {
  * @param {(id: string, partial: object) => void} [props.onPatchEma]
  * @param {(partial: object) => void} [props.onPatchVwap]
  * @param {(partial: object) => void} [props.onPatchMarkers]
+ * @param {(partial: object) => void} [props.onPatchRoundTripShading]
  * @param {(id: string) => void} [props.onRemoveEma]
  * @param {number} [props.fillsCount]
  */
@@ -139,6 +175,7 @@ export default function ChartIndicatorLegend({
   onPatchEma,
   onPatchVwap,
   onPatchMarkers,
+  onPatchRoundTripShading,
   onRemoveEma,
   fillsCount = 0,
 }) {
@@ -168,10 +205,11 @@ export default function ChartIndicatorLegend({
       {showMarkersRow ? (
         <div className="chart-indicator-legend-row chart-indicator-legend-row--markers">
           <span className="chart-indicator-legend-exec-icon" aria-hidden>
-            <svg className="chart-indicator-legend-exec-svg" viewBox="0 0 26 14" width="26" height="14">
-              <path fill={prefs.markers.buy} d="M 6 1.5 L 1 13 L 11 13 Z" />
-              <path fill={prefs.markers.sell} d="M 20 13 L 15 1.5 L 25 1.5 Z" />
-            </svg>
+            <ExecutionMarkersPreview
+              shape={prefs.markers.shape ?? "triangle"}
+              buy={prefs.markers.buy}
+              sell={prefs.markers.sell}
+            />
           </span>
           <span className="chart-indicator-legend-text">Executions</span>
           <div className="chart-indicator-legend-actions">
@@ -187,7 +225,104 @@ export default function ChartIndicatorLegend({
           </div>
           {markersOpen && onPatchMarkers ? (
             <div className="chart-indicator-legend-popover" role="dialog" aria-label="Execution markers">
-              <p className="chart-legend-pop-section">Execution triangles</p>
+              {typeof onPatchRoundTripShading === "function" ? (
+                <>
+                  <p className="chart-legend-pop-section">Round-trip shading</p>
+                  <label className="chart-legend-pop-check chart-legend-pop-check--block">
+                    <input
+                      type="checkbox"
+                      checked={prefs.roundTripShading?.enabled !== false}
+                      onChange={(e) => onPatchRoundTripShading({ enabled: e.target.checked })}
+                    />
+                    Show win / loss bands
+                  </label>
+                  <label className="chart-legend-pop-field">
+                    Win (green tint)
+                    <CompactColorInput
+                      value={prefs.roundTripShading?.winColor ?? "#4abe78"}
+                      onChange={(hex) => onPatchRoundTripShading({ winColor: hex })}
+                      disabled={prefs.roundTripShading?.enabled === false}
+                      aria-label="Win round-trip shade color"
+                    />
+                  </label>
+                  <label className="chart-legend-pop-field">
+                    Loss (red tint)
+                    <CompactColorInput
+                      value={prefs.roundTripShading?.lossColor ?? "#e66c6c"}
+                      onChange={(hex) => onPatchRoundTripShading({ lossColor: hex })}
+                      disabled={prefs.roundTripShading?.enabled === false}
+                      aria-label="Loss round-trip shade color"
+                    />
+                  </label>
+                  <label className="chart-legend-pop-field">
+                    Flat / breakeven
+                    <CompactColorInput
+                      value={prefs.roundTripShading?.flatColor ?? "#82a5d2"}
+                      onChange={(hex) => onPatchRoundTripShading({ flatColor: hex })}
+                      disabled={prefs.roundTripShading?.enabled === false}
+                      aria-label="Flat round-trip shade color"
+                    />
+                  </label>
+                  <label className="chart-legend-pop-field chart-legend-pop-field--grow">
+                    Band opacity
+                    <input
+                      type="range"
+                      min={0.04}
+                      max={0.22}
+                      step={0.01}
+                      value={prefs.roundTripShading?.alpha ?? 0.1}
+                      onChange={(e) => onPatchRoundTripShading({ alpha: Number(e.target.value) || 0.1 })}
+                      disabled={prefs.roundTripShading?.enabled === false}
+                      aria-valuemin={0.04}
+                      aria-valuemax={0.22}
+                      aria-valuenow={prefs.roundTripShading?.alpha ?? 0.1}
+                      aria-label="Round-trip band opacity"
+                    />
+                    <span className="chart-legend-pop-range-val">
+                      {((prefs.roundTripShading?.alpha ?? 0.1) * 100).toFixed(0)}%
+                    </span>
+                  </label>
+                </>
+              ) : null}
+
+              <p className="chart-legend-pop-section">Execution markers</p>
+              <label className="chart-legend-pop-field">
+                Shape
+                <select
+                  value={prefs.markers.shape ?? "triangle"}
+                  onChange={(e) =>
+                    onPatchMarkers({
+                      shape: /** @type {'triangle'|'circle'|'square'|'diamond'} */ (e.target.value),
+                    })
+                  }
+                  aria-label="Execution marker shape"
+                >
+                  <option value="triangle">Triangle</option>
+                  <option value="circle">Circle</option>
+                  <option value="square">Square</option>
+                  <option value="diamond">Diamond</option>
+                </select>
+              </label>
+              <p className="chart-legend-pop-section" style={{ fontSize: 9, marginTop: 4 }}>
+                Sizing by quantity
+              </p>
+              <div className="chart-legend-pop-radio-row" role="group" aria-label="How to show fill size">
+                {[
+                  { id: "color", label: "Color" },
+                  { id: "size", label: "Size" },
+                  { id: "both", label: "Both" },
+                ].map(({ id, label }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className={`chart-legend-pop-seg ${(prefs.markers.sizingMode ?? "color") === id ? "is-active" : ""}`}
+                    aria-pressed={(prefs.markers.sizingMode ?? "color") === id}
+                    onClick={() => onPatchMarkers({ sizingMode: id })}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
               <label className="chart-legend-pop-field">
                 Buy (BOT)
                 <CompactColorInput
@@ -209,11 +344,11 @@ export default function ChartIndicatorLegend({
                 <input
                   type="range"
                   min={5}
-                  max={18}
+                  max={28}
                   value={prefs.markers.size}
                   onChange={(e) => onPatchMarkers({ size: Number(e.target.value) || 12 })}
                   aria-valuemin={5}
-                  aria-valuemax={18}
+                  aria-valuemax={28}
                   aria-valuenow={prefs.markers.size}
                   aria-label="Marker size"
                 />

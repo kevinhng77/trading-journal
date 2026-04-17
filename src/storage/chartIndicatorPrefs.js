@@ -5,11 +5,14 @@ export const MAX_EMA_LINES = 24;
 
 import { TOS_EMA_FALLBACK_CYCLE } from "../lib/chartEmaColors";
 
-/** @typedef {{ buy: string, sell: string, size: number }} MarkerPrefs */
+/** @typedef {'triangle' | 'circle' | 'square' | 'diamond'} MarkerShape */
+/** @typedef {'color' | 'size' | 'both'} MarkerSizingMode */
+/** @typedef {{ buy: string, sell: string, size: number, shape: MarkerShape, sizingMode: MarkerSizingMode }} MarkerPrefs */
+/** @typedef {{ enabled: boolean, winColor: string, lossColor: string, flatColor: string, alpha: number }} RoundTripShadingPrefs */
 /** Line style: 0 solid, 1 dotted, 2 dashed (lightweight-charts subset). */
 /** @typedef {{ id: string, kind?: 'ema'|'sma', enabled: boolean, period: number, color: string, width: number, lineStyle?: 0|1|2 }} MaLinePrefs */
 /** @typedef {{ enabled: boolean, color: string, width: number, lineStyle?: 0|1|2 }} VwapPrefs */
-/** @typedef {{ version: number, markers: MarkerPrefs, emaLines: MaLinePrefs[], vwap: VwapPrefs }} ChartIndicatorPrefs */
+/** @typedef {{ version: number, markers: MarkerPrefs, roundTripShading: RoundTripShadingPrefs, emaLines: MaLinePrefs[], vwap: VwapPrefs }} ChartIndicatorPrefs */
 
 export const DEFAULT_VWAP = /** @type {VwapPrefs} */ ({
   enabled: false,
@@ -18,14 +21,25 @@ export const DEFAULT_VWAP = /** @type {VwapPrefs} */ ({
   lineStyle: 0,
 });
 
+export const DEFAULT_ROUND_TRIP_SHADING = /** @type {RoundTripShadingPrefs} */ ({
+  enabled: true,
+  winColor: "#4abe78",
+  lossColor: "#e66c6c",
+  flatColor: "#82a5d2",
+  alpha: 0.1,
+});
+
 export const DEFAULT_CHART_INDICATOR_PREFS = /** @type {ChartIndicatorPrefs} */ ({
-  version: 6,
+  version: 7,
   markers: {
     /* Buys: vivid emerald that still reads on white TOS-up candles; sells: soft rose (not same as candle down red) */
     buy: "#2ecd75",
     sell: "#f87171",
     size: 12,
+    shape: "triangle",
+    sizingMode: "color",
   },
+  roundTripShading: { ...DEFAULT_ROUND_TRIP_SHADING },
   emaLines: [
     { id: "ema10", kind: "ema", enabled: true, period: 10, color: "#ff5ca8", width: 1, lineStyle: 0 },
     { id: "ema20", kind: "ema", enabled: true, period: 20, color: "#f44336", width: 1, lineStyle: 0 },
@@ -78,6 +92,57 @@ function sanitizeVwap(raw) {
   return base;
 }
 
+/** @param {unknown} v */
+function sanitizeMarkerShape(v) {
+  const s = String(v ?? "").toLowerCase();
+  if (s === "circle" || s === "square" || s === "diamond") return /** @type {MarkerShape} */ (s);
+  return /** @type {MarkerShape} */ ("triangle");
+}
+
+/** @param {unknown} v */
+function sanitizeMarkerSizingMode(v) {
+  const s = String(v ?? "").toLowerCase();
+  if (s === "size" || s === "both") return /** @type {MarkerSizingMode} */ (s);
+  return /** @type {MarkerSizingMode} */ ("color");
+}
+
+/**
+ * @param {unknown} raw
+ * @param {RoundTripShadingPrefs} fallback
+ */
+function sanitizeRoundTripShading(raw, fallback) {
+  const base = { ...fallback };
+  if (!raw || typeof raw !== "object") return base;
+  const r = /** @type {Record<string, unknown>} */ (raw);
+  if (typeof r.enabled === "boolean") base.enabled = r.enabled;
+  if (typeof r.winColor === "string") base.winColor = r.winColor;
+  if (typeof r.lossColor === "string") base.lossColor = r.lossColor;
+  if (typeof r.flatColor === "string") base.flatColor = r.flatColor;
+  if (typeof r.alpha === "number" && Number.isFinite(r.alpha)) base.alpha = clamp(r.alpha, 0.04, 0.22);
+  return base;
+}
+
+/**
+ * @param {string} hex
+ * @param {number} alpha 0..1
+ */
+export function chartHexToRgba(hex, alpha) {
+  let h = String(hex ?? "").trim();
+  if (h.startsWith("#")) h = h.slice(1);
+  if (h.length === 3) {
+    h = h
+      .split("")
+      .map((c) => c + c)
+      .join("");
+  }
+  const n = parseInt(h, 16);
+  if (!Number.isFinite(n) || h.length !== 6) return `rgba(148, 163, 184, ${clamp(alpha, 0, 1)})`;
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return `rgba(${r}, ${g}, ${b}, ${clamp(alpha, 0, 1)})`;
+}
+
 /** @param {unknown} data */
 export function normalizeChartIndicatorPrefs(data) {
   const base = structuredClone(DEFAULT_CHART_INDICATOR_PREFS);
@@ -88,8 +153,12 @@ export function normalizeChartIndicatorPrefs(data) {
     const m = /** @type {Record<string, unknown>} */ (o.markers);
     if (typeof m.buy === "string") base.markers.buy = m.buy;
     if (typeof m.sell === "string") base.markers.sell = m.sell;
-    if (typeof m.size === "number") base.markers.size = clamp(m.size, 5, 18);
+    if (typeof m.size === "number") base.markers.size = clamp(m.size, 5, 28);
+    base.markers.shape = sanitizeMarkerShape(m.shape);
+    base.markers.sizingMode = sanitizeMarkerSizingMode(m.sizingMode);
   }
+
+  base.roundTripShading = sanitizeRoundTripShading(o.roundTripShading, base.roundTripShading);
 
   if (o.vwap && typeof o.vwap === "object") {
     base.vwap = sanitizeVwap(o.vwap);
@@ -138,7 +207,7 @@ export function normalizeChartIndicatorPrefs(data) {
     base.emaLines.sort((a, b) => a.period - b.period);
   }
 
-  base.version = 6;
+  base.version = 7;
   return base;
 }
 

@@ -4395,6 +4395,35 @@ a.journal-row-trade-link:visited {
   color: var(--muted);
 }
 
+.chart-legend-pop-section:not(:first-child) {
+  margin-top: 6px;
+}
+
+.chart-legend-pop-radio-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chart-legend-pop-seg {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.2);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.chart-legend-pop-seg.is-active {
+  border-color: rgba(74, 222, 128, 0.45);
+  color: var(--text);
+  background: rgba(74, 222, 128, 0.12);
+}
+
 .chart-legend-pop-field--grow {
   display: flex;
   flex-direction: column;
@@ -5678,18 +5707,7 @@ a.journal-row-trade-link:visited {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
-/* Same light alpha as prior cycle bands; hue encodes round-trip P+L (FIFO on fills). */
-.trade-chart-roundtrip-band--win {
-  background: rgba(74, 190, 120, 0.1);
-}
-
-.trade-chart-roundtrip-band--loss {
-  background: rgba(230, 108, 108, 0.1);
-}
-
-.trade-chart-roundtrip-band--flat {
-  background: rgba(130, 165, 210, 0.09);
-}
+/* Win / loss / flat tints use inline background from chart prefs (chartHexToRgba). */
 
 /* Drawn in HTML above session tints (z-index 6); library horz is hidden because it sits under those overlays.
    Dash pattern matches lightweight-charts LargeDashed at line width 1: setLineDash([6, 6]) in the library bundle. */

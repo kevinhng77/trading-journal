@@ -8,7 +8,11 @@ import {
 } from "../storage/storage";
 import { findTradeByParam, neighborTradeIds, stableTradeId } from "../storage/tradeLookup";
 import { loadFillTimeZone } from "../storage/fillTimePrefs";
-import { loadChartIndicatorPrefs, saveChartIndicatorPrefs } from "../storage/chartIndicatorPrefs";
+import {
+  DEFAULT_ROUND_TRIP_SHADING,
+  loadChartIndicatorPrefs,
+  saveChartIndicatorPrefs,
+} from "../storage/chartIndicatorPrefs";
 import { useLiveTrades } from "../hooks/useLiveTrades";
 import ChartIndicatorsModal from "../components/ChartIndicatorsModal";
 import ChartPresetsDropdown from "../components/ChartPresetsDropdown";
@@ -179,6 +183,15 @@ export default function TradeDetail() {
   const patchMarkers = useCallback((partial) => {
     setIndicatorPrefs((prev) => {
       const next = { ...prev, markers: { ...prev.markers, ...partial } };
+      saveChartIndicatorPrefs(next);
+      return next;
+    });
+  }, []);
+
+  const patchRoundTripShading = useCallback((partial) => {
+    setIndicatorPrefs((prev) => {
+      const rt = prev.roundTripShading ?? DEFAULT_ROUND_TRIP_SHADING;
+      const next = { ...prev, roundTripShading: { ...rt, ...partial } };
       saveChartIndicatorPrefs(next);
       return next;
     });
@@ -453,6 +466,7 @@ export default function TradeDetail() {
               onPatchEma={patchEma}
               onPatchVwap={patchVwap}
               onPatchMarkers={patchMarkers}
+              onPatchRoundTripShading={patchRoundTripShading}
               onRemoveEmaLine={removeEmaLine}
             />
           </Suspense>
@@ -464,7 +478,7 @@ export default function TradeDetail() {
           <h2 className="trade-detail-section-title">Imported fills</h2>
           <p className="trade-detail-fills-hint">
             On intraday charts, vertical tints mark each complete round trip (shares return to flat); open size at the
-            end of the sequence is not tinted.
+            end of the sequence is not tinted. Toggle shading and colors under chart Executions (⚙).
           </p>
           <TradeExecutionsTable key={tid} fills={fills} />
         </section>

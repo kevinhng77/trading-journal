@@ -11,7 +11,7 @@ import {
   LineStyle,
   TickMarkType,
 } from "lightweight-charts";
-import { createSoftTriangleMarkersSeriesPrimitive } from "../chart/softTriangleMarkersPrimitive";
+import { createExecutionMarkersSeriesPrimitive } from "../chart/softTriangleMarkersPrimitive";
 import {
   alpacaBarToLightweight,
   alpacaBarToVolumeHistogram,
@@ -26,7 +26,7 @@ import {
 } from "../api/alpacaBars";
 import { emaLineDataFromBars, smaLineDataFromBars } from "../lib/ema";
 import { vwapLineDataFromAlpacaBars } from "../lib/vwapFromBars";
-import { DEFAULT_CHART_INDICATOR_PREFS } from "../storage/chartIndicatorPrefs";
+import { DEFAULT_CHART_INDICATOR_PREFS, chartHexToRgba } from "../storage/chartIndicatorPrefs";
 import { resolveChartEmaColor } from "../lib/chartEmaColors";
 import {
   CHART_INTERVAL_EXTRAS,
@@ -188,6 +188,23 @@ function executionQuantityStrengthOrNull(qty, qMin, qMax) {
   return Math.min(1, Math.max(0, t));
 }
 
+/**
+ * @param {number | undefined} qty
+ * @param {number} qMin
+ * @param {number} qMax
+ * @param {number} markerBaseSize
+ */
+function executionQuantityToMarkerPixelSize(qty, qMin, qMax, markerBaseSize) {
+  let b = Number(markerBaseSize);
+  if (!Number.isFinite(b) || b < 4) b = 12;
+  b = Math.min(28, Math.max(5, b));
+  const minS = Math.max(5, b * 0.72);
+  const maxS = Math.min(30, b * 1.38);
+  const u = executionQuantityStrengthOrNull(qty, qMin, qMax);
+  if (u === null) return b;
+  return minS + u * (maxS - minS);
+}
+
 /** @param {string} hex */
 function hexToRgb(hex) {
   let h = String(hex ?? "").trim();
@@ -244,7 +261,7 @@ function executionQuantityToMarkerFill(baseHex, qty, qMin, qMax) {
 }
 
 /**
- * @param {{ buy: string, sell: string, size: number }} markerPrefs
+ * @param {{ buy: string, sell: string, size: number, sizingMode?: string }} markerPrefs
  */
 function collectExecutionMarkers(
   fills,
@@ -301,15 +318,24 @@ function collectExecutionMarkers(
   const qMin = qtyList.length ? Math.min(...qtyList) : NaN;
   const qMax = qtyList.length ? Math.max(...qtyList) : NaN;
 
-  const { buy: buyHex, sell: sellHex } = markerPrefs;
+  const { buy: buyHex, sell: sellHex, size: markerBaseSize, sizingMode = "color" } = markerPrefs;
 
   return out.map((m) => {
     const { quantity, ...rest } = m;
     const baseHex = m.isBuy ? buyHex : sellHex;
-    return {
-      ...rest,
-      fill: executionQuantityToMarkerFill(baseHex, quantity, qMin, qMax),
-    };
+    const useColor = sizingMode === "color" || sizingMode === "both";
+    const useSize = sizingMode === "size" || sizingMode === "both";
+    /** @type {{ time: import('lightweight-charts').Time, price: number, isBuy: boolean, fill?: string, size?: number }} */
+    const row = { ...rest };
+    if (useColor) {
+      row.fill = executionQuantityToMarkerFill(baseHex, quantity, qMin, qMax);
+    } else {
+      row.fill = baseHex;
+    }
+    if (useSize) {
+      row.size = executionQuantityToMarkerPixelSize(quantity, qMin, qMax, markerBaseSize);
+    }
+    return row;
   });
 }
 
@@ -365,6 +391,7 @@ export default function TradeExecutionChart({
   onPatchEma,
   onPatchVwap,
   onPatchMarkers,
+  onPatchRoundTripShading,
   onRemoveEmaLine,
 }) {
   const containerRef = useRef(null);
@@ -741,10 +768,11 @@ export default function TradeExecutionChart({
     /** @type {import('lightweight-charts').ISeriesPrimitive<import('lightweight-charts').Time> | null} */
     let markersPrimitive = null;
     if (execMarkers.length) {
-      markersPrimitive = createSoftTriangleMarkersSeriesPrimitive(series, execMarkers, {
+      markersPrimitive = createExecutionMarkersSeriesPrimitive(series, execMarkers, {
         buy: indicatorPrefs.markers.buy,
         sell: indicatorPrefs.markers.sell,
         size: indicatorPrefs.markers.size,
+        shape: indicatorPrefs.markers.shape,
       });
       series.attachPrimitive(markersPrimitive);
     }
@@ -797,7 +825,14 @@ export default function TradeExecutionChart({
        * @param {HTMLElement} targetEl
        * @param {string} className
        */
-      function appendTimeBand(targetEl, className, t0, t1) {
+      /**
+       * @param {HTMLElement} targetEl
+       * @param {string} className
+       * @param {number} t0
+       * @param {number} t1
+       * @param {{ background?: string } | undefined} [bandStyle]
+       */
+      function appendTimeBand(targetEl, className, t0, t1, bandStyle) {
         const tLo = Math.min(t0, t1);
         const tHi = Math.max(t0, t1);
         const vr = ts.getVisibleRange();
@@ -840,6 +875,7 @@ export default function TradeExecutionChart({
         d.className = className;
         d.style.left = `${left}px`;
         d.style.width = `${w}px`;
+        if (bandStyle?.background) d.style.background = bandStyle.background;
         targetEl.appendChild(d);
       }
       if (wrap) {
@@ -848,22 +884,25 @@ export default function TradeExecutionChart({
         appendTimeBand(wrap, "trade-chart-session-band", bounds.dayOpen, bounds.regularOpen);
         appendTimeBand(wrap, "trade-chart-session-band", bounds.regularClose, bounds.dayClose);
       }
-      if (rtWrap && fills?.length) {
+      const rtPrefs = indicatorPrefs.roundTripShading;
+      if (rtWrap && fills?.length && rtPrefs?.enabled) {
         const periodSec = barPeriodSecondsForInterval(chartInterval);
         const pad = periodSec;
+        const alpha = typeof rtPrefs.alpha === "number" ? rtPrefs.alpha : 0.1;
         const spans = completedRoundTripUnixSpans(fills, (f) =>
           fillWallTimeToUnixSeconds(tradeDate, f.time, fillTimeZone),
         );
         for (const sp of spans) {
           const pnl = Number(sp.pnl);
-          const tone =
-            !Number.isFinite(pnl) || pnl === 0 ? "flat" : pnl > 0 ? "win" : "loss";
-          appendTimeBand(
-            rtWrap,
-            `trade-chart-roundtrip-band trade-chart-roundtrip-band--${tone}`,
-            sp.from - pad,
-            sp.to + pad,
-          );
+          const hex =
+            !Number.isFinite(pnl) || pnl === 0
+              ? rtPrefs.flatColor
+              : pnl > 0
+                ? rtPrefs.winColor
+                : rtPrefs.lossColor;
+          appendTimeBand(rtWrap, "trade-chart-roundtrip-band", sp.from - pad, sp.to + pad, {
+            background: chartHexToRgba(hex, alpha),
+          });
         }
       }
     }
@@ -964,6 +1003,7 @@ export default function TradeExecutionChart({
     chartInterval,
     indicatorPrefs,
     onPatchMarkers,
+    onPatchRoundTripShading,
     onRemoveEmaLine,
   ]);
 
@@ -1113,6 +1153,7 @@ export default function TradeExecutionChart({
                 onPatchEma={onPatchEma}
                 onPatchVwap={onPatchVwap}
                 onPatchMarkers={onPatchMarkers}
+                onPatchRoundTripShading={onPatchRoundTripShading}
                 onRemoveEma={onRemoveEmaLine}
                 fillsCount={fills?.length ?? 0}
               />
