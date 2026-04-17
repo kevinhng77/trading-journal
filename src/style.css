@@ -5663,21 +5663,34 @@ a.journal-row-trade-link:visited {
   background: rgba(150, 195, 235, 0.08);
 }
 
-/* Drawn in HTML above session tints (z-index 6); library horz is hidden because it sits under those overlays. */
+/* Drawn in HTML above session tints (z-index 6); library horz is hidden because it sits under those overlays.
+   Dash pattern matches lightweight-charts LargeDashed at line width 1: setLineDash([6, 6]) in the library bundle. */
 .trade-chart-crosshair-hline {
   display: none;
   position: absolute;
   left: 0;
   right: 0;
   width: 100%;
-  height: 0;
+  height: 2px;
   margin: 0;
   padding: 0;
   border: none;
-  border-top: 1px dashed rgba(255, 255, 255, 0.5);
   pointer-events: none;
   z-index: 8;
-  transform: translateY(-0.5px);
+  transform: translateY(-50%);
+  overflow: visible;
+}
+
+.trade-chart-crosshair-hline-svg {
+  display: block;
+  width: 100%;
+  height: 2px;
+}
+
+.trade-chart-crosshair-hline-line {
+  stroke: rgba(255, 255, 255, 0.2);
+  stroke-width: 1;
+  stroke-dasharray: 6 6;
 }
 
 .trade-chart-crosshair-price {

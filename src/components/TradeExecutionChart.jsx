@@ -409,7 +409,13 @@ export default function TradeExecutionChart({
       crosshair: {
         mode: CrosshairMode.Normal,
         // Built-in time-axis label can disagree with cursor X when hovering the volume strip (separate price scale).
-        vertLine: { labelVisible: false, color: TOS_CHART.crosshair },
+        // LargeDashed + width 1 matches LW internals (6px dash, 6px gap); custom horz line uses the same pattern.
+        vertLine: {
+          labelVisible: false,
+          color: TOS_CHART.crosshair,
+          width: 1,
+          style: LineStyle.LargeDashed,
+        },
         /* Library horz is drawn under our HTML session/round-trip overlays; draw our own in subscribeCrosshairMove. */
         horzLine: { visible: false, labelVisible: false, color: TOS_CHART.crosshair },
       },
@@ -967,7 +973,18 @@ export default function TradeExecutionChart({
           }}
         >
           <div className="trade-execution-chart trade-execution-chart-canvas" ref={containerRef} />
-          <div ref={crosshairHLineRef} className="trade-chart-crosshair-hline" aria-hidden />
+          <div ref={crosshairHLineRef} className="trade-chart-crosshair-hline" aria-hidden>
+            <svg className="trade-chart-crosshair-hline-svg" preserveAspectRatio="none" aria-hidden>
+              <line
+                x1="0"
+                y1="1"
+                x2="100%"
+                y2="1"
+                className="trade-chart-crosshair-hline-line"
+                vectorEffect="nonScalingStroke"
+              />
+            </svg>
+          </div>
           <div ref={crosshairPriceRef} className="trade-chart-crosshair-price" aria-hidden />
           <div ref={crosshairTimeRef} className="trade-chart-crosshair-time" aria-hidden />
           <div ref={roundTripShadeRef} className="trade-chart-roundtrip-shades" aria-hidden />
