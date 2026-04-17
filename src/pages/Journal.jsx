@@ -91,12 +91,8 @@ function Journal() {
 
   const [notesByDate, setNotesByDate] = useState(() => loadJournalNotesMap());
 
-  const rest = Object.values(groupedFiltered)
-    .filter((d) => d.date !== focusDate)
-    .sort((a, b) => b.date.localeCompare(a.date));
-
   const days = focusDate
-    ? [getDayAggregate(groupedFiltered, focusDate), ...rest]
+    ? [getDayAggregate(groupedFiltered, focusDate)]
     : Object.values(groupedFiltered).sort((a, b) => b.date.localeCompare(a.date));
 
   useEffect(() => {
@@ -137,7 +133,7 @@ function Journal() {
           <h1>Journal</h1>
           {focusDate && (
             <p className="journal-focus-hint">
-              Showing <strong>{formatDisplayDate(focusDate)}</strong> first —{" "}
+              Showing <strong>{formatDisplayDate(focusDate)}</strong> only —{" "}
               <Link className="journal-focus-clear" to="/journal">
                 view all days
               </Link>
