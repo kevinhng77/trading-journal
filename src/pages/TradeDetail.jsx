@@ -23,11 +23,12 @@ import {
 } from "../lib/tradeExecutionMetrics";
 import { formatChartIntervalLabel } from "../lib/chartIntervals";
 import { visiblePageNumbers } from "../lib/pagination";
+import { buildCompletedRoundTripIndexByFillKey, fillStableKey } from "../lib/fillRoundTrips";
 
 const EXECUTIONS_PAGE_SIZE = 15;
 
 /** Paginated executions table; remount with key when trade changes to reset page. */
-function TradeExecutionsTable({ fills }) {
+function TradeExecutionsTable({ fills, roundTripByFillKey }) {
   const [page, setPage] = useState(1);
   const totalPages = Math.max(1, Math.ceil(fills.length / EXECUTIONS_PAGE_SIZE));
   const pageClamped = Math.min(page, totalPages);
@@ -50,14 +51,20 @@ function TradeExecutionsTable({ fills }) {
           <div>Qty</div>
           <div>Price</div>
         </div>
-        {slice.map((f) => (
-          <div key={f.id} className="table-row trade-detail-fill-grid">
-            <div className="journal-time-cell">{f.time}</div>
-            <div>{f.side}</div>
-            <div>{f.quantity}</div>
-            <div>{f.price}</div>
-          </div>
-        ))}
+        {slice.map((f) => {
+          const k = fillStableKey(f);
+          const rt = roundTripByFillKey.get(k);
+          const rtClass =
+            rt != null ? `trade-detail-fill-row--rt trade-detail-fill-row--rt${rt % 5}` : "";
+          return (
+            <div key={k} className={`table-row trade-detail-fill-grid ${rtClass}`.trim()}>
+              <div className="journal-time-cell">{f.time}</div>
+              <div>{f.side}</div>
+              <div>{f.quantity}</div>
+              <div>{f.price}</div>
+            </div>
+          );
+        })}
       </div>
       {fills.length > EXECUTIONS_PAGE_SIZE && (
         <nav className="trade-detail-fills-pagination" aria-label="Executions pages">
@@ -237,6 +244,7 @@ export default function TradeDetail() {
   }
 
   const fills = trade.fills ?? [];
+  const roundTripByFillKey = useMemo(() => buildCompletedRoundTripIndexByFillKey(fills), [fills]);
   const pxMfeMae =
     replay &&
     replay.maxAbsShares > 0 &&
@@ -451,7 +459,11 @@ export default function TradeDetail() {
       {fills.length > 0 && (
         <section className="card trade-detail-fills">
           <h2 className="trade-detail-section-title">Imported fills</h2>
-          <TradeExecutionsTable key={tid} fills={fills} />
+          <p className="trade-detail-fills-hint">
+            Rows with the same light band are one complete round trip (shares return to flat). Open size left at the
+            end is not banded.
+          </p>
+          <TradeExecutionsTable key={tid} fills={fills} roundTripByFillKey={roundTripByFillKey} />
         </section>
       )}
     </div>
