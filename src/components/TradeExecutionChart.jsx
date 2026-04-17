@@ -276,6 +276,8 @@ export default function TradeExecutionChart({
   const roundTripShadeRef = useRef(null);
   const sessionShadeRef = useRef(null);
   const crosshairTimeRef = useRef(null);
+  const crosshairHLineRef = useRef(null);
+  const crosshairPriceRef = useRef(null);
   const resetChartViewRef = useRef(() => {});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -408,7 +410,8 @@ export default function TradeExecutionChart({
         mode: CrosshairMode.Normal,
         // Built-in time-axis label can disagree with cursor X when hovering the volume strip (separate price scale).
         vertLine: { labelVisible: false, color: TOS_CHART.crosshair },
-        horzLine: { color: TOS_CHART.crosshair },
+        /* Library horz is drawn under our HTML session/round-trip overlays; draw our own in subscribeCrosshairMove. */
+        horzLine: { visible: false, labelVisible: false, color: TOS_CHART.crosshair },
       },
       rightPriceScale: { borderColor: TOS_CHART.border },
       timeScale: {
@@ -592,9 +595,32 @@ export default function TradeExecutionChart({
       el.style.left = `${param.point.x}px`;
     }
 
+    function updateCrosshairHorizontalGuide(param) {
+      const hLine = crosshairHLineRef.current;
+      const pEl = crosshairPriceRef.current;
+      if (!hLine || !pEl) return;
+      if (!param?.point || typeof param.point.y !== "number") {
+        hLine.style.display = "none";
+        pEl.style.display = "none";
+        return;
+      }
+      const y = param.point.y;
+      hLine.style.display = "block";
+      hLine.style.top = `${y}px`;
+      const raw = series.coordinateToPrice(y);
+      if (raw != null && Number.isFinite(Number(raw))) {
+        pEl.textContent = series.priceFormatter().format(Number(raw));
+        pEl.style.display = "block";
+        pEl.style.top = `${y}px`;
+      } else {
+        pEl.style.display = "none";
+      }
+    }
+
     function onCrosshairMove(param) {
       updateLegend(param);
       updateCrosshairTimeLabel(param);
+      updateCrosshairHorizontalGuide(param);
     }
 
     chart.subscribeCrosshairMove(onCrosshairMove);
@@ -809,6 +835,12 @@ export default function TradeExecutionChart({
       if (crosshairTimeRef.current) {
         crosshairTimeRef.current.style.display = "none";
       }
+      if (crosshairHLineRef.current) {
+        crosshairHLineRef.current.style.display = "none";
+      }
+      if (crosshairPriceRef.current) {
+        crosshairPriceRef.current.style.display = "none";
+      }
       if (markersPrimitive) {
         series.detachPrimitive(markersPrimitive);
       }
@@ -935,6 +967,8 @@ export default function TradeExecutionChart({
           }}
         >
           <div className="trade-execution-chart trade-execution-chart-canvas" ref={containerRef} />
+          <div ref={crosshairHLineRef} className="trade-chart-crosshair-hline" aria-hidden />
+          <div ref={crosshairPriceRef} className="trade-chart-crosshair-price" aria-hidden />
           <div ref={crosshairTimeRef} className="trade-chart-crosshair-time" aria-hidden />
           <div ref={roundTripShadeRef} className="trade-chart-roundtrip-shades" aria-hidden />
           <div ref={sessionShadeRef} className="trade-chart-session-shades" aria-hidden />
