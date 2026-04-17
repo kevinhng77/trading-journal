@@ -107,7 +107,7 @@ export default function ReportsTable() {
 
   return (
     <>
-      <div className="reports-calendar-page-toolbar reports-table-page-toolbar">
+      <div className="reports-table-page-toolbar">
         <span className="reports-calendar-year-label">Year</span>
         <div className="reports-calendar-year-actions">
           <div className="reports-year-toggle">
@@ -127,7 +127,7 @@ export default function ReportsTable() {
             className="range-btn reports-calendar-year-reset"
             onClick={resetYearToCurrent}
             disabled={!canResetYear}
-            title="Clear year from URL and show the current calendar year"
+            title="Clear year from URL and use the current year"
           >
             This year ({calendarYear})
           </button>
@@ -136,7 +136,7 @@ export default function ReportsTable() {
 
       <p className="reports-table-hint">
         Start, end, and wire-out are saved in this browser only. <strong>P&amp;L (trades)</strong> uses your imported
-        trades and the same Reports filters as the calendar.
+        trades and the same filters as the rest of Reports (the strip above).
       </p>
 
       <div className="card reports-table-card">

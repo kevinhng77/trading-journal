@@ -1,0 +1,55 @@
+import { toBlob } from "html-to-image";
+
+/** Matches TradingView-style chart background used in TradeExecutionChart layout. */
+const CHART_CAPTURE_BG = "#131722";
+
+/**
+ * Rasterize the chart host element (canvas + overlays) to a PNG blob.
+ * @param {HTMLElement} el
+ * @returns {Promise<Blob>}
+ */
+export async function captureChartElementAsPngBlob(el) {
+  const blob = await toBlob(el, {
+    cacheBust: true,
+    pixelRatio: Math.min(2, typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1),
+    backgroundColor: CHART_CAPTURE_BG,
+  });
+  if (!blob) throw new Error("Could not capture chart.");
+  return blob;
+}
+
+/**
+ * Re-encode a raster blob as a JPEG data URL for smaller localStorage footprint.
+ * @param {Blob} blob
+ * @param {number} [maxWidth]
+ * @param {number} [quality]
+ */
+export async function blobToJpegDataUrl(blob, maxWidth = 1400, quality = 0.82) {
+  const url = URL.createObjectURL(blob);
+  try {
+    const img = new Image();
+    img.decoding = "async";
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = () => reject(new Error("decode"));
+      img.src = url;
+    });
+    let w = img.naturalWidth;
+    let h = img.naturalHeight;
+    if (w < 1 || h < 1) throw new Error("Bad image size.");
+    if (w > maxWidth) {
+      const s = maxWidth / w;
+      w = Math.max(1, Math.round(w * s));
+      h = Math.max(1, Math.round(h * s));
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("No canvas context.");
+    ctx.drawImage(img, 0, 0, w, h);
+    return canvas.toDataURL("image/jpeg", quality);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}

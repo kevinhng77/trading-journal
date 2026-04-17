@@ -499,6 +499,21 @@ export default function ReportsFilterStrip({
                       />
                       <span>Must have all setups</span>
                     </label>
+                    <div className="reports-filter-tags-pop-footer">
+                      <button
+                        type="button"
+                        className="reports-filter-setup-done-btn"
+                        title="Apply all strip filters and close this menu"
+                        aria-label="Apply filters and close setup menu"
+                        onClick={() => {
+                          onApply();
+                          setSetupsPopOpen(false);
+                          setSetupSearch("");
+                        }}
+                      >
+                        Done
+                      </button>
+                    </div>
                   </div>
                 ) : null}
               </div>

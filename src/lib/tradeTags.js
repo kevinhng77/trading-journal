@@ -87,6 +87,27 @@ export function collectAllSetupsFromTrades(trades) {
 }
 
 /**
+ * Setup filter options: values used on trades plus extra labels (e.g. playbook play names), deduped case-insensitively.
+ * @param {object[]} trades
+ * @param {string[]} [extraLabels]
+ */
+export function buildSetupFilterSuggestions(trades, extraLabels = []) {
+  const fromTrades = collectAllSetupsFromTrades(trades);
+  const seen = new Set();
+  const out = [];
+  for (const raw of [...fromTrades, ...(Array.isArray(extraLabels) ? extraLabels : [])]) {
+    const t = String(raw ?? "").trim();
+    if (!t) continue;
+    const k = t.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(t);
+  }
+  out.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  return out;
+}
+
+/**
  * Remove one setup (case-insensitive) from every trade and persist.
  * @param {string} setup
  * @returns {{ tradeCount: number }}

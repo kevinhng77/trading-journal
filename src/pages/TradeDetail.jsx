@@ -1,5 +1,6 @@
-import { lazy, Suspense, useCallback, useMemo, useState } from "react";
-import { collectAllTagsFromTrades, collectAllSetupsFromTrades } from "../lib/tradeTags";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { buildSetupFilterSuggestions, collectAllTagsFromTrades } from "../lib/tradeTags";
+import { usePlaybookPlayNames } from "../hooks/usePlaybookPlayNames";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   formatMoney,
@@ -20,6 +21,8 @@ const TradeExecutionChart = lazy(() => import("../components/TradeExecutionChart
 import TradeNotesEditor from "../components/TradeNotesEditor";
 import TradeTagsEditor from "../components/TradeTagsEditor";
 import TradeSetupsEditor from "../components/TradeSetupsEditor";
+import PlaybookChartSendModal from "../components/PlaybookChartSendModal";
+import { captureChartElementAsPngBlob } from "../lib/chartImageCapture";
 import {
   computeFillReplayStats,
   tradeFeesPaid,
@@ -27,6 +30,9 @@ import {
   tradeNetPnl,
 } from "../lib/tradeExecutionMetrics";
 import { formatChartIntervalLabel } from "../lib/chartIntervals";
+import { loadTradeAnnotationNotes, saveTradeAnnotationNotes } from "../storage/tradeAnnotationNotes";
+import { loadTradeChartRiskLines, saveTradeChartRiskLines } from "../storage/tradeChartRiskLines";
+import { loadTradeChartTrendlines, saveTradeChartTrendlines } from "../storage/tradeChartTrendlines";
 import { visiblePageNumbers } from "../lib/pagination";
 
 const EXECUTIONS_PAGE_SIZE = 15;
@@ -155,7 +161,140 @@ export default function TradeDetail() {
   const [fillTimeZone] = useState(() => loadFillTimeZone());
   const [indicatorPrefs, setIndicatorPrefs] = useState(() => loadChartIndicatorPrefs());
   const [indicatorsCatalogOpen, setIndicatorsCatalogOpen] = useState(false);
+  const [playbookSendOpen, setPlaybookSendOpen] = useState(false);
+  const [chartToolbarMsg, setChartToolbarMsg] = useState(/** @type {string | null} */ (null));
+  const [riskLineMarkMode, setRiskLineMarkMode] = useState(false);
+  const [riskLines, setRiskLines] = useState(() => []);
+  const [trendlineDrawMode, setTrendlineDrawMode] = useState(false);
+  const [trendlines, setTrendlines] = useState(() => []);
+  const [annotationNotes, setAnnotationNotes] = useState(() => []);
+  const chartWrapRef = useRef(null);
   const chartIntervalLabel = useMemo(() => formatChartIntervalLabel(chartInterval), [chartInterval]);
+
+  const getChartCaptureEl = useCallback(() => {
+    return chartWrapRef.current?.querySelector(".trade-execution-chart-host") ?? null;
+  }, []);
+
+  useEffect(() => {
+    if (!chartToolbarMsg) return;
+    const t = window.setTimeout(() => setChartToolbarMsg(null), 4500);
+    return () => window.clearTimeout(t);
+  }, [chartToolbarMsg]);
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => {
+      if (!tid) {
+        setRiskLines([]);
+        setRiskLineMarkMode(false);
+        setTrendlines([]);
+        setTrendlineDrawMode(false);
+        setAnnotationNotes([]);
+        return;
+      }
+      setRiskLines(loadTradeChartRiskLines(tid));
+      setRiskLineMarkMode(false);
+      const tl = loadTradeChartTrendlines(tid);
+      setTrendlines(tl);
+      setTrendlineDrawMode(false);
+      const rawAnn = loadTradeAnnotationNotes(tid);
+      const n = tl.length;
+      const aligned = [];
+      for (let i = 0; i < n; i += 1) aligned.push(typeof rawAnn[i] === "string" ? rawAnn[i] : "");
+      setAnnotationNotes(aligned);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [tid]);
+
+  useEffect(() => {
+    if (!tid) return;
+    const raf = requestAnimationFrame(() => {
+      setAnnotationNotes((prev) => {
+        const n = trendlines.length;
+        if (prev.length === n) return prev;
+        const next = prev.slice(0, n);
+        while (next.length < n) next.push("");
+        saveTradeAnnotationNotes(tid, next);
+        return next;
+      });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [trendlines.length, tid]);
+
+  useEffect(() => {
+    if (!riskLineMarkMode && !trendlineDrawMode) return;
+    function onKey(/** @type {KeyboardEvent} */ e) {
+      if (e.key === "Escape") {
+        setRiskLineMarkMode(false);
+        setTrendlineDrawMode(false);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [riskLineMarkMode, trendlineDrawMode]);
+
+  const addRiskLineAtPrice = useCallback((price) => {
+    if (!tid || !Number.isFinite(price)) return;
+    const id =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `rl-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    setRiskLines((prev) => {
+      const next = [...prev, { id, price }];
+      saveTradeChartRiskLines(tid, next);
+      return next;
+    });
+  }, [tid]);
+
+  const clearRiskLines = useCallback(() => {
+    if (!tid) return;
+    setRiskLines([]);
+    saveTradeChartRiskLines(tid, []);
+  }, [tid]);
+
+  const onTrendlinesChange = useCallback((updater) => {
+    if (!tid) return;
+    setTrendlines((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      saveTradeChartTrendlines(tid, next);
+      return next;
+    });
+  }, [tid]);
+
+  const undoLastTrendline = useCallback(() => {
+    if (!tid) return;
+    setTrendlines((prev) => {
+      const next = prev.slice(0, -1);
+      saveTradeChartTrendlines(tid, next);
+      return next;
+    });
+  }, [tid]);
+
+  const clearTrendlines = useCallback(() => {
+    if (!tid) return;
+    setTrendlines([]);
+    saveTradeChartTrendlines(tid, []);
+    setAnnotationNotes([]);
+    saveTradeAnnotationNotes(tid, []);
+  }, [tid]);
+
+  async function copyChartScreenshotToClipboard() {
+    const el = getChartCaptureEl();
+    if (!el) {
+      setChartToolbarMsg("Chart is not ready to capture yet.");
+      return;
+    }
+    if (!navigator.clipboard || typeof ClipboardItem === "undefined") {
+      setChartToolbarMsg("Clipboard image copy is not supported in this browser.");
+      return;
+    }
+    try {
+      const blob = await captureChartElementAsPngBlob(el);
+      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+      setChartToolbarMsg("Chart screenshot copied to clipboard.");
+    } catch {
+      setChartToolbarMsg("Could not copy the chart. Try again after the chart finishes loading.");
+    }
+  }
 
   const applyIndicatorPrefs = useCallback((next) => {
     setIndicatorPrefs(next);
@@ -212,7 +351,11 @@ export default function TradeDetail() {
   );
 
   const allTagSuggestions = useMemo(() => collectAllTagsFromTrades(trades), [trades]);
-  const allSetupSuggestions = useMemo(() => collectAllSetupsFromTrades(trades), [trades]);
+  const playbookPlayNames = usePlaybookPlayNames();
+  const allSetupSuggestions = useMemo(
+    () => buildSetupFilterSuggestions(trades, playbookPlayNames),
+    [trades, playbookPlayNames],
+  );
 
   function go(id) {
     if (!id) return;
@@ -394,7 +537,16 @@ export default function TradeDetail() {
 
         <section className="card trade-detail-notes-panel">
           <h2 className="trade-detail-section-title">Notes</h2>
-          <TradeNotesEditor key={tid} tradeId={tid} />
+          <TradeNotesEditor
+            key={tid}
+            tradeId={tid}
+            trendlineCount={trendlines.length}
+            annotationNotes={annotationNotes}
+            onAnnotationNotesChange={(rows) => {
+              setAnnotationNotes(rows);
+              saveTradeAnnotationNotes(tid, rows);
+            }}
+          />
         </section>
       </div>
 
@@ -410,8 +562,136 @@ export default function TradeDetail() {
             >
               <span className="trade-detail-chart-symbol-name">{trade.symbol} - Charts</span>
             </div>
+            {chartToolbarMsg ? (
+              <p className="trade-detail-chart-toolbar-msg" role="status" aria-live="polite">
+                {chartToolbarMsg}
+              </p>
+            ) : null}
           </div>
           <div className="trade-detail-chart-tv-bar">
+            {trendlines.length > 0 ? (
+              <>
+                <button
+                  type="button"
+                  className="trade-detail-chart-risk-clear"
+                  onClick={undoLastTrendline}
+                  title="Remove the last numbered trendline"
+                  aria-label="Undo last trendline"
+                >
+                  Undo arrow
+                </button>
+                <button
+                  type="button"
+                  className="trade-detail-chart-risk-clear"
+                  onClick={clearTrendlines}
+                  title="Remove all numbered trendlines and per-arrow notes"
+                  aria-label="Clear all trendlines"
+                >
+                  Clear arrows
+                </button>
+              </>
+            ) : null}
+            <button
+              type="button"
+              className={`chart-tv-toolbar-btn chart-tv-toolbar-btn--icon-only${trendlineDrawMode ? " is-active" : ""}`}
+              onClick={() => {
+                setRiskLineMarkMode(false);
+                setTrendlineDrawMode((v) => !v);
+              }}
+              aria-pressed={trendlineDrawMode}
+              aria-label={trendlineDrawMode ? "Stop drawing numbered trendlines" : "Draw numbered trendlines"}
+              title={
+                trendlineDrawMode
+                  ? "Click twice on the chart: first point, then second (arrow points there). Esc to stop."
+                  : "Numbered trendlines: each new line is the next number. Link to per-arrow notes below."
+              }
+            >
+              <svg
+                className="chart-tv-toolbar-catalog-icon"
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                aria-hidden
+              >
+                <path d="M4 20L20 4" opacity="0.95" />
+                <path d="M14 4h6v6" opacity="0.95" />
+              </svg>
+            </button>
+            {riskLines.length > 0 ? (
+              <button
+                type="button"
+                className="trade-detail-chart-risk-clear"
+                onClick={clearRiskLines}
+                title="Remove all dashed risk lines for this trade"
+                aria-label="Clear risk lines"
+              >
+                Clear lines
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className={`chart-tv-toolbar-btn chart-tv-toolbar-btn--icon-only${riskLineMarkMode ? " is-active" : ""}`}
+              onClick={() => {
+                setTrendlineDrawMode(false);
+                setRiskLineMarkMode((v) => !v);
+              }}
+              aria-pressed={riskLineMarkMode}
+              aria-label={riskLineMarkMode ? "Stop placing risk lines" : "Place risk lines on chart"}
+              title={
+                riskLineMarkMode
+                  ? "Click the chart at a price to add a dashed risk line. Press Esc or click this button again to stop."
+                  : "Mark risk (e.g. stop level): turn on, then click the chart at each price. Lines are saved for this trade."
+              }
+            >
+              <svg
+                className="chart-tv-toolbar-catalog-icon"
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                aria-hidden
+              >
+                <path d="M4 12h16" opacity="0.95" />
+                <path d="M7 8v8M12 7v10M17 9v6" opacity="0.4" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className="chart-tv-toolbar-btn chart-tv-toolbar-btn--icon-only"
+              onClick={() => void copyChartScreenshotToClipboard()}
+              aria-label="Copy chart screenshot to clipboard"
+              title="Copy chart screenshot to clipboard"
+            >
+              <svg className="chart-tv-toolbar-catalog-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden>
+                <path
+                  fill="currentColor"
+                  d="M9 3h6l1.5 2H21a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4.5L9 3zm3 16a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0-2a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"
+                  opacity="0.92"
+                />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className="chart-tv-toolbar-btn chart-tv-toolbar-btn--icon-only"
+              onClick={() => setPlaybookSendOpen(true)}
+              aria-label="Save chart screenshot to playbook"
+              title="Save chart screenshot to a playbook play"
+            >
+              <svg className="chart-tv-toolbar-catalog-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden>
+                <path
+                  fill="currentColor"
+                  d="M6 2h12a2 2 0 0 1 2 2v16.5a1 1 0 0 1-1.55.83L12 18.09l-6.45 4.24A1 1 0 0 1 4 21.5V4a2 2 0 0 1 2-2zm2 2v15.09l4.45-2.92a1 1 0 0 1 1.1 0L16 19.09V4H8z"
+                  opacity="0.92"
+                />
+              </svg>
+            </button>
             <button
               type="button"
               className="chart-tv-toolbar-btn chart-tv-toolbar-btn--indicator-catalog chart-tv-toolbar-btn--icon-only"
@@ -450,7 +730,7 @@ export default function TradeDetail() {
             applyIndicatorPrefs(next);
           }}
         />
-        <div className="trade-detail-execution-wrap">
+        <div className="trade-detail-execution-wrap" ref={chartWrapRef}>
           <Suspense
             fallback={
               <div className="trade-execution-chart trade-execution-chart--state trade-detail-chart-suspense-fallback">
@@ -471,9 +751,22 @@ export default function TradeDetail() {
               onPatchMarkers={patchMarkers}
               onPatchRoundTripShading={patchRoundTripShading}
               onRemoveEmaLine={removeEmaLine}
+              riskLines={riskLines}
+              onAddRiskLineAtPrice={addRiskLineAtPrice}
+              riskLineMarkMode={riskLineMarkMode}
+              trendlines={trendlines}
+              onTrendlinesChange={onTrendlinesChange}
+              trendlineDrawMode={trendlineDrawMode}
             />
           </Suspense>
         </div>
+        <PlaybookChartSendModal
+          open={playbookSendOpen}
+          onClose={() => setPlaybookSendOpen(false)}
+          getCaptureEl={getChartCaptureEl}
+          tradeSummary={`${trade.symbol} · ${trade.date}`}
+          onSaved={() => setChartToolbarMsg("Chart saved to playbook.")}
+        />
       </section>
 
       {fills.length > 0 && (

@@ -14,6 +14,7 @@ import { fetchMassiveStockBars } from "./massiveBars";
  */
 const LOOKBACK_DAYS = {
   1: 60,
+  2: 120,
   3: 90,
   5: 120,
   15: 180,
@@ -21,11 +22,14 @@ const LOOKBACK_DAYS = {
   60: 400,
   120: 520,
   240: 730,
+  /** 1m bars with widest session history (same bar size as 1m). */
+  MAX: 550,
 };
 
 /** Hard cap on bars fetched (also limits pagination). */
 const MAX_BARS_CAP = {
   1: 25_000,
+  2: 25_000,
   3: 25_000,
   5: 25_000,
   15: 25_000,
@@ -33,6 +37,7 @@ const MAX_BARS_CAP = {
   60: 25_000,
   120: 30_000,
   240: 35_000,
+  MAX: 25_000,
   D: 5000,
   W: 780,
 };

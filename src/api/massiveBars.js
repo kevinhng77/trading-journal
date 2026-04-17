@@ -37,6 +37,8 @@ function parseMassiveJson(res, text) {
 /** @param {string} alpacaTimeframe - e.g. 1Min, 5Min */
 function massiveMultSpan(alpacaTimeframe) {
   switch (alpacaTimeframe) {
+    case "2Min":
+      return { mult: 2, span: "minute" };
     case "3Min":
       return { mult: 3, span: "minute" };
     case "5Min":

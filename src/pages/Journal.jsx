@@ -16,12 +16,20 @@ import {
   savePersistedReportFilters,
 } from "../storage/reportFiltersPersist";
 import { REPORT_FILTERS_DATES_EVENT } from "../lib/reportFilterEvents";
-import { collectAllTagsFromTrades, collectAllSetupsFromTrades, getTradeTags, getTradeSetups } from "../lib/tradeTags";
+import {
+  buildSetupFilterSuggestions,
+  collectAllTagsFromTrades,
+  getTradeTags,
+  getTradeSetups,
+} from "../lib/tradeTags";
+import { usePlaybookPlayNames } from "../hooks/usePlaybookPlayNames";
 import ReportsFilterStrip from "../components/ReportsFilterStrip";
 import { REPORTS_DURATION_OPTIONS } from "../lib/tradeDuration";
 import { aggregateDayExecutionMetrics } from "../lib/tradeExecutionMetrics";
 import DayPnLSparkline from "../components/DayPnLSparkline";
 import { prefetchTradeExecutionChart } from "../lib/tradeChartPrefetch";
+import { appendSpacedChunk } from "../lib/appendDictationChunk";
+import NotesVoiceInputButton from "../components/NotesVoiceInputButton";
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 const JOURNAL_NOTES_KEY = "tradingJournalDayNotes";
@@ -100,7 +108,11 @@ function Journal() {
   }, []);
 
   const allTags = useMemo(() => collectAllTagsFromTrades(trades), [trades]);
-  const allSetups = useMemo(() => collectAllSetupsFromTrades(trades), [trades]);
+  const playbookPlayNames = usePlaybookPlayNames();
+  const allSetups = useMemo(
+    () => buildSetupFilterSuggestions(trades, playbookPlayNames),
+    [trades, playbookPlayNames],
+  );
 
   const filteredTrades = useMemo(
     () => filterTradesForReport(trades, appliedFilters),
@@ -140,6 +152,16 @@ function Journal() {
   function setNoteForDay(date, text) {
     setNotesByDate((prev) => {
       const next = { ...prev, [date]: text };
+      saveJournalNotesMap(next);
+      return next;
+    });
+  }
+
+  function appendJournalVoice(date, chunk) {
+    setNotesByDate((prev) => {
+      const cur = prev[date] ?? "";
+      const merged = appendSpacedChunk(cur, chunk);
+      const next = { ...prev, [date]: merged };
       saveJournalNotesMap(next);
       return next;
     });
@@ -322,6 +344,9 @@ function Journal() {
                       onChange={(e) => setNoteForDay(day.date, e.target.value)}
                       rows={4}
                     />
+                    <div className="journal-notes-actions">
+                      <NotesVoiceInputButton onAppend={(c) => appendJournalVoice(day.date, c)} />
+                    </div>
                   </div>
 
                   <div className="card table-card inner-table">
@@ -331,7 +356,6 @@ function Journal() {
                       <div>Volume</div>
                       <div>Execs</div>
                       <div>P&amp;L</div>
-                      <div>Shared</div>
                       <div>Notes</div>
                       <div>Tags</div>
                       <div>Setup</div>
@@ -364,8 +388,7 @@ function Journal() {
                               <div>{trade.volume}</div>
                               <div>{trade.executions}</div>
                               <div className={pnlClass(trade.pnl)}>{formatMoney(trade.pnl)}</div>
-                              <div className="trades-cell-muted">—</div>
-                              <div className="trades-cell-muted">—</div>
+                              <div className="trades-cell-muted trades-notes-cell">—</div>
                               <div className={tags.length ? "journal-tags-cell" : "trades-cell-muted"} title={tagsLabel}>
                                 {tagsLabel}
                               </div>

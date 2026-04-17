@@ -17,7 +17,13 @@ import {
   loadPersistedReportFilters,
   savePersistedReportFilters,
 } from "../storage/reportFiltersPersist";
-import { collectAllTagsFromTrades, collectAllSetupsFromTrades, getTradeTags, getTradeSetups } from "../lib/tradeTags";
+import {
+  buildSetupFilterSuggestions,
+  collectAllTagsFromTrades,
+  getTradeTags,
+  getTradeSetups,
+} from "../lib/tradeTags";
+import { usePlaybookPlayNames } from "../hooks/usePlaybookPlayNames";
 import { mergeTradesByStableIds, splitTradeIntoRoundTripsByStableId } from "../lib/tradeMerge";
 import ReportsFilterStrip from "../components/ReportsFilterStrip";
 import { REPORT_DURATION_OPTIONS } from "../lib/tradeDuration";
@@ -26,7 +32,7 @@ import { prefetchTradeExecutionChart } from "../lib/tradeChartPrefetch";
 
 const TRADES_PAGE_SIZE = 20;
 
-/** @typedef {"date"|"symbol"|"volume"|"executions"|"pnl"|"shared"|"notes"|"tags"|"setups"} TradeSortKey */
+/** @typedef {"date"|"symbol"|"volume"|"executions"|"pnl"|"notes"|"tags"|"setups"} TradeSortKey */
 /** @typedef {{ key: TradeSortKey, dir: "asc"|"desc" }} TradeSort */
 
 /**
@@ -78,7 +84,6 @@ function compareTradesForSort(a, b, key, dir) {
       cmp = sa.localeCompare(sb);
       break;
     }
-    case "shared":
     case "notes":
       cmp = 0;
       break;
@@ -153,7 +158,11 @@ function Trades() {
   }, []);
 
   const allTags = useMemo(() => collectAllTagsFromTrades(trades), [trades]);
-  const allSetups = useMemo(() => collectAllSetupsFromTrades(trades), [trades]);
+  const playbookPlayNames = usePlaybookPlayNames();
+  const allSetups = useMemo(
+    () => buildSetupFilterSuggestions(trades, playbookPlayNames),
+    [trades, playbookPlayNames],
+  );
 
   const filteredTrades = useMemo(() => {
     const rows = filterTradesForReport(trades, appliedFilters);
@@ -343,7 +352,6 @@ function Trades() {
             onSort={setSortByKey}
             title="Sort by net P&amp;L (import; fees when provided)"
           />
-          <TradesSortHeader label="Shared" sortKey="shared" sort={sort} onSort={setSortByKey} title="Sort (no data yet)" />
           <TradesSortHeader label="Notes" sortKey="notes" sort={sort} onSort={setSortByKey} title="Sort (no data yet)" />
           <TradesSortHeader label="Tags" sortKey="tags" sort={sort} onSort={setSortByKey} title="Sort by tags" />
           <TradesSortHeader label="Setup" sortKey="setups" sort={sort} onSort={setSortByKey} title="Sort by setups" />
@@ -382,8 +390,7 @@ function Trades() {
                   <div>{trade.volume}</div>
                   <div>{trade.executions}</div>
                   <div className={pnlClass(displayPnl)}>{formatMoney(displayPnl)}</div>
-                  <div className="trades-cell-muted">—</div>
-                  <div className="trades-cell-muted">—</div>
+                  <div className="trades-cell-muted trades-notes-cell">—</div>
                   <div className={tags.length ? "trades-tags-cell" : "trades-cell-muted"} title={tagsLabel}>
                     {tagsLabel}
                   </div>

@@ -1,11 +1,14 @@
 import { useCallback, useMemo, useRef, useState } from "react";
+import NotesVoiceInputButton from "../components/NotesVoiceInputButton";
+import { appendSpacedChunk } from "../lib/appendDictationChunk";
 import {
   createEmptyPlay,
   loadPlaybook,
+  PLAYBOOK_MAX_SCREENSHOTS_PER_PLAY,
   savePlaybook,
 } from "../storage/playbookStorage";
 
-const MAX_SCREENSHOTS = 14;
+const MAX_SCREENSHOTS = PLAYBOOK_MAX_SCREENSHOTS_PER_PLAY;
 const MAX_IMAGE_WIDTH = 1400;
 const JPEG_QUALITY = 0.82;
 
@@ -62,12 +65,42 @@ function rulesPreviewLines(text) {
     .filter(Boolean);
 }
 
+/** @param {DataTransfer | null} dt */
+function imageFilesFromDataTransfer(dt) {
+  if (!dt?.files?.length) return [];
+  return [...dt.files].filter((f) => f.type.startsWith("image/"));
+}
+
+/** @param {ClipboardData | null} cd */
+function imageFilesFromClipboard(cd) {
+  if (!cd) return [];
+  const out = [];
+  if (cd.files?.length) {
+    for (let i = 0; i < cd.files.length; i++) {
+      const f = cd.files[i];
+      if (f.type.startsWith("image/")) out.push(f);
+    }
+  }
+  if (!out.length && cd.items) {
+    for (let i = 0; i < cd.items.length; i++) {
+      const item = cd.items[i];
+      if (item.kind === "file" && item.type.startsWith("image/")) {
+        const f = item.getAsFile();
+        if (f) out.push(f);
+      }
+    }
+  }
+  return out;
+}
+
 export default function Playbook() {
   const [plays, setPlays] = useState(loadPlaybook);
   const [selectedId, setSelectedId] = useState(() => loadPlaybook()[0]?.id ?? null);
   const [saveError, setSaveError] = useState(null);
   const [imageError, setImageError] = useState(null);
+  const [shotDropActive, setShotDropActive] = useState(false);
   const fileInputRef = useRef(null);
+  const shotDragDepthRef = useRef(0);
 
   const applyPlays = useCallback((next) => {
     const r = savePlaybook(next);
@@ -78,6 +111,25 @@ export default function Playbook() {
     setSaveError(null);
     setPlays(next);
     return true;
+  }, []);
+
+  const appendPlayVoiceField = useCallback((playId, field, chunk) => {
+    const t = String(chunk ?? "").trim();
+    if (!t) return;
+    setPlays((currentPlays) => {
+      const next = currentPlays.map((p) => {
+        if (p.id !== playId) return p;
+        const merged = appendSpacedChunk(String(p[field] ?? ""), t);
+        return { ...p, [field]: merged };
+      });
+      const r = savePlaybook(next);
+      if (!r.ok) {
+        setSaveError(r.message);
+        return currentPlays;
+      }
+      setSaveError(null);
+      return next;
+    });
   }, []);
 
   const resolvedSelectedId = useMemo(() => {
@@ -110,14 +162,14 @@ export default function Playbook() {
     applyPlays(next);
   }
 
-  async function onImagePick(e) {
-    const play = selectedPlay;
-    if (!play) return;
+  /** @param {import("../storage/playbookStorage").PlaybookPlay} play @param {File[]} files */
+  async function appendImagesFromFiles(play, files) {
     setImageError(null);
-    const input = e.target;
-    const files = input.files ? [...input.files] : [];
-    input.value = "";
-    if (!files.length) return;
+    const imageFiles = files.filter((f) => f.type.startsWith("image/"));
+    if (!imageFiles.length) {
+      if (files.length > 0) setImageError("Those files are not images. Use PNG, JPEG, GIF, or WebP.");
+      return;
+    }
 
     const room = MAX_SCREENSHOTS - play.screenshots.length;
     if (room <= 0) {
@@ -125,10 +177,9 @@ export default function Playbook() {
       return;
     }
 
-    const slice = files.slice(0, room);
+    const slice = imageFiles.slice(0, room);
     const additions = [];
     for (const file of slice) {
-      if (!file.type.startsWith("image/")) continue;
       try {
         const dataUrl = await compressImageFile(file);
         additions.push({
@@ -149,6 +200,57 @@ export default function Playbook() {
     if (!applyPlays(next) && additions.length) {
       setImageError("Save failed (storage may be full). Remove images and try again.");
     }
+  }
+
+  async function onImagePick(e) {
+    if (!selectedPlay) return;
+    const input = e.target;
+    const files = input.files ? [...input.files] : [];
+    input.value = "";
+    await appendImagesFromFiles(selectedPlay, files);
+  }
+
+  /** @param {import("react").ClipboardEvent<HTMLTextAreaElement>} e */
+  async function onScreenshotPaste(e) {
+    if (!selectedPlay) return;
+    const files = imageFilesFromClipboard(e.clipboardData);
+    if (!files.length) return;
+    e.preventDefault();
+    await appendImagesFromFiles(selectedPlay, files);
+  }
+
+  /** @param {import("react").DragEvent<HTMLTextAreaElement>} e */
+  function onScreenshotDragEnter(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    shotDragDepthRef.current += 1;
+    setShotDropActive(true);
+  }
+
+  /** @param {import("react").DragEvent<HTMLTextAreaElement>} e */
+  function onScreenshotDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+  }
+
+  /** @param {import("react").DragEvent<HTMLTextAreaElement>} e */
+  function onScreenshotDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    shotDragDepthRef.current = Math.max(0, shotDragDepthRef.current - 1);
+    if (shotDragDepthRef.current === 0) setShotDropActive(false);
+  }
+
+  /** @param {import("react").DragEvent<HTMLTextAreaElement>} e */
+  async function onScreenshotDrop(e) {
+    if (!selectedPlay) return;
+    e.preventDefault();
+    e.stopPropagation();
+    shotDragDepthRef.current = 0;
+    setShotDropActive(false);
+    const files = imageFilesFromDataTransfer(e.dataTransfer);
+    await appendImagesFromFiles(selectedPlay, files);
   }
 
   function removeScreenshot(playId, shotId) {
@@ -238,7 +340,10 @@ export default function Playbook() {
 
               <div className="playbook-field-grid">
                 <label className="playbook-field playbook-field--full">
-                  <span className="playbook-field-label">Rules (one per line)</span>
+                  <span className="playbook-field-label-row">
+                    <span className="playbook-field-label">Rules (one per line)</span>
+                    <NotesVoiceInputButton onAppend={(c) => appendPlayVoiceField(selectedPlay.id, "rules", c)} />
+                  </span>
                   <textarea
                     className="playbook-textarea"
                     rows={5}
@@ -259,7 +364,10 @@ export default function Playbook() {
                 )}
 
                 <label className="playbook-field">
-                  <span className="playbook-field-label">Criteria</span>
+                  <span className="playbook-field-label-row">
+                    <span className="playbook-field-label">Criteria</span>
+                    <NotesVoiceInputButton onAppend={(c) => appendPlayVoiceField(selectedPlay.id, "criteria", c)} />
+                  </span>
                   <textarea
                     className="playbook-textarea"
                     rows={4}
@@ -270,7 +378,10 @@ export default function Playbook() {
                 </label>
 
                 <label className="playbook-field">
-                  <span className="playbook-field-label">R (plan)</span>
+                  <span className="playbook-field-label-row">
+                    <span className="playbook-field-label">R (plan)</span>
+                    <NotesVoiceInputButton onAppend={(c) => appendPlayVoiceField(selectedPlay.id, "rPlan", c)} />
+                  </span>
                   <textarea
                     className="playbook-textarea playbook-textarea--short"
                     rows={3}
@@ -281,7 +392,10 @@ export default function Playbook() {
                 </label>
 
                 <label className="playbook-field playbook-field--full">
-                  <span className="playbook-field-label">Entry</span>
+                  <span className="playbook-field-label-row">
+                    <span className="playbook-field-label">Entry</span>
+                    <NotesVoiceInputButton onAppend={(c) => appendPlayVoiceField(selectedPlay.id, "entry", c)} />
+                  </span>
                   <textarea
                     className="playbook-textarea"
                     rows={4}
@@ -292,7 +406,10 @@ export default function Playbook() {
                 </label>
 
                 <label className="playbook-field playbook-field--full">
-                  <span className="playbook-field-label">Exit</span>
+                  <span className="playbook-field-label-row">
+                    <span className="playbook-field-label">Exit</span>
+                    <NotesVoiceInputButton onAppend={(c) => appendPlayVoiceField(selectedPlay.id, "exit", c)} />
+                  </span>
                   <textarea
                     className="playbook-textarea"
                     rows={4}
@@ -324,12 +441,29 @@ export default function Playbook() {
                   />
                 </div>
                 <p className="playbook-shots-hint">
-                  Up to {MAX_SCREENSHOTS} images per play. Large uploads are resized to save browser storage.
+                  Up to {MAX_SCREENSHOTS} images per play. Drop files or paste (Ctrl+V) into the box below, or use Add
+                  images. Large files are resized to save browser storage.
                 </p>
                 {imageError && <p className="playbook-image-error">{imageError}</p>}
-                {selectedPlay.screenshots.length === 0 ? (
-                  <p className="playbook-shots-empty">No screenshots yet.</p>
-                ) : (
+                <textarea
+                  readOnly
+                  tabIndex={0}
+                  className={`playbook-shot-dropzone ${shotDropActive ? "playbook-shot-dropzone--active" : ""}`}
+                  value=""
+                  placeholder={
+                    selectedPlay.screenshots.length >= MAX_SCREENSHOTS
+                      ? "Screenshot limit reached — remove one to add more."
+                      : "Drop image files here, or focus this box and press Ctrl+V to paste a screenshot from the clipboard…"
+                  }
+                  aria-label="Screenshot drop and paste area"
+                  disabled={selectedPlay.screenshots.length >= MAX_SCREENSHOTS}
+                  onPaste={onScreenshotPaste}
+                  onDragEnter={onScreenshotDragEnter}
+                  onDragOver={onScreenshotDragOver}
+                  onDragLeave={onScreenshotDragLeave}
+                  onDrop={onScreenshotDrop}
+                />
+                {selectedPlay.screenshots.length > 0 ? (
                   <div className="playbook-shot-grid">
                     {selectedPlay.screenshots.map((shot) => (
                       <figure key={shot.id} className="playbook-shot">
@@ -348,6 +482,8 @@ export default function Playbook() {
                       </figure>
                     ))}
                   </div>
+                ) : (
+                  <p className="playbook-shots-empty">Thumbnails appear here after you add images.</p>
                 )}
               </div>
             </div>

@@ -1,4 +1,11 @@
-const STORAGE_KEY = "tradingJournalPlaybook";
+export const PLAYBOOK_STORAGE_KEY = "tradingJournalPlaybook";
+
+export const PLAYBOOK_CHANGED_EVENT = "tradingJournalPlaybookChanged";
+
+/** Max screenshots stored on a single play (chart sends + manual uploads share this cap). */
+export const PLAYBOOK_MAX_SCREENSHOTS_PER_PLAY = 14;
+
+const STORAGE_KEY = PLAYBOOK_STORAGE_KEY;
 
 /** @typedef {{ id: string, dataUrl: string }} PlaybookScreenshot */
 
@@ -85,10 +92,38 @@ export function loadPlaybook() {
  * @param {PlaybookPlay[]} plays
  * @returns {{ ok: true } | { ok: false, message: string }}
  */
+/**
+ * Append one screenshot (data URL) to a play by id. Respects {@link PLAYBOOK_MAX_SCREENSHOTS_PER_PLAY}.
+ * @param {string} playId
+ * @param {string} dataUrl
+ * @returns {{ ok: true } | { ok: false, message: string }}
+ */
+export function appendScreenshotToPlay(playId, dataUrl) {
+  if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) {
+    return { ok: false, message: "Invalid image data." };
+  }
+  const plays = loadPlaybook();
+  const play = plays.find((p) => p.id === playId);
+  if (!play) return { ok: false, message: "That playbook play was not found." };
+  if (play.screenshots.length >= PLAYBOOK_MAX_SCREENSHOTS_PER_PLAY) {
+    return {
+      ok: false,
+      message: `That play already has the maximum of ${PLAYBOOK_MAX_SCREENSHOTS_PER_PLAY} screenshots. Remove one on the Playbook page first.`,
+    };
+  }
+  const shotId =
+    typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `shot-${Date.now()}`;
+  const nextPlays = plays.map((p) =>
+    p.id === playId ? { ...p, screenshots: [...p.screenshots, { id: shotId, dataUrl }] } : p,
+  );
+  return savePlaybook(nextPlays);
+}
+
 export function savePlaybook(plays) {
   try {
     const payload = JSON.stringify(plays);
     localStorage.setItem(STORAGE_KEY, payload);
+    window.dispatchEvent(new CustomEvent(PLAYBOOK_CHANGED_EVENT));
     return { ok: true };
   } catch (e) {
     const name = e && typeof e === "object" && "name" in e ? String(/** @type {Error} */ (e).name) : "";

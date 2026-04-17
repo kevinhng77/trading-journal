@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useSearchParams } from "react-router-dom";
 import { useLiveTrades } from "../../hooks/useLiveTrades";
-import { collectAllTagsFromTrades, collectAllSetupsFromTrades } from "../../lib/tradeTags";
+import { buildSetupFilterSuggestions, collectAllTagsFromTrades } from "../../lib/tradeTags";
+import { usePlaybookPlayNames } from "../../hooks/usePlaybookPlayNames";
 import { DEFAULT_REPORT_FILTERS } from "../../lib/reportFilters";
 import { REPORT_FILTERS_DATES_EVENT } from "../../lib/reportFilterEvents";
 import ReportsFilterStrip from "../../components/ReportsFilterStrip";
@@ -15,7 +16,11 @@ import {
 export default function ReportsLayout() {
   const trades = useLiveTrades();
   const allTags = useMemo(() => collectAllTagsFromTrades(trades), [trades]);
-  const allSetups = useMemo(() => collectAllSetupsFromTrades(trades), [trades]);
+  const playbookPlayNames = usePlaybookPlayNames();
+  const allSetups = useMemo(
+    () => buildSetupFilterSuggestions(trades, playbookPlayNames),
+    [trades, playbookPlayNames],
+  );
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [filterDraft, setFilterDraft] = useState(() => loadPersistedReportFilters());
@@ -85,16 +90,16 @@ export default function ReportsLayout() {
           Overview
         </NavLink>
         <NavLink
-          to="/reports/table"
-          className={({ isActive }) => `reports-primary-tab ${isActive ? "active" : ""}`}
-        >
-          Table
-        </NavLink>
-        <NavLink
           to="/reports/detailed"
           className={({ isActive }) => `reports-primary-tab ${isActive ? "active" : ""}`}
         >
           Detailed
+        </NavLink>
+        <NavLink
+          to="/reports/table"
+          className={({ isActive }) => `reports-primary-tab ${isActive ? "active" : ""}`}
+        >
+          Table
         </NavLink>
         <NavLink
           to="/reports/win-loss-days"

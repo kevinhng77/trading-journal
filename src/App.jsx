@@ -26,8 +26,8 @@ function App() {
         <Route path="/reports" element={<ReportsLayout />}>
           <Route index element={<ReportsOverview />} />
           <Route path="detailed" element={<ReportsDetailed />} />
-          <Route path="calendar" element={<ReportsCalendar />} />
           <Route path="table" element={<ReportsTable />} />
+          <Route path="calendar" element={<ReportsCalendar />} />
           <Route path="win-loss-days" element={<ReportsWinLossDays />} />
           <Route path="drawdown" element={<ReportsDrawdown />} />
           <Route path="compare" element={<ReportsCompare />} />
