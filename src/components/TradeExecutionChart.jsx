@@ -408,7 +408,8 @@ export default function TradeExecutionChart({
         mode: CrosshairMode.Normal,
         // Built-in time-axis label can disagree with cursor X when hovering the volume strip (separate price scale).
         vertLine: { labelVisible: false, color: TOS_CHART.crosshair },
-        horzLine: { color: TOS_CHART.crosshair },
+        // Hide full-width horizontal crosshair line (reads like a second "current price" line).
+        horzLine: { visible: false, labelVisible: false, color: TOS_CHART.crosshair },
       },
       rightPriceScale: { borderColor: TOS_CHART.border },
       timeScale: {
@@ -428,6 +429,7 @@ export default function TradeExecutionChart({
       const volumeSeries = chart.addSeries(HistogramSeries, {
         priceFormat: { type: "volume" },
         priceScaleId: "volume",
+        lastValueVisible: false,
         priceLineVisible: false,
       });
       volumeSeries.setData(volBars);
@@ -450,6 +452,9 @@ export default function TradeExecutionChart({
       borderVisible: true,
       wickUpColor: TOS_CHART.wickUp,
       wickDownColor: TOS_CHART.wickDown,
+      lastValueVisible: false,
+      priceLineVisible: false,
+      crosshairMarkerVisible: false,
       priceScaleId: "right",
     });
     series.setData(lwBars);
