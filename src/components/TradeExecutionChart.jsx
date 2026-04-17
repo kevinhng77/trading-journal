@@ -170,6 +170,97 @@ function clampPriceToBarRange(fillPrice, bar) {
   return Math.min(bar.high, Math.max(bar.low, fillPrice));
 }
 
+/**
+ * 0..1 strength for sizing/color (log spread). `null` → caller uses prefs baseline / neutral tint.
+ * @param {number | undefined} qty
+ * @param {number} qMin
+ * @param {number} qMax
+ * @returns {number | null}
+ */
+function executionQuantityStrengthOrNull(qty, qMin, qMax) {
+  if (!Number.isFinite(qMin) || !Number.isFinite(qMax) || qMax <= 0) return null;
+  const q = Math.abs(Number(qty));
+  if (!Number.isFinite(q) || q <= 0) return null;
+  if (!(qMax > qMin)) return 0.5;
+  const lo = Math.log10(qMin + 1);
+  const hi = Math.log10(qMax + 1);
+  const t = (Math.log10(q + 1) - lo) / (hi - lo);
+  return Math.min(1, Math.max(0, t));
+}
+
+/**
+ * Map fill |quantity| to a triangle pixel size for this trade only (log spread so one huge lot
+ * does not blow past the cap). Missing quantity uses the prefs baseline.
+ * @param {number | undefined} qty
+ * @param {number} qMin
+ * @param {number} qMax
+ * @param {number} markerBaseSize
+ */
+function executionQuantityToMarkerPixelSize(qty, qMin, qMax, markerBaseSize) {
+  let b = Number(markerBaseSize);
+  if (!Number.isFinite(b) || b < 4) b = 12;
+  b = Math.min(22, Math.max(6, b));
+  const minS = Math.max(5, b * 0.68);
+  const maxS = Math.min(24, b * 1.42);
+  const u = executionQuantityStrengthOrNull(qty, qMin, qMax);
+  if (u === null) return b;
+  return minS + u * (maxS - minS);
+}
+
+/** @param {string} hex */
+function hexToRgb(hex) {
+  let h = String(hex ?? "").trim();
+  if (h.startsWith("#")) h = h.slice(1);
+  if (h.length === 3) {
+    h = h
+      .split("")
+      .map((c) => c + c)
+      .join("");
+  }
+  const n = parseInt(h, 16);
+  if (!Number.isFinite(n) || h.length !== 6) return { r: 80, g: 200, b: 120 };
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+function clampByte(n) {
+  return Math.min(255, Math.max(0, Math.round(n)));
+}
+
+/** @param {{ r: number, g: number, b: number }} c */
+function rgbToHex(c) {
+  return `#${clampByte(c.r).toString(16).padStart(2, "0")}${clampByte(c.g).toString(16).padStart(2, "0")}${clampByte(c.b).toString(16).padStart(2, "0")}`;
+}
+
+/** @param {{ r: number, g: number, b: number }} a @param {{ r: number, g: number, b: number }} b @param {number} t */
+function blendRgb(a, b, t) {
+  return {
+    r: a.r + (b.r - a.r) * t,
+    g: a.g + (b.g - a.g) * t,
+    b: a.b + (b.b - a.b) * t,
+  };
+}
+
+/** Dark pane-ish anchor so small fills read softer; large fills stay vivid and slightly deeper. */
+const MARKER_SIZE_BLEND_BG = { r: 20, g: 22, b: 30 };
+
+/**
+ * @param {string} baseHex marker pref color
+ * @param {number | undefined} qty
+ * @param {number} qMin
+ * @param {number} qMax
+ */
+function executionQuantityToMarkerFill(baseHex, qty, qMin, qMax) {
+  const base = hexToRgb(baseHex);
+  const u = executionQuantityStrengthOrNull(qty, qMin, qMax);
+  const uBlend = u === null ? 0.5 : u;
+  const washed = blendRgb(base, MARKER_SIZE_BLEND_BG, 0.58);
+  const rich = blendRgb(base, { r: 0, g: 0, b: 0 }, 0.18);
+  return rgbToHex(blendRgb(washed, rich, uBlend));
+}
+
+/**
+ * @param {{ buy: string, sell: string, size: number }} markerPrefs
+ */
 function collectExecutionMarkers(
   fills,
   tradeDate,
@@ -179,12 +270,14 @@ function collectExecutionMarkers(
   dailyMarkerTime,
   chartInterval,
   lwBarsByTime,
+  markerPrefs,
 ) {
   if (!fills?.length) return [];
 
   const periodSec = barPeriodSecondsForInterval(chartInterval);
   const barTimeSet = new Set(barTimesAsc);
 
+  /** @type {Array<{ time: import('lightweight-charts').Time, price: number, isBuy: boolean, quantity?: number }>} */
   const out = [];
   for (const f of fills) {
     const side = String(f.side || "").toUpperCase();
@@ -206,7 +299,11 @@ function collectExecutionMarkers(
     const bar = !daily && typeof time === "number" ? lwBarsByTime.get(time) : undefined;
     const displayPrice = clampPriceToBarRange(price, bar);
 
-    out.push({ time, price: displayPrice, isBuy });
+    const qAbs = Math.abs(Number(f.quantity));
+    /** @type {{ time: import('lightweight-charts').Time, price: number, isBuy: boolean, quantity?: number }} */
+    const row = { time, price: displayPrice, isBuy };
+    if (Number.isFinite(qAbs) && qAbs > 0) row.quantity = qAbs;
+    out.push(row);
   }
 
   out.sort((a, b) => {
@@ -215,7 +312,21 @@ function collectExecutionMarkers(
     return a.time - b.time;
   });
 
-  return out;
+  const qtyList = out.map((m) => m.quantity).filter((q) => typeof q === "number" && q > 0 && Number.isFinite(q));
+  const qMin = qtyList.length ? Math.min(...qtyList) : NaN;
+  const qMax = qtyList.length ? Math.max(...qtyList) : NaN;
+
+  const { buy: buyHex, sell: sellHex, size: markerBaseSize } = markerPrefs;
+
+  return out.map((m) => {
+    const { quantity, ...rest } = m;
+    const baseHex = m.isBuy ? buyHex : sellHex;
+    return {
+      ...rest,
+      size: executionQuantityToMarkerPixelSize(quantity, qMin, qMax, markerBaseSize),
+      fill: executionQuantityToMarkerFill(baseHex, quantity, qMin, qMax),
+    };
+  });
 }
 
 /** Sort and drop duplicate times (string or number) — required for lightweight-charts. */
@@ -641,6 +752,7 @@ export default function TradeExecutionChart({
       dailyMarkerTime,
       chartInterval,
       lwBarsByTime,
+      indicatorPrefs.markers,
     );
     /** @type {import('lightweight-charts').ISeriesPrimitive<import('lightweight-charts').Time> | null} */
     let markersPrimitive = null;

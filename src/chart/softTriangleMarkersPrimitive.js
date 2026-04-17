@@ -45,7 +45,7 @@ function drawSoftTriangle(ctx, cx, tipY, size, pointUp, fill, stroke) {
 
 /**
  * @param {import('lightweight-charts').ISeriesApi<'Candlestick'>} candleSeries
- * @param {Array<{ time: import('lightweight-charts').Time, price: number, isBuy: boolean }>} markers
+ * @param {Array<{ time: import('lightweight-charts').Time, price: number, isBuy: boolean, size?: number, fill?: string }>} markers
  * @param {{ buy: string, sell: string, size: number }} colors
  * @returns {import('lightweight-charts').ISeriesPrimitive<import('lightweight-charts').Time>}
  */
@@ -105,10 +105,13 @@ export function createSoftTriangleMarkersSeriesPrimitive(candleSeries, markers, 
                     const x = ts.timeToCoordinate(m.time);
                     const y = s.priceToCoordinate(m.price);
                     if (x == null || y == null) continue;
-                    const fill = m.isBuy ? buyC : sellC;
+                    const fill =
+                      typeof m.fill === "string" && m.fill.length ? m.fill : m.isBuy ? buyC : sellC;
                     /* One neutral rim so custom marker colors from prefs still look balanced (avoids hue-clash strokes) */
                     const stroke = "rgba(10, 12, 18, 0.48)";
-                    drawSoftTriangle(ctx, x, y, size, m.isBuy, fill, stroke);
+                    const triSize =
+                      typeof m.size === "number" && Number.isFinite(m.size) && m.size > 2 ? m.size : size;
+                    drawSoftTriangle(ctx, x, y, triSize, m.isBuy, fill, stroke);
                   }
                 });
               },
