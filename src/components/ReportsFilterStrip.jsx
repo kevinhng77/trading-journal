@@ -1,9 +1,9 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { NavLink } from "react-router-dom";
 import { REPORT_DURATION_OPTIONS } from "../lib/tradeDuration";
 import { removeTagFromAllTrades } from "../lib/tradeTags";
 import DateRangePicker from "./DateRangePicker";
 import ReportsFilterCombobox from "./ReportsFilterCombobox";
+import ReportsAdvancedFiltersPopover from "./ReportsAdvancedFiltersPopover";
 
 function IconTrash() {
   return (
@@ -114,6 +114,8 @@ export default function ReportsFilterStrip({
   const dateFieldLabelId = useId();
   const reportsDateFieldRef = useRef(null);
   const reportsStripActionsRef = useRef(null);
+  const [advFilterOpen, setAdvFilterOpen] = useState(false);
+  const advFilterBtnRef = useRef(null);
 
   useEffect(() => {
     if (!tagsPopOpen) return;
@@ -592,14 +594,26 @@ export default function ReportsFilterStrip({
               <span className="reports-filter-field-label reports-filter-field-label--phantom" aria-hidden>
                 &nbsp;
               </span>
-              <NavLink
-                to="/reports/advanced"
-                className={({ isActive }) => `reports-filter-advanced-btn${isActive ? " is-active" : ""}`}
-                title="Advanced scatter and axis reports"
+              <button
+                type="button"
+                ref={advFilterBtnRef}
+                className={`reports-filter-advanced-btn${advFilterOpen ? " is-open" : ""}`}
+                aria-expanded={advFilterOpen}
+                aria-haspopup="dialog"
+                title="Extra filters: day, time, P&L, size, and more"
+                onClick={() => setAdvFilterOpen((o) => !o)}
               >
                 <IconFunnel />
                 <span>Advanced</span>
-              </NavLink>
+              </button>
+              <ReportsAdvancedFiltersPopover
+                open={advFilterOpen}
+                onClose={() => setAdvFilterOpen(false)}
+                draft={draft}
+                patch={patch}
+                triggerRef={advFilterBtnRef}
+                clampRightBeforeRef={reportsStripActionsRef}
+              />
             </div>
           ) : null}
 

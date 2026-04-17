@@ -60,14 +60,6 @@ function Sidebar() {
         </NavLink>
 
         <NavLink
-          to="/settings"
-          className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-          isActive={({ pathname }) => pathname === "/settings" || pathname.startsWith("/settings/")}
-        >
-          Settings
-        </NavLink>
-
-        <NavLink
           to="/star"
           className={({ isActive }) => `nav-link nav-link--star ${isActive ? "active" : ""}`}
           title="Starred days and trades for review"

@@ -48,6 +48,23 @@ function filterSummary(f) {
   if (String(f.dateFrom ?? "").trim() || String(f.dateTo ?? "").trim()) {
     parts.push(`Dates ${f.dateFrom || "…"} → ${f.dateTo || "…"}`);
   }
+  const advOn =
+    String(f.advDayOfWeek ?? "all") !== "all" ||
+    String(f.advMonth ?? "all") !== "all" ||
+    String(f.advTimeFrom ?? "").trim() ||
+    String(f.advTimeTo ?? "").trim() ||
+    String(f.advHoldMin ?? "").trim() ||
+    String(f.advHoldMax ?? "").trim() ||
+    String(f.advNetPnlMin ?? "").trim() ||
+    String(f.advNetPnlMax ?? "").trim() ||
+    String(f.advGrossPnlMin ?? "").trim() ||
+    String(f.advGrossPnlMax ?? "").trim() ||
+    String(f.advVolumeMin ?? "").trim() ||
+    String(f.advVolumeMax ?? "").trim() ||
+    String(f.advExecutionsMin ?? "").trim() ||
+    String(f.advExecutionsMax ?? "").trim() ||
+    String(f.advTradeResult ?? "all") !== "all";
+  if (advOn) parts.push("Advanced filters");
   return parts.join(" · ");
 }
 
