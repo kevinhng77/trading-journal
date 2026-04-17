@@ -3,7 +3,6 @@ import { REPORT_DURATION_OPTIONS } from "../lib/tradeDuration";
 import { removeTagFromAllTrades } from "../lib/tradeTags";
 import DateRangePicker from "./DateRangePicker";
 import ReportsFilterCombobox from "./ReportsFilterCombobox";
-import ReportsAdvancedFiltersPopover from "./ReportsAdvancedFiltersPopover";
 
 function IconTrash() {
   return (
@@ -42,25 +41,6 @@ function IconCheck() {
       aria-hidden
     >
       <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
-}
-
-function IconFunnel() {
-  return (
-    <svg
-      className="reports-filter-advanced-icon"
-      viewBox="0 0 24 24"
-      width="18"
-      height="18"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.65"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M4 4h16l-6 9v7l-4-2v-5L4 4z" />
     </svg>
   );
 }
@@ -112,8 +92,6 @@ export default function ReportsFilterStrip({
   const dateFieldLabelId = useId();
   const reportsDateFieldRef = useRef(null);
   const reportsStripActionsRef = useRef(null);
-  const [advFilterOpen, setAdvFilterOpen] = useState(false);
-  const advFilterBtnRef = useRef(null);
 
   useEffect(() => {
     if (!tagsPopOpen) return;
@@ -564,70 +542,43 @@ export default function ReportsFilterStrip({
         </div>
 
         <div className="reports-filter-fields-spacer" aria-hidden="true" />
+      </div>
 
-        <div className="reports-filter-strip-date-actions">
-          <div className="reports-filter-fields-right">
-            <div
-              ref={reportsDateFieldRef}
-              className="reports-filter-field reports-filter-field--stacked reports-filter-field--date"
-            >
-              <span className="reports-filter-field-label" id={dateFieldLabelId}>
-                Date
-              </span>
-              <DateRangePicker
-                className="reports-filter-drp"
-                aria-labelledby={dateFieldLabelId}
-                alignPopoverEnd
-                positionAnchorRef={reportsDateFieldRef}
-                clampRightBeforeRef={reportsStripActionsRef}
-                dateFrom={draft.dateFrom}
-                dateTo={draft.dateTo}
-                onChange={(r) => patch(r)}
-              />
-            </div>
-          </div>
-
-          <div className="reports-filter-field reports-filter-field--stacked reports-filter-field--advanced-nav">
-            <span className="reports-filter-field-label reports-filter-field-label--phantom" aria-hidden>
-              &nbsp;
+      <div className="reports-filter-strip-date-actions">
+        <div className="reports-filter-fields-right">
+          <div
+            ref={reportsDateFieldRef}
+            className="reports-filter-field reports-filter-field--stacked reports-filter-field--date"
+          >
+            <span className="reports-filter-field-label" id={dateFieldLabelId}>
+              Date
             </span>
-            <button
-              type="button"
-              ref={advFilterBtnRef}
-              className={`reports-filter-advanced-btn${advFilterOpen ? " is-open" : ""}`}
-              aria-expanded={advFilterOpen}
-              aria-haspopup="dialog"
-              title="Extra filters: day, time, P&L, size, and more"
-              onClick={() => setAdvFilterOpen((o) => !o)}
-            >
-              <IconFunnel />
-              <span>Advanced</span>
-            </button>
-            <ReportsAdvancedFiltersPopover
-              open={advFilterOpen}
-              onClose={() => setAdvFilterOpen(false)}
-              onApply={stripActions !== "none" ? onApply : undefined}
-              draft={draft}
-              patch={patch}
-              triggerRef={advFilterBtnRef}
+            <DateRangePicker
+              className="reports-filter-drp"
+              aria-labelledby={dateFieldLabelId}
+              alignPopoverEnd
+              positionAnchorRef={reportsDateFieldRef}
               clampRightBeforeRef={reportsStripActionsRef}
+              dateFrom={draft.dateFrom}
+              dateTo={draft.dateTo}
+              onChange={(r) => patch(r)}
             />
           </div>
-
-          {stripActions !== "none" ? (
-            <div ref={reportsStripActionsRef} className="reports-filter-strip-actions">
-              <button type="button" className="reports-action-btn reports-action-btn--clear" onClick={onClear} title="Clear filters" aria-label="Clear filters">
-                <IconTrash />
-              </button>
-              <button type="submit" className="reports-action-btn reports-action-btn--apply" title="Apply filters" aria-label="Apply filters">
-                <IconCheck />
-              </button>
-              {trailingSlot}
-            </div>
-          ) : (
-            <div ref={reportsStripActionsRef} className="reports-filter-strip-actions reports-filter-strip-actions--placeholder" aria-hidden="true" />
-          )}
         </div>
+
+        {stripActions !== "none" ? (
+          <div ref={reportsStripActionsRef} className="reports-filter-strip-actions">
+            <button type="button" className="reports-action-btn reports-action-btn--clear" onClick={onClear} title="Clear filters" aria-label="Clear filters">
+              <IconTrash />
+            </button>
+            <button type="submit" className="reports-action-btn reports-action-btn--apply" title="Apply filters" aria-label="Apply filters">
+              <IconCheck />
+            </button>
+            {trailingSlot}
+          </div>
+        ) : (
+          <div ref={reportsStripActionsRef} className="reports-filter-strip-actions reports-filter-strip-actions--placeholder" aria-hidden="true" />
+        )}
       </div>
       </form>
     </div>

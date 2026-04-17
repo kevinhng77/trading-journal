@@ -1460,15 +1460,23 @@ body {
   z-index: 100;
   display: flex;
   flex-wrap: nowrap;
-  align-items: flex-end;
-  gap: 8px 10px;
+  align-items: stretch;
+  gap: 0;
+  width: 100%;
   margin-bottom: 14px;
   overflow: visible;
 }
 
-/* Keeps flex layout identical while allowing Enter in inputs to submit Apply */
+/* Real flex row (not display:contents on <form>) so Trades/Journal match Reports in all engines. */
 .reports-filter-strip-form {
-  display: contents;
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  gap: 8px 10px;
+  box-sizing: border-box;
 }
 
 .reports-filter-fields {
@@ -1519,6 +1527,40 @@ body {
   gap: 10px;
   flex: 0 0 auto;
   min-width: min-content;
+}
+
+/* One horizontal row on Reports / Trades / Journal for viewports above the phone layout below. */
+@media (min-width: 769px) {
+  .reports-page .reports-filter-strip,
+  .trades-page .reports-filter-strip,
+  .journal-page .reports-filter-strip {
+    flex-wrap: nowrap;
+  }
+
+  .reports-page .reports-filter-strip-form,
+  .trades-page .reports-filter-strip-form,
+  .journal-page .reports-filter-strip-form {
+    flex-wrap: nowrap;
+    flex-direction: row;
+    align-items: flex-end;
+  }
+
+  .reports-page .reports-filter-fields,
+  .trades-page .reports-filter-fields,
+  .journal-page .reports-filter-fields {
+    flex-wrap: nowrap;
+    flex-direction: row;
+    align-items: flex-end;
+  }
+
+  .reports-page .reports-filter-strip-date-actions,
+  .trades-page .reports-filter-strip-date-actions,
+  .journal-page .reports-filter-strip-date-actions {
+    flex: 0 0 auto;
+    width: auto;
+    max-width: none;
+    flex-wrap: nowrap;
+  }
 }
 
 .reports-filter-field--stacked {
@@ -1627,68 +1669,6 @@ body {
 
 .reports-filter-field--date .drp-trigger-calendar-svg {
   opacity: 0.92;
-}
-
-.reports-filter-field--advanced-nav {
-  flex: 0 0 auto;
-  flex-shrink: 0;
-}
-
-.reports-filter-field-label--phantom {
-  visibility: hidden;
-  user-select: none;
-}
-
-.reports-filter-advanced-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 40px;
-  padding: 8px 14px;
-  box-sizing: border-box;
-  border-radius: 11px;
-  border: 1px solid rgba(100, 116, 139, 0.38);
-  background: linear-gradient(180deg, rgba(40, 48, 66, 0.98) 0%, rgba(22, 28, 42, 0.99) 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055);
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 600;
-  font-family: inherit;
-  text-decoration: none;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
-}
-
-.reports-filter-advanced-btn:hover {
-  border-color: rgba(148, 163, 184, 0.48);
-  color: #f1f5f9;
-}
-
-.reports-filter-advanced-btn.is-active,
-.reports-filter-advanced-btn.is-open {
-  border-color: color-mix(in srgb, var(--accent-green) 38%, rgba(148, 163, 184, 0.45));
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--accent-green) 12%, rgba(40, 48, 66, 0.98)) 0%,
-    color-mix(in srgb, var(--accent-green) 8%, rgba(22, 28, 42, 0.99)) 100%
-  );
-}
-
-.reports-filter-advanced-btn:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--accent-green) 45%, transparent);
-  outline-offset: 2px;
-}
-
-.reports-filter-advanced-icon {
-  display: flex;
-  flex-shrink: 0;
-  color: var(--muted);
-}
-
-.reports-filter-advanced-btn:hover .reports-filter-advanced-icon {
-  color: #cbd5e1;
 }
 
 .reports-adv-pop {
@@ -3968,15 +3948,17 @@ button.metric-hint-icon:focus-visible {
   margin-bottom: 12px;
 }
 
-/* Symbol / Side / Duration: slightly brighter on Trades for contrast with the table; tags use default Reports strip styling */
-.trades-page .reports-filter-input {
+/* Symbol / Side / Duration: slightly brighter on Trades & Journal for contrast; tags use default Reports strip styling */
+.trades-page .reports-filter-input,
+.journal-page .reports-filter-input {
   background: rgba(32, 40, 58, 0.98);
   border-color: rgba(148, 163, 184, 0.32);
   color: #f1f5f9;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
-.trades-page .reports-filter-select {
+.trades-page .reports-filter-select,
+.journal-page .reports-filter-select {
   background-color: rgba(32, 40, 58, 0.98);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2394a3b8' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -3986,18 +3968,22 @@ button.metric-hint-icon:focus-visible {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
-.trades-page .reports-filter-input::placeholder {
+.trades-page .reports-filter-input::placeholder,
+.journal-page .reports-filter-input::placeholder {
   color: #94a3b8;
 }
 
 .trades-page .reports-filter-input:focus,
-.trades-page .reports-filter-select:focus {
+.trades-page .reports-filter-select:focus,
+.journal-page .reports-filter-input:focus,
+.journal-page .reports-filter-select:focus {
   border-color: color-mix(in srgb, var(--accent-green) 55%, transparent);
   outline: none;
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-green) 20%, transparent);
 }
 
-.trades-page .reports-filter-combobox-trigger {
+.trades-page .reports-filter-combobox-trigger,
+.journal-page .reports-filter-combobox-trigger {
   background-color: rgba(32, 40, 58, 0.98);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2394a3b8' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -4007,89 +3993,72 @@ button.metric-hint-icon:focus-visible {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
-.trades-page .reports-filter-combobox-trigger:hover {
+.trades-page .reports-filter-combobox-trigger:hover,
+.journal-page .reports-filter-combobox-trigger:hover {
   border-color: rgba(148, 163, 184, 0.45);
 }
 
-.trades-page .reports-filter-combobox-trigger:focus-visible {
+.trades-page .reports-filter-combobox-trigger:focus-visible,
+.journal-page .reports-filter-combobox-trigger:focus-visible {
   border-color: color-mix(in srgb, var(--accent-green) 55%, transparent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-green) 20%, transparent);
 }
 
-.trades-page .reports-filter-combobox-menu {
+.trades-page .reports-filter-combobox-menu,
+.journal-page .reports-filter-combobox-menu {
   background: rgba(28, 36, 52, 0.98);
   border-color: rgba(148, 163, 184, 0.3);
 }
 
-.trades-page .tv-date-range {
+.trades-page .tv-date-range,
+.journal-page .tv-date-range {
   background: rgba(32, 40, 58, 0.85);
   border-color: rgba(148, 163, 184, 0.28);
   box-shadow: none;
 }
 
-.trades-page .drp-trigger {
+.trades-page .drp-trigger,
+.journal-page .drp-trigger {
   background: rgba(32, 40, 58, 0.98);
   border-color: rgba(148, 163, 184, 0.32);
   color: #f1f5f9;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
-.trades-page .reports-action-btn:not(.reports-action-btn--apply) {
+.trades-page .reports-action-btn:not(.reports-action-btn--apply),
+.journal-page .reports-action-btn:not(.reports-action-btn--apply) {
   background: rgba(36, 44, 64, 0.95);
   border-color: rgba(148, 163, 184, 0.28);
   box-shadow: none;
   color: #e2e8f0;
 }
 
-.trades-page .reports-action-btn:not(.reports-action-btn--apply):hover:not(:disabled) {
+.trades-page .reports-action-btn:not(.reports-action-btn--apply):hover:not(:disabled),
+.journal-page .reports-action-btn:not(.reports-action-btn--apply):hover:not(:disabled) {
   background: rgba(44, 54, 78, 0.98);
   border-color: rgba(148, 163, 184, 0.4);
   color: #fff;
 }
 
-.trades-page .reports-filter-tags-pop {
+.trades-page .reports-filter-tags-pop,
+.journal-page .reports-filter-tags-pop {
   z-index: 120;
 }
 
-.trades-page .drp-pop-inner {
+.trades-page .drp-pop-inner,
+.journal-page .drp-pop-inner {
   background: rgba(28, 36, 52, 0.98);
   border-color: rgba(148, 163, 184, 0.3);
 }
 
-/* No layout box — avoids an extra flex wrapper squeezing the strip vs Reports (direct child of .reports-page). */
-.trades-filter-strip {
-  display: contents;
-}
-
-.trades-page > .reports-filter-strip {
+/* Strip is a direct child of .trades-page / .journal-page (same structure as Reports). */
+.trades-page .reports-filter-strip,
+.journal-page .reports-filter-strip {
   margin-bottom: 16px;
 }
 
-/* Trades: full-width bottom rail for Date + Advanced + actions (same control set as Reports). */
-.trades-page .reports-filter-fields {
-  flex-wrap: wrap;
-}
-
-.trades-page .reports-filter-fields-spacer {
-  display: none;
-}
-
-.trades-page .reports-filter-strip-date-actions {
-  flex: 1 1 100%;
-  width: 100%;
-  max-width: 100%;
-  justify-content: flex-end;
-  align-items: flex-end;
-  flex-wrap: nowrap;
-  gap: 10px;
-  min-width: min-content;
-}
-
-@media (max-width: 920px) {
-  .trades-page .reports-filter-strip-date-actions,
-  .journal-page .reports-filter-strip-date-actions {
-    flex-wrap: wrap;
-  }
+.journal-page > .reports-filter-strip {
+  margin-bottom: 20px;
 }
 
 .trades-filter-input {
@@ -4420,34 +4389,6 @@ button.metric-hint-icon:focus-visible {
 
 .journal-page .journal-page-header {
   margin-bottom: 12px;
-}
-
-.journal-filter-strip {
-  display: contents;
-}
-
-.journal-main > .reports-filter-strip {
-  margin-bottom: 20px;
-}
-
-/* Journal: same full-width date rail as Trades / Reports. */
-.journal-page .reports-filter-fields {
-  flex-wrap: wrap;
-}
-
-.journal-page .reports-filter-fields-spacer {
-  display: none;
-}
-
-.journal-page .reports-filter-strip-date-actions {
-  flex: 1 1 100%;
-  width: 100%;
-  max-width: 100%;
-  justify-content: flex-end;
-  align-items: flex-end;
-  flex-wrap: nowrap;
-  gap: 10px;
-  min-width: min-content;
 }
 
 .journal-tags-cell {
@@ -7992,28 +7933,15 @@ a.journal-row-trade-link:visited {
   box-sizing: border-box;
 }
 
-/* Main content scrolls horizontally when the strip is too wide; move the date rail to its own row on common laptop widths. */
-@media (max-width: 1320px) and (min-width: 921px) {
-  .reports-filter-fields {
-    flex-wrap: wrap;
-  }
-
-  .reports-filter-fields-spacer {
-    display: none;
-  }
-
-  .reports-filter-strip-date-actions {
-    flex: 1 1 100%;
-    width: 100%;
-    max-width: 100%;
-    justify-content: flex-end;
-    flex-wrap: wrap;
-    row-gap: 8px;
-  }
-}
-
-@media (max-width: 920px) {
+/* Phone-only stacked filter strip; keep tablets/laptops on one row with .main-content horizontal scroll if needed. */
+@media (max-width: 768px) {
   .reports-filter-strip {
+    flex-wrap: nowrap;
+    flex-direction: row;
+    align-items: stretch;
+  }
+
+  .reports-filter-strip-form {
     flex-wrap: wrap;
     flex-direction: column;
     align-items: stretch;
@@ -8244,6 +8172,10 @@ a.journal-row-trade-link:visited {
 /* Compare embeds a full filter strip per card: allow wrap so fields never bleed into the sibling column. */
 .reports-compare-group-panel .reports-filter-strip {
   margin: 0;
+  align-items: flex-start;
+}
+
+.reports-compare-group-panel .reports-filter-strip-form {
   flex-wrap: wrap;
   align-items: flex-start;
 }

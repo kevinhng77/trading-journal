@@ -188,32 +188,30 @@ function Journal() {
 
   return (
     <div className="page-wrap journal-page">
+      <div className="page-header journal-page-header">
+        <h1>Journal</h1>
+        {focusDate && (
+          <p className="journal-focus-hint">
+            Showing <strong>{formatDisplayDate(focusDate)}</strong> only —{" "}
+            <Link className="journal-focus-clear" to="/journal">
+              view all days
+            </Link>
+          </p>
+        )}
+      </div>
+
+      <ReportsFilterStrip
+        draft={filterDraft}
+        setDraft={setFilterDraft}
+        onApply={applyFilters}
+        onClear={clearFilters}
+        allTags={allTags}
+        allSetups={allSetups}
+        durationOptions={REPORTS_DURATION_OPTIONS}
+        symbolPlaceholder="Symbol"
+      />
+
       <div className="journal-main">
-        <div className="page-header journal-page-header">
-          <h1>Journal</h1>
-          {focusDate && (
-            <p className="journal-focus-hint">
-              Showing <strong>{formatDisplayDate(focusDate)}</strong> only —{" "}
-              <Link className="journal-focus-clear" to="/journal">
-                view all days
-              </Link>
-            </p>
-          )}
-        </div>
-
-        <div className="trades-filter-strip journal-filter-strip">
-          <ReportsFilterStrip
-            draft={filterDraft}
-            setDraft={setFilterDraft}
-            onApply={applyFilters}
-            onClear={clearFilters}
-            allTags={allTags}
-            allSetups={allSetups}
-            durationOptions={REPORTS_DURATION_OPTIONS}
-            symbolPlaceholder="Symbol"
-          />
-        </div>
-
         <div className="journal-stack">
             {trades.length === 0 ? (
               <div className="card journal-day-card journal-empty-state">

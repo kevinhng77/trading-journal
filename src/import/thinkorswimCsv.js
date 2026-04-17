@@ -135,6 +135,58 @@ function isAccountTradeHistoryTableHeader(line) {
   return t.includes("Exec Time") && t.includes("Symbol") && (t.includes("Net Price") || t.includes("Price"));
 }
 
+function isProfitsAndLossesTableHeader(line) {
+  const t = line.trim();
+  return t.startsWith("Symbol,") && t.includes("P/L Day") && t.includes("Description");
+}
+
+/**
+ * Schwab statement "Profits and Losses" grid — P/L Day per symbol (matches TOS P/L Day).
+ * @param {string[]} lines
+ * @returns {Map<string, number>}
+ */
+export function parseProfitsAndLossesPnlDayBySymbol(lines) {
+  const map = new Map();
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim() !== "Profits and Losses") continue;
+    const headerLine = lines[i + 1] ?? "";
+    if (!isProfitsAndLossesTableHeader(headerLine)) continue;
+
+    const headerFields = parseCsvLine(headerLine);
+    const symbolIdx = headerFields.findIndex((h) => String(stripCell(h)).trim().toUpperCase() === "SYMBOL");
+    let pnlDayIdx = -1;
+    for (let k = 0; k < headerFields.length; k++) {
+      const t = String(stripCell(headerFields[k] ?? "")).trim().toUpperCase();
+      if (t === "P/L DAY" || (t.includes("P/L") && t.includes("DAY") && !t.includes("YTD"))) {
+        pnlDayIdx = k;
+        break;
+      }
+    }
+    if (symbolIdx < 0) continue;
+    if (pnlDayIdx < 0 && headerFields.length > 4) pnlDayIdx = 4;
+    if (pnlDayIdx < 0) continue;
+
+    for (let j = i + 2; j < lines.length; j++) {
+      const raw = lines[j];
+      if (!raw.trim()) continue;
+      const fields = parseCsvLine(raw);
+      const symCell = stripCell(fields[symbolIdx] ?? "").trim();
+      if (!symCell) {
+        const joined = fields.map((c) => stripCell(c)).join(" ").toUpperCase();
+        if (joined.includes("OVERALL TOTALS") || joined.includes("SUBTOTAL")) break;
+        continue;
+      }
+      const symUpper = symCell.toUpperCase();
+      if (/^(SUBTOTALS?|OVERALL\b)/i.test(symUpper)) break;
+
+      const pnlDayVal = parseMoneyCell(fields[pnlDayIdx] ?? "");
+      map.set(symUpper, Math.round(pnlDayVal * 100) / 100);
+    }
+    break;
+  }
+  return map;
+}
+
 /**
  * @param {string} cell - e.g. "4/16/26 12:44:36"
  * @returns {{ dateRaw: string, time: string } | null}
@@ -443,6 +495,24 @@ export function parseThinkorswimAccountCsv(text, options = {}) {
   }
 
   const trades = groupFillsIntoTrades(fills, groupingMode);
+
+  /* Merge-mode P/L from summed fills can diverge from Schwab ATH vs cash; align to statement P/L Day. */
+  if (groupingMode === "merge" && fills.length) {
+    const pnlDayBySymbol = parseProfitsAndLossesPnlDayBySymbol(lines);
+    if (pnlDayBySymbol.size) {
+      let maxFillDate = fills[0].date;
+      for (const f of fills) {
+        if (f.date > maxFillDate) maxFillDate = f.date;
+      }
+      for (const t of trades) {
+        if (t.date !== maxFillDate) continue;
+        const sym = String(t.symbol).toUpperCase();
+        if (!pnlDayBySymbol.has(sym)) continue;
+        t.pnl = pnlDayBySymbol.get(sym);
+        t.pnlSource = "statement-p-l-day";
+      }
+    }
+  }
 
   return { trades, fillsSkipped: 0, errors };
 }

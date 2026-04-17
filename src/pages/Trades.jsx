@@ -316,18 +316,16 @@ function Trades() {
         <h1>Trades</h1>
       </div>
 
-      <div className="trades-filter-strip">
-        <ReportsFilterStrip
-          draft={filterDraft}
-          setDraft={setFilterDraft}
-          onApply={applyFilters}
-          onClear={clearFilters}
-          allTags={allTags}
-          allSetups={allSetups}
-          durationOptions={REPORT_DURATION_OPTIONS}
-          symbolPlaceholder="Symbol"
-        />
-      </div>
+      <ReportsFilterStrip
+        draft={filterDraft}
+        setDraft={setFilterDraft}
+        onApply={applyFilters}
+        onClear={clearFilters}
+        allTags={allTags}
+        allSetups={allSetups}
+        durationOptions={REPORT_DURATION_OPTIONS}
+        symbolPlaceholder="Symbol"
+      />
 
       <div className="card table-card trades-table-card">
         {selected.size > 0 ? (
