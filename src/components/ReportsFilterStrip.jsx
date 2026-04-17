@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { NavLink } from "react-router-dom";
 import { REPORT_DURATION_OPTIONS } from "../lib/tradeDuration";
 import { removeTagFromAllTrades } from "../lib/tradeTags";
 import DateRangePicker from "./DateRangePicker";
@@ -45,6 +46,25 @@ function IconCheck() {
   );
 }
 
+function IconFunnel() {
+  return (
+    <svg
+      className="reports-filter-advanced-icon"
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.65"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M4 4h16l-6 9v7l-4-2v-5L4 4z" />
+    </svg>
+  );
+}
+
 /**
  * @param {object} props
  * @param {import("../lib/reportFilters").ReportFilters} props.draft
@@ -57,6 +77,7 @@ function IconCheck() {
  * @param {string} [props.symbolPlaceholder]
  * @param {import("react").ReactNode} [props.trailingSlot]
  * @param {"default" | "none"} [props.stripActions] When `"none"`, hide Apply/Clear and treat filter changes as immediate (no submit row).
+ * @param {boolean} [props.advancedReportsLink] When true, show Advanced next to the date field (Reports layout only).
  */
 export default function ReportsFilterStrip({
   draft,
@@ -69,6 +90,7 @@ export default function ReportsFilterStrip({
   symbolPlaceholder = "Symbol",
   trailingSlot = null,
   stripActions = "default",
+  advancedReportsLink = false,
 }) {
   const [tagSearch, setTagSearch] = useState("");
   const [tagsPopOpen, setTagsPopOpen] = useState(false);
@@ -564,6 +586,22 @@ export default function ReportsFilterStrip({
               />
             </div>
           </div>
+
+          {advancedReportsLink ? (
+            <div className="reports-filter-field reports-filter-field--stacked reports-filter-field--advanced-nav">
+              <span className="reports-filter-field-label reports-filter-field-label--phantom" aria-hidden>
+                &nbsp;
+              </span>
+              <NavLink
+                to="/reports/advanced"
+                className={({ isActive }) => `reports-filter-advanced-btn${isActive ? " is-active" : ""}`}
+                title="Advanced scatter and axis reports"
+              >
+                <IconFunnel />
+                <span>Advanced</span>
+              </NavLink>
+            </div>
+          ) : null}
 
           {stripActions !== "none" ? (
             <div ref={reportsStripActionsRef} className="reports-filter-strip-actions">

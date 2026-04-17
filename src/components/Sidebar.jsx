@@ -1,6 +1,5 @@
 import { Link, NavLink } from "react-router-dom";
 import ImportTradesButton from "./ImportTradesButton";
-import ThemeSchemeControl from "./ThemeSchemeControl";
 
 function BrandMark() {
   return (
@@ -16,7 +15,7 @@ function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="brand">
-        <Link to="/" className="brand-link" aria-label="Goatedvue home">
+        <Link to="/" className="brand-link" aria-label="Goatedvue dashboard">
           <BrandMark />
           <span className="brand-title">
             <span className="brand-title-base">Goatedvue</span>
@@ -26,7 +25,7 @@ function Sidebar() {
 
       <nav className="sidebar-nav" aria-label="Main">
         <NavLink to="/" end className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}>
-          Home
+          Dashboard
         </NavLink>
 
         <NavLink
@@ -61,6 +60,14 @@ function Sidebar() {
         </NavLink>
 
         <NavLink
+          to="/settings"
+          className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+          isActive={({ pathname }) => pathname === "/settings" || pathname.startsWith("/settings/")}
+        >
+          Settings
+        </NavLink>
+
+        <NavLink
           to="/star"
           className={({ isActive }) => `nav-link nav-link--star ${isActive ? "active" : ""}`}
           title="Starred days and trades for review"
@@ -70,7 +77,6 @@ function Sidebar() {
       </nav>
 
       <div className="sidebar-footer">
-        <ThemeSchemeControl />
         <ImportTradesButton />
       </div>
     </aside>

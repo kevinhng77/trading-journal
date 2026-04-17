@@ -166,7 +166,7 @@ export default function ImportTradesButton() {
                   <Link
                     className="import-trades-settings-pop-item"
                     role="menuitem"
-                    to="/settings/trade-import"
+                    to="/settings"
                     onClick={() => setMenuOpen(false)}
                   >
                     Settings

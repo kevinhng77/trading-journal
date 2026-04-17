@@ -17,11 +17,13 @@ import Journal from "./pages/Journal";
 import StarReview from "./pages/StarReview";
 import Playbook from "./pages/Playbook";
 import TradeImportSettingsPage from "./pages/TradeImportSettingsPage";
+import SettingsPage from "./pages/SettingsPage";
 
 function App() {
   return (
     <Routes>
       <Route path="/settings/trade-import" element={<TradeImportSettingsPage />} />
+      <Route path="/settings" element={<SettingsPage />} />
       <Route element={<ShellLayout />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/reports" element={<ReportsLayout />}>
