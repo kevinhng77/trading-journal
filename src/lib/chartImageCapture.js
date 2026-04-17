@@ -3,6 +3,9 @@ import { toBlob } from "html-to-image";
 /** Matches TradingView-style chart background used in TradeExecutionChart layout. */
 const CHART_CAPTURE_BG = "#131722";
 
+/** Slightly lighter fill for multi-card trade detail captures. */
+const TRADE_BUNDLE_CAPTURE_BG = "#161b26";
+
 /**
  * Rasterize the chart host element (canvas + overlays) to a PNG blob.
  * @param {HTMLElement} el
@@ -15,6 +18,22 @@ export async function captureChartElementAsPngBlob(el) {
     backgroundColor: CHART_CAPTURE_BG,
   });
   if (!blob) throw new Error("Could not capture chart.");
+  return blob;
+}
+
+/**
+ * Rasterize any HTMLElement (e.g. snapshot + notes + chart) to PNG.
+ * @param {HTMLElement} el
+ * @param {{ backgroundColor?: string }} [opts]
+ */
+export async function captureDomElementAsPngBlob(el, opts = {}) {
+  const bg = opts.backgroundColor ?? TRADE_BUNDLE_CAPTURE_BG;
+  const blob = await toBlob(el, {
+    cacheBust: true,
+    pixelRatio: Math.min(2, typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1),
+    backgroundColor: bg,
+  });
+  if (!blob) throw new Error("Could not capture element.");
   return blob;
 }
 

@@ -59,14 +59,6 @@ function dayImportsFeeColumns(rows) {
   );
 }
 
-async function copyText(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch {
-    /* ignore */
-  }
-}
-
 function winPctForDay(rows) {
   if (!rows.length) return null;
   const wins = rows.filter((t) => Number(t.pnl) > 0).length;
@@ -306,43 +298,6 @@ function Journal() {
                           }
                           aria-label={isDayStarred(day.date) ? "Unstar day" : "Star day"}
                         />
-                        <details className="journal-day-settings">
-                          <summary className="journal-day-settings-summary" title="Day actions">
-                            ⋯
-                          </summary>
-                          <div className="journal-day-settings-menu">
-                          <button
-                            type="button"
-                            className="journal-day-settings-item"
-                            onClick={() => {
-                              const body = [
-                                `${formatDisplayDate(day.date)} (${day.date})`,
-                                `Closed P&L (day): ${formatMoney(day.pnl)}`,
-                                `Net Σ trades: ${formatMoney(dm.netPnl)}`,
-                                `Gross Σ (amount column when present): ${formatMoney(dm.grossPnl)}`,
-                                `Commissions + fees paid: $${dm.feesPaid.toFixed(2)}`,
-                                dm.hasReplay
-                                  ? `Avg replay MFE / MAE: ${formatMoney(dm.avgMfe)} / ${formatMoney(-(dm.avgMae ?? 0))}`
-                                  : "Replay MFE/MAE: — (need 2+ fills per trade)",
-                                `Trades: ${day.trades} · Volume: ${day.volume}`,
-                              ].join("\n");
-                              copyText(body);
-                            }}
-                          >
-                            Copy day summary
-                          </button>
-                          <button
-                            type="button"
-                            className="journal-day-settings-item"
-                            onClick={() => {
-                              const ids = day.rows.map((r) => stableTradeId(r)).join("\n");
-                              copyText(ids);
-                            }}
-                          >
-                            Copy trade IDs
-                          </button>
-                          </div>
-                        </details>
                       </div>
                     </div>
                   </div>

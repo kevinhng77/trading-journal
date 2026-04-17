@@ -6,12 +6,20 @@ export function normalizeTagString(s) {
   return t || null;
 }
 
-/** Dedupe case-insensitively; keep first spelling. @param {string[]} tags */
+/** Dedupe case-insensitively; keep first spelling. Accepts array or comma/semicolon-separated string. */
 export function normalizeTagList(tags) {
-  if (!Array.isArray(tags)) return [];
+  if (tags == null) return [];
+  const rawList = Array.isArray(tags)
+    ? tags
+    : typeof tags === "string"
+      ? tags
+          .split(/[,;]+/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
   const seen = new Set();
   const out = [];
-  for (const raw of tags) {
+  for (const raw of rawList) {
     const t = normalizeTagString(raw);
     if (!t) continue;
     const k = t.toLowerCase();

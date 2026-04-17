@@ -387,7 +387,6 @@ export default function Playbook() {
           <div className="card playbook-list-card">
             <div className="playbook-list-head">
               <h2 className="playbook-list-title">Plays</h2>
-              <span className="playbook-list-count">{plays.length}</span>
             </div>
             {plays.length === 0 ? (
               <p className="playbook-list-empty">No plays yet. Use &quot;New play&quot; to add one.</p>
@@ -419,7 +418,6 @@ export default function Playbook() {
           <div className="card playbook-list-card">
             <div className="playbook-list-head">
               <h2 className="playbook-list-title">Missed plays</h2>
-              <span className="playbook-list-count">{missedPlays.length}</span>
             </div>
             {missedPlays.length === 0 ? (
               <p className="playbook-list-empty">No missed plays yet. Use &quot;New missed play&quot; to add one.</p>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   appendScreenshotToMissedPlay,
@@ -24,6 +24,10 @@ export default function PlaybookChartSendModal({ open, onClose, getCaptureEl, tr
   const [selectedKey, setSelectedKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const comboboxWrapRef = useRef(/** @type {HTMLDivElement | null} */ (null));
+  const labelId = useId();
+  const listboxId = useId();
 
   useEffect(() => {
     if (!open) return;
@@ -38,7 +42,29 @@ export default function PlaybookChartSendModal({ open, onClose, getCaptureEl, tr
     setSelectedKey(list[0] ? `${list[0].kind}:${list[0].id}` : "");
     setErr(null);
     setBusy(false);
+    setMenuOpen(false);
   }, [open]);
+
+  useEffect(() => {
+    if (busy) setMenuOpen(false);
+  }, [busy]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onDoc(/** @type {MouseEvent} */ e) {
+      const el = /** @type {Node | null} */ (e.target);
+      if (!el || !comboboxWrapRef.current?.contains(el)) setMenuOpen(false);
+    }
+    function onKey(/** @type {KeyboardEvent} */ e) {
+      if (e.key === "Escape") setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
 
   async function confirm() {
     setErr(null);
@@ -85,6 +111,11 @@ export default function PlaybookChartSendModal({ open, onClose, getCaptureEl, tr
 
   if (!open) return null;
 
+  const playTargets = targets.filter((t) => t.kind === "plays");
+  const missedTargets = targets.filter((t) => t.kind === "missed");
+  const selectedTarget = targets.find((t) => `${t.kind}:${t.id}` === selectedKey) ?? targets[0];
+  const triggerLabel = selectedTarget?.name ?? "Choose…";
+
   return (
     <div className="trade-chart-send-modal-overlay" role="presentation" onClick={onClose}>
       <div
@@ -107,38 +138,93 @@ export default function PlaybookChartSendModal({ open, onClose, getCaptureEl, tr
             and create one first.
           </p>
         ) : (
-          <label className="trade-chart-send-modal-field">
-            <span className="trade-chart-send-modal-label">Play or missed play</span>
-            <select
-              className="trade-chart-send-modal-select"
-              value={selectedKey}
-              onChange={(e) => setSelectedKey(e.target.value)}
-              disabled={busy}
-            >
-              {targets.some((t) => t.kind === "plays") ? (
-                <optgroup label="Plays">
-                  {targets
-                    .filter((t) => t.kind === "plays")
-                    .map((t) => (
-                      <option key={`plays:${t.id}`} value={`plays:${t.id}`}>
-                        {t.name}
-                      </option>
-                    ))}
-                </optgroup>
+          <div className="trade-chart-send-modal-field">
+            <span id={labelId} className="trade-chart-send-modal-label">
+              Play or missed play
+            </span>
+            <div ref={comboboxWrapRef} className="trade-chart-send-combobox">
+              <button
+                type="button"
+                className="trade-chart-send-combobox-trigger"
+                aria-haspopup="listbox"
+                aria-expanded={menuOpen}
+                aria-controls={menuOpen ? listboxId : undefined}
+                aria-label={`Play or missed play, ${triggerLabel}`}
+                disabled={busy}
+                onClick={() => setMenuOpen((o) => !o)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setMenuOpen(false);
+                  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setMenuOpen(true);
+                  }
+                }}
+              >
+                <span className="trade-chart-send-combobox-trigger-text">{triggerLabel}</span>
+              </button>
+              {menuOpen ? (
+                <ul
+                  className="trade-chart-send-combobox-menu"
+                  id={listboxId}
+                  role="listbox"
+                  aria-labelledby={labelId}
+                >
+                  {playTargets.length > 0 ? (
+                    <>
+                      <li className="trade-chart-send-combobox-group" role="presentation">
+                        <span className="trade-chart-send-combobox-group-label">Plays</span>
+                      </li>
+                      {playTargets.map((t) => {
+                        const key = `plays:${t.id}`;
+                        return (
+                          <li key={key} className="trade-chart-send-combobox-li" role="none">
+                            <button
+                              type="button"
+                              role="option"
+                              aria-selected={key === selectedKey}
+                              className={`trade-chart-send-combobox-option ${key === selectedKey ? "is-selected" : ""}`}
+                              onClick={() => {
+                                setSelectedKey(key);
+                                setMenuOpen(false);
+                              }}
+                            >
+                              {t.name}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </>
+                  ) : null}
+                  {missedTargets.length > 0 ? (
+                    <>
+                      <li className="trade-chart-send-combobox-group" role="presentation">
+                        <span className="trade-chart-send-combobox-group-label">Missed plays</span>
+                      </li>
+                      {missedTargets.map((t) => {
+                        const key = `missed:${t.id}`;
+                        return (
+                          <li key={key} className="trade-chart-send-combobox-li" role="none">
+                            <button
+                              type="button"
+                              role="option"
+                              aria-selected={key === selectedKey}
+                              className={`trade-chart-send-combobox-option ${key === selectedKey ? "is-selected" : ""}`}
+                              onClick={() => {
+                                setSelectedKey(key);
+                                setMenuOpen(false);
+                              }}
+                            >
+                              {t.name}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </>
+                  ) : null}
+                </ul>
               ) : null}
-              {targets.some((t) => t.kind === "missed") ? (
-                <optgroup label="Missed plays">
-                  {targets
-                    .filter((t) => t.kind === "missed")
-                    .map((t) => (
-                      <option key={`missed:${t.id}`} value={`missed:${t.id}`}>
-                        {t.name}
-                      </option>
-                    ))}
-                </optgroup>
-              ) : null}
-            </select>
-          </label>
+            </div>
+          </div>
         )}
         {err ? (
           <p className="trade-chart-send-modal-error" role="alert">

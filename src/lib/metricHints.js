@@ -119,8 +119,64 @@ export const REPORTS_OVERVIEW_CHART_HINTS = {
 export const REPORTS_DRAWDOWN_CHART_HINT =
   "Underwater chart: each point is cumulative P&L minus the running peak up to that day — zero at new highs, negative when you are off the peak.";
 
+export const REPORTS_DRAWDOWN_WORSEN_WEEKDAY_HINT =
+  "When drawdown deepens vs the prior calendar day, the extra dollar depth is counted toward that weekday (Mon–Fri only).";
+
+export const REPORTS_DRAWDOWN_DOW_PNL_HINT =
+  "Sum of net P&L on each weekday across the same chart window (Mon–Fri), after your Reports filters.";
+
+export const REPORTS_DRAWDOWN_CUM_MA_HINT =
+  "Rolling average of cumulative day-level net P&L (20 trading days in the series). Smoother read on equity trend.";
+
+export const REPORTS_DRAWDOWN_VOL_HINT =
+  "Rolling standard deviation of daily net P&L (10-day window in the series) — higher means more day-to-day swing.";
+
+export const REPORTS_DRAWDOWN_EXPECT_HINT =
+  "Average closed-trade net P&L over a rolling 20-trade window in chronological order after filters.";
+
+/** Drawdown tab — summary tiles (label text must match). */
+export const DRAWDOWN_STAT_HINTS = {
+  "Average drawdown":
+    "Mean of each underwater episode’s deepest drawdown (dollars below the prior peak). Episodes are contiguous calendar days below peak equity.",
+  "Biggest drawdown": "Most negative cumulative drawdown from the running peak on any single day in the window.",
+  "Average number of days in drawdown":
+    "Average length (calendar days) of each underwater episode — from first day below peak until equity makes a new high.",
+  "Number of days in drawdown":
+    "Total calendar days in the window where equity was below the running peak (drawdown strictly below zero).",
+  "Average trades in drawdown":
+    "Across underwater episodes, average count of closed trades whose trade date falls on those drawdown days (from daily aggregates).",
+};
+
+/** @param {string} label */
+export function drawdownStatHint(label) {
+  const k = String(label ?? "").trim();
+  if (!k) return null;
+  return DRAWDOWN_STAT_HINTS[k] ?? `${k}: computed from the drawdown series in this report window.`;
+}
+
 export const REPORTS_WINLOSS_CHART_HINT =
   "Each bar is one calendar day’s net P&L after filters. Color shows winning vs losing vs no-trade days.";
+
+/** Win vs Loss Days — two-column stats (label text must match). */
+export const WINLOSS_DAY_STAT_HINTS = {
+  "Total gain/loss":
+    "Sum of net P&L on every calendar day in this column — only days that were net winning (or only net losing) for the chart window.",
+  "Average daily gain/loss": "Total gain/loss in this column divided by the number of those winning (or losing) days.",
+  "Average daily volume": "Total share/contract volume on those days divided by the number of days in this column.",
+  "Average per-share gain/loss": "Column total P&L divided by total volume on those same days (rough dollars per share).",
+  "Average trade gain/loss": "Column total P&L divided by total trade count on those days.",
+  "Total number of trades": "All closed trades that fall on the winning days (or losing days) in this window after filters.",
+};
+
+/** @param {string} label */
+export function winLossDayStatHint(label) {
+  const k = String(label ?? "").trim();
+  if (!k) return null;
+  return (
+    WINLOSS_DAY_STAT_HINTS[k] ??
+    `${k}: derived from calendar-day buckets in the chart range after your Reports filters.`
+  );
+}
 
 export const REPORTS_TAG_BREAKDOWN_CHART_HINT =
   "Each row is one tag or setup. A trade’s full P&L is counted toward every tag/setup on that trade; rows sorted by absolute P&L.";
@@ -135,4 +191,17 @@ export const REPORTS_CALENDAR_MONTHLY_PNL_HINT =
   "Sum of net P&L for trades dated in this month (after Reports filters). This is closed-trade P&L, not your account balance change.";
 
 export const REPORTS_ADVANCED_TAB_HINT =
-  "Pointer to deeper analytics: use Detailed for buckets, streaks, Kelly, SQN, liquidity splits, and replay-based MFE/MAE.";
+  "Build a custom scatter from closed trades after filters: any two numeric axes (P&L, hold time, volume, replay MFE/MAE, clock fields). Quick presets jump to common pairs.";
+
+export const REPORTS_ADVANCED_SCATTER_HINT =
+  "Each dot is one trade in date/time order. Green/red = net P&L sign. Optional marker size scales with |net P&L|. Tooltip shows symbol, date, and coordinates using the same axis definitions as the chart.";
+
+/** Dashboard stat tiles (30 / 60 / 90 day window, trade date order). */
+export const DASHBOARD_STAT_TILE_HINTS = {
+  maxWinStreak:
+    "Longest run of consecutive winning trades in chronological (trade date) order within the dashboard range (30, 60, or 90 days).",
+  maxLossStreak:
+    "Longest run of consecutive losing trades in chronological order within the same dashboard range.",
+  totalFeesImport:
+    "Commissions and fees are not summed on the dashboard until your import stores them (for example per-fill commission columns). Extend the CSV shape if you need a total here.",
+};

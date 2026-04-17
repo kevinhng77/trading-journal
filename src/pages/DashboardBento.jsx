@@ -15,6 +15,8 @@ import {
 } from "recharts";
 import { formatMoney, pnlClass } from "../storage/storage";
 import { CHART_GREEN, CHART_RED } from "../lib/chartPalette";
+import MetricHintIcon from "../components/MetricHintIcon";
+import { DASHBOARD_STAT_TILE_HINTS, detailedStatHint } from "../lib/metricHints";
 const GRID_STROKE = "#2a3140";
 const AXIS_TICK = { fill: "#94a3b8", fontSize: 11 };
 
@@ -69,9 +71,11 @@ function WinLossDonutCenter({ viewBox, winRate }) {
 export function StatTile({ label, value, hint }) {
   return (
     <div className="card dashboard-stat-tile">
-      <div className="dashboard-stat-tile-label">{label}</div>
+      <div className="dashboard-stat-tile-label-row">
+        <div className="dashboard-stat-tile-label">{label}</div>
+        {hint ? <MetricHintIcon text={hint} /> : null}
+      </div>
       <div className="dashboard-stat-tile-value">{value}</div>
-      {hint ? <div className="dashboard-stat-tile-hint">{hint}</div> : null}
     </div>
   );
 }
@@ -100,14 +104,18 @@ export function RankedBarList({ rows, empty }) {
   );
 }
 
-export function ProfitFactorBlock({ factor }) {
+export function ProfitFactorBlock({ factor, hintText }) {
   const label =
     factor == null ? "—" : factor === Infinity ? "∞" : Number.isFinite(factor) ? factor.toFixed(2) : "—";
   const ratio = factor == null || !Number.isFinite(factor) ? 0 : Math.min(1, factor / 2.5);
+  const pfHint = String(hintText ?? "").trim();
   return (
     <div className="card dashboard-pf-block">
       <div className="dashboard-pf-value">{label}</div>
-      <div className="dashboard-pf-label">Profit factor</div>
+      <div className="dashboard-pf-label-row">
+        <div className="dashboard-pf-label">Profit factor</div>
+        {pfHint ? <MetricHintIcon text={pfHint} /> : null}
+      </div>
       <div className="dashboard-pf-meter" aria-hidden>
         <div className="dashboard-pf-meter-bg" />
         <div className="dashboard-pf-meter-fill" style={{ width: `${ratio * 100}%` }} />
@@ -252,10 +260,10 @@ export function DashboardBento({
           </div>
         </div>
         <div className="dashboard-stat-twin">
-          <StatTile label="Max win streak" value={String(maxWinStreak)} hint="In date order" />
-          <StatTile label="Max loss streak" value={String(maxLossStreak)} hint="In date order" />
+          <StatTile label="Max win streak" value={String(maxWinStreak)} hint={DASHBOARD_STAT_TILE_HINTS.maxWinStreak} />
+          <StatTile label="Max loss streak" value={String(maxLossStreak)} hint={DASHBOARD_STAT_TILE_HINTS.maxLossStreak} />
         </div>
-        <ProfitFactorBlock factor={profitFactor} />
+        <ProfitFactorBlock factor={profitFactor} hintText={detailedStatHint("Profit factor")} />
       </div>
 
       <div className="card dashboard-bento-cell dashboard-bento-span-6 panel-cumulative">
@@ -531,11 +539,7 @@ export function DashboardBento({
 
       <div className="card dashboard-bento-cell dashboard-bento-span-6 panel-bottomish">
         <div className="panel-title">Total fees (import)</div>
-        <StatTile
-          label="Not in CSV shape yet"
-          value="—"
-          hint="Commissions aren’t stored separately on fills; extend import to sum fees if needed."
-        />
+        <StatTile label="Not in CSV shape yet" value="—" hint={DASHBOARD_STAT_TILE_HINTS.totalFeesImport} />
       </div>
     </div>
   );

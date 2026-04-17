@@ -1,4 +1,5 @@
 import { groupTradesByDate } from "../storage/storage";
+import { stableTradeId } from "../storage/tradeLookup";
 import { getTradeTags, getTradeSetups } from "./tradeTags";
 import {
   getTradeDurationSeconds,
@@ -74,6 +75,61 @@ export function buildDailySeriesForRange(trades, numDays) {
       tradeCount: g.trades,
     });
   }
+  let cum = 0;
+  for (const row of series) {
+    cum += row.pnl;
+    row.cumulative = cum;
+  }
+  return series;
+}
+
+const REPORT_DAILY_SPAN_MAX_DAYS = 800;
+
+/**
+ * Every calendar day from start through end (inclusive), local time. Capped for chart performance.
+ * @param {string} startISO YYYY-MM-DD
+ * @param {string} endISO YYYY-MM-DD
+ * @returns {string[]}
+ */
+export function enumerateDatesInclusive(startISO, endISO) {
+  const a = String(startISO ?? "").trim();
+  const b = String(endISO ?? "").trim();
+  if (!a || !b) return [];
+  const start = new Date(`${a}T12:00:00`);
+  const end = new Date(`${b}T12:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return [];
+  const out = [];
+  const cur = new Date(start);
+  while (cur <= end) {
+    out.push(localISODate(cur));
+    cur.setDate(cur.getDate() + 1);
+    if (out.length > 2500) break;
+  }
+  if (out.length > REPORT_DAILY_SPAN_MAX_DAYS) return out.slice(out.length - REPORT_DAILY_SPAN_MAX_DAYS);
+  return out;
+}
+
+/**
+ * One row per calendar day between `startISO` and `endISO` (inclusive), filled from `trades`.
+ * Same row shape as {@link buildDailySeriesForRange} (including `cumulative`).
+ * @param {object[]} trades
+ * @param {string} startISO
+ * @param {string} endISO
+ */
+export function buildDailySeriesForDateSpan(trades, startISO, endISO) {
+  const grouped = groupTradesByDate(trades);
+  const dates = enumerateDatesInclusive(startISO, endISO);
+  const series = dates.map((key) => {
+    const d = new Date(`${key}T12:00:00`);
+    const g = grouped[key] || { pnl: 0, trades: 0, volume: 0 };
+    return {
+      date: key,
+      shortLabel: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+      pnl: g.pnl,
+      volume: g.volume,
+      tradeCount: g.trades,
+    };
+  });
   let cum = 0;
   for (const row of series) {
     cum += row.pnl;
@@ -169,6 +225,138 @@ export function buildDrawdownSeries(dailySeries) {
   });
 }
 
+/**
+ * @param {{ drawdown?: number, tradeCount?: number }[]} series
+ * @param {number} a
+ * @param {number} b
+ */
+function summarizeDrawdownSlice(series, a, b) {
+  let minDrawdown = 0;
+  let trades = 0;
+  for (let j = a; j <= b; j++) {
+    minDrawdown = Math.min(minDrawdown, Number(series[j].drawdown) || 0);
+    trades += Number(series[j].tradeCount) || 0;
+  }
+  return { minDrawdown, trades, days: b - a + 1 };
+}
+
+/**
+ * Episodes where equity is below the running peak (drawdown &lt; 0).
+ * @param {{ date?: string, drawdown: number, tradeCount?: number }[]} ddSeries
+ */
+export function analyzeDrawdownEpisodes(ddSeries) {
+  const n = ddSeries.length;
+  if (!n) {
+    return {
+      maxDrawdown: 0,
+      avgDrawdown: null,
+      daysInDrawdown: 0,
+      avgDaysPerEpisode: null,
+      avgTradesPerEpisode: null,
+      episodeCount: 0,
+    };
+  }
+
+  const episodes = [];
+  let inEp = false;
+  let epStart = 0;
+  for (let i = 0; i < n; i++) {
+    const dd = Number(ddSeries[i].drawdown) || 0;
+    const underwater = dd < 0;
+    if (underwater && !inEp) {
+      inEp = true;
+      epStart = i;
+    } else if (!underwater && inEp) {
+      episodes.push(summarizeDrawdownSlice(ddSeries, epStart, i - 1));
+      inEp = false;
+    }
+  }
+  if (inEp) episodes.push(summarizeDrawdownSlice(ddSeries, epStart, n - 1));
+
+  let maxDrawdown = 0;
+  for (const row of ddSeries) {
+    maxDrawdown = Math.min(maxDrawdown, Number(row.drawdown) || 0);
+  }
+
+  const daysInDrawdown = episodes.reduce((s, e) => s + e.days, 0);
+  const avgDrawdown =
+    episodes.length > 0 ? episodes.reduce((s, e) => s + e.minDrawdown, 0) / episodes.length : null;
+  const avgDaysPerEpisode = episodes.length > 0 ? daysInDrawdown / episodes.length : null;
+  const avgTradesPerEpisode =
+    episodes.length > 0 ? episodes.reduce((s, e) => s + e.trades, 0) / episodes.length : null;
+
+  return {
+    maxDrawdown,
+    avgDrawdown,
+    daysInDrawdown,
+    avgDaysPerEpisode,
+    avgTradesPerEpisode,
+    episodeCount: episodes.length,
+  };
+}
+
+/**
+ * When drawdown deepens vs the prior day, add that dollar amount to the weekday bucket (Mon–Fri).
+ * @param {{ date?: string, drawdown: number }[]} ddSeries
+ */
+export function drawdownWorseningByWeekday(ddSeries) {
+  const SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+  const pnl = [0, 0, 0, 0, 0];
+  for (let i = 1; i < ddSeries.length; i++) {
+    const prev = Number(ddSeries[i - 1].drawdown) || 0;
+    const cur = Number(ddSeries[i].drawdown) || 0;
+    if (cur >= prev) continue;
+    const worsen = prev - cur;
+    const ds = ddSeries[i].date;
+    if (!ds) continue;
+    const dow = new Date(`${String(ds)}T12:00:00`).getDay();
+    if (dow >= 1 && dow <= 5) pnl[dow - 1] += worsen;
+  }
+  return SHORT.map((name, i) => ({ name, amount: pnl[i] }));
+}
+
+/** Sum of daily net P&amp;L by weekday (Mon–Fri) in the same window. */
+export function dailyPnlByWeekdayMonFri(dailySeries) {
+  const SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+  const pnl = [0, 0, 0, 0, 0];
+  for (const row of dailySeries) {
+    if (!row.date) continue;
+    const dow = new Date(`${String(row.date)}T12:00:00`).getDay();
+    if (dow >= 1 && dow <= 5) pnl[dow - 1] += Number(row.pnl) || 0;
+  }
+  return SHORT.map((name, i) => ({ name, pnl: pnl[i] }));
+}
+
+/** Rolling mean of cumulative equity (window days, inclusive). */
+export function cumulativeMovingAverageSeries(dailySeries, window = 20) {
+  return dailySeries.map((row, i) => {
+    const a = Math.max(0, i - window + 1);
+    let s = 0;
+    for (let j = a; j <= i; j++) s += Number(dailySeries[j].cumulative) || 0;
+    const len = i - a + 1;
+    return {
+      ...row,
+      cumMa: len ? s / len : Number(row.cumulative) || 0,
+    };
+  });
+}
+
+/** Rolling population std dev of daily net P&amp;L. */
+export function dailyPnlRollingStdDevSeries(dailySeries, window = 10) {
+  return dailySeries.map((row, i) => {
+    const a = Math.max(0, i - window + 1);
+    const slice = [];
+    for (let j = a; j <= i; j++) slice.push(Number(dailySeries[j].pnl) || 0);
+    const len = slice.length;
+    const mean = len ? slice.reduce((x, y) => x + y, 0) / len : 0;
+    const v = len ? slice.reduce((x, y) => x + (y - mean) ** 2, 0) / len : 0;
+    return {
+      ...row,
+      pnlVol: Math.sqrt(v),
+    };
+  });
+}
+
 /** Gross wins / gross losses (standard profit factor). */
 export function computeProfitFactor(trades) {
   let grossWin = 0;
@@ -188,6 +376,22 @@ export function sortTradesChronoAsc(trades) {
     const c = String(a.date).localeCompare(String(b.date));
     if (c !== 0) return c;
     return String(a.time || "00:00:00").localeCompare(String(b.time || "00:00:00"));
+  });
+}
+
+/** Moving average of closed-trade net P&amp;L over the last `window` trades (chronological). */
+export function tradePnlMovingAverageSeries(trades, window = 20) {
+  const sorted = sortTradesChronoAsc(trades);
+  return sorted.map((t, i) => {
+    const a = Math.max(0, i - window + 1);
+    let s = 0;
+    for (let j = a; j <= i; j++) s += Number(sorted[j].pnl) || 0;
+    const len = i - a + 1;
+    return {
+      index: i + 1,
+      tradeAvgPnl: len ? s / len : 0,
+      date: t.date,
+    };
   });
 }
 
@@ -443,27 +647,31 @@ export function aggregateByHoldMinuteBuckets(trades) {
  * @returns {{ name: string, pnl: number, trades: number }[]}
  */
 function aggregateByTradeLabels(trades, getLabels, emptyBucketName, maxRows = 14) {
-  /** @type {Map<string, { pnl: number, trades: number }>} */
+  /** @type {Map<string, { pnl: number, tradeIds: Set<string> }>} */
   const map = new Map();
-  function bump(key, p) {
-    const cur = map.get(key) || { pnl: 0, trades: 0 };
+  function bump(key, tradeId, p) {
+    let cur = map.get(key);
+    if (!cur) {
+      cur = { pnl: 0, tradeIds: new Set() };
+      map.set(key, cur);
+    }
     cur.pnl += p;
-    cur.trades += 1;
-    map.set(key, cur);
+    cur.tradeIds.add(tradeId);
   }
   for (const t of trades) {
     const p = Number(t.pnl) || 0;
+    const tradeId = String(stableTradeId(t));
     const labels = getLabels(t);
     if (!labels.length) {
-      bump(emptyBucketName, p);
+      bump(emptyBucketName, tradeId, p);
     } else {
       for (const name of labels) {
-        bump(name, p);
+        bump(name, tradeId, p);
       }
     }
   }
   return [...map.entries()]
-    .map(([name, v]) => ({ name, pnl: v.pnl, trades: v.trades }))
+    .map(([name, v]) => ({ name, pnl: v.pnl, trades: v.tradeIds.size }))
     .sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl))
     .slice(0, maxRows);
 }

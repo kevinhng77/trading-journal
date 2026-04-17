@@ -22,7 +22,7 @@ import TradeNotesEditor from "../components/TradeNotesEditor";
 import TradeTagsEditor from "../components/TradeTagsEditor";
 import TradeSetupsEditor from "../components/TradeSetupsEditor";
 import PlaybookChartSendModal from "../components/PlaybookChartSendModal";
-import { captureChartElementAsPngBlob } from "../lib/chartImageCapture";
+import { captureChartElementAsPngBlob, captureDomElementAsPngBlob } from "../lib/chartImageCapture";
 import {
   computeFillReplayStats,
   tradeFeesPaid,
@@ -185,12 +185,14 @@ export default function TradeDetail() {
   const [indicatorsCatalogOpen, setIndicatorsCatalogOpen] = useState(false);
   const [playbookSendOpen, setPlaybookSendOpen] = useState(false);
   const [chartToolbarMsg, setChartToolbarMsg] = useState(/** @type {string | null} */ (null));
+  const [shareBusy, setShareBusy] = useState(false);
   const [riskLineMarkMode, setRiskLineMarkMode] = useState(false);
   const [riskLines, setRiskLines] = useState(() => []);
   const [trendlineDrawMode, setTrendlineDrawMode] = useState(false);
   const [trendlines, setTrendlines] = useState(() => []);
   const [annotationNotes, setAnnotationNotes] = useState(() => []);
   const chartWrapRef = useRef(null);
+  const tradeShareBundleRef = useRef(/** @type {HTMLDivElement | null} */ (null));
   const chartIntervalLabel = useMemo(() => formatChartIntervalLabel(chartInterval), [chartInterval]);
 
   const getChartCaptureEl = useCallback(() => {
@@ -315,6 +317,28 @@ export default function TradeDetail() {
       setChartToolbarMsg("Chart screenshot copied to clipboard.");
     } catch {
       setChartToolbarMsg("Could not copy the chart. Try again after the chart finishes loading.");
+    }
+  }
+
+  async function copyTradeShareBundleToClipboard() {
+    const el = tradeShareBundleRef.current;
+    if (!el) {
+      setChartToolbarMsg("Nothing to capture yet.");
+      return;
+    }
+    if (!navigator.clipboard || typeof ClipboardItem === "undefined") {
+      setChartToolbarMsg("Clipboard image copy is not supported in this browser.");
+      return;
+    }
+    setShareBusy(true);
+    try {
+      const blob = await captureDomElementAsPngBlob(el);
+      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+      setChartToolbarMsg("Snapshot, notes, and chart copied to clipboard.");
+    } catch {
+      setChartToolbarMsg("Could not copy the image. Wait for the chart to load, then try again.");
+    } finally {
+      setShareBusy(false);
     }
   }
 
@@ -475,6 +499,33 @@ export default function TradeDetail() {
               }
               aria-label={tid && isTradeStarred(tid) ? "Unstar trade" : "Star trade"}
             />
+            <button
+              type="button"
+              className="trade-detail-header-share-btn"
+              onClick={() => void copyTradeShareBundleToClipboard()}
+              disabled={shareBusy}
+              title="Copy Snapshot, Notes, and chart as one image"
+              aria-label="Copy Snapshot, Notes, and chart image to clipboard"
+            >
+              <svg
+                className="trade-detail-header-share-icon"
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                aria-hidden
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="18" cy="5" r="2.5" />
+                <circle cx="6" cy="12" r="2.5" />
+                <circle cx="18" cy="19" r="2.5" />
+                <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" />
+              </svg>
+              <span>Share</span>
+            </button>
             <details className="trade-detail-header-more">
               <summary className="trade-detail-header-more-summary" title="More">
                 ⋯
@@ -504,7 +555,8 @@ export default function TradeDetail() {
         </div>
       </div>
 
-      <div className="trade-detail-panels">
+      <div ref={tradeShareBundleRef} className="trade-detail-share-bundle">
+        <div className="trade-detail-panels">
         <section className="card trade-detail-stats">
           <h2 className="trade-detail-section-title">Snapshot</h2>
           <dl className="trade-detail-stat-grid">
@@ -574,9 +626,9 @@ export default function TradeDetail() {
             }}
           />
         </section>
-      </div>
+        </div>
 
-      <section
+        <section
         className="card trade-detail-chart-section trade-detail-chart-section--primary"
         aria-label="Execution chart"
       >
@@ -803,6 +855,19 @@ export default function TradeDetail() {
                       />
                     </svg>
                   </button>
+                  <StarToggle
+                    starred={Boolean(tid && isTradeStarred(tid))}
+                    onToggle={() => {
+                      if (tid) toggleTrade(tid);
+                    }}
+                    className="star-toggle-btn--interval-bar"
+                    title={
+                      tid && isTradeStarred(tid)
+                        ? "Remove from starred (*)"
+                        : "Star this trade for review on the * page"
+                    }
+                    aria-label={tid && isTradeStarred(tid) ? "Unstar trade" : "Star trade"}
+                  />
                 </>
               }
             />
@@ -816,6 +881,7 @@ export default function TradeDetail() {
           onSaved={() => setChartToolbarMsg("Chart saved to playbook.")}
         />
       </section>
+      </div>
 
       {fills.length > 0 && (
         <section className="card trade-detail-fills">

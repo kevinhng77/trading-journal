@@ -55,16 +55,16 @@ function Sidebar() {
           Journal
         </NavLink>
 
+        <NavLink to="/playbook" className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}>
+          Playbook
+        </NavLink>
+
         <NavLink
           to="/star"
           className={({ isActive }) => `nav-link nav-link--star ${isActive ? "active" : ""}`}
           title="Starred days and trades for review"
         >
           *
-        </NavLink>
-
-        <NavLink to="/playbook" className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}>
-          Playbook
         </NavLink>
       </nav>
 

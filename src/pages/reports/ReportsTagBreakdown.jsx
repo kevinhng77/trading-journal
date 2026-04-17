@@ -54,6 +54,9 @@ export default function ReportsTagBreakdown() {
   const applied = ctx.appliedReportFilters ?? DEFAULT_REPORT_FILTERS;
   const trades = useLiveTrades();
   const windowDays = 90;
+  const dateFrom = String(applied.dateFrom ?? "").trim();
+  const dateTo = String(applied.dateTo ?? "").trim();
+  const usesReportDateSpan = Boolean(dateFrom || dateTo);
 
   const [mode, setMode] = useState(loadBreakdownMode);
 
@@ -66,7 +69,10 @@ export default function ReportsTagBreakdown() {
   }, [mode]);
 
   const filtered = useMemo(() => filterTradesForReport(trades, applied), [trades, applied]);
-  const scoped = useMemo(() => tradesInLastDays(filtered, windowDays), [filtered]);
+  const scoped = useMemo(() => {
+    if (usesReportDateSpan) return filtered;
+    return tradesInLastDays(filtered, windowDays);
+  }, [filtered, usesReportDateSpan, windowDays]);
   const rows = useMemo(
     () => (mode === "tags" ? aggregateByTag(scoped) : aggregateBySetup(scoped)),
     [scoped, mode],
@@ -77,13 +83,16 @@ export default function ReportsTagBreakdown() {
   const noun = isTags ? "tag" : "setup";
   const nounPlural = isTags ? "tags" : "setups";
 
+  const chartHeight = rows.length === 0 ? 260 : Math.max(280, rows.length * 44);
+  const windowLabel = usesReportDateSpan ? "report date range (from / to)" : `last ${windowDays} calendar days`;
+
   return (
     <>
       <div className="reports-overview-toolbar reports-tag-breakdown-toolbar">
         <p className="reports-filter-summary">
-          <strong>Tag breakdown</strong> — net P&amp;L by <strong>{noun}</strong> over the last{" "}
-          <strong>{windowDays}</strong> days (top {nounPlural} by absolute P&amp;L). Use{" "}
-          <strong>Setups</strong> to compare playbook-style setups the same way.
+          <strong>Tag breakdown</strong> — net P&amp;L by <strong>{noun}</strong> over the{" "}
+          <strong>{windowLabel}</strong> (top {nounPlural} by absolute P&amp;L). Use <strong>Setups</strong> to compare
+          playbook-style setups the same way.
           {filtersOn ? (
             <>
               {" "}
@@ -93,11 +102,12 @@ export default function ReportsTagBreakdown() {
         </p>
       </div>
 
-      <div className="card reports-detailed-chart-card">
+      <div className="card reports-detailed-chart-card reports-tag-breakdown-card">
         <div className="reports-tag-breakdown-card-head">
           <div className="panel-title reports-chart-title">
             <span className="reports-chart-title-text">
-              {isTags ? "Tags" : "Setups"} ({windowDays}d)
+              {isTags ? "Tags" : "Setups"}
+              {usesReportDateSpan ? "" : ` (${windowDays}d)`}
             </span>
             <MetricHintIcon text={REPORTS_TAG_BREAKDOWN_CHART_HINT} />
           </div>
@@ -123,15 +133,15 @@ export default function ReportsTagBreakdown() {
             <MetricHintIcon text={REPORTS_TAG_BREAKDOWN_MODE_HINT} />
           </div>
         </div>
-        <div className="reports-detailed-chart-area" style={{ height: Math.max(220, rows.length * 36) }}>
+        <div className="reports-detailed-chart-area reports-tag-breakdown-chart-host">
           {rows.length === 0 ? (
-            <div className="chart-empty">
-              {isTags
-                ? "No tags in this window. Add tags on trades from the Trades page."
-                : "No setups in this window. Add setups on trades from the Trades page."}
+            <div className="chart-empty" style={{ minHeight: chartHeight }}>
+              {usesReportDateSpan
+                ? "No trades in the selected date range after filters — adjust dates or Apply filters."
+                : `No trades in the last ${windowDays} days after filters — import trades or widen the window with date filters.`}
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={chartHeight} minHeight={200} debounce={32}>
               <BarChart layout="vertical" data={rows} margin={{ left: 8, right: 12, top: 8, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={GRID} horizontal={false} />
                 <XAxis type="number" tick={TICK} stroke="#475569" tickFormatter={(v) => `$${v}`} />
