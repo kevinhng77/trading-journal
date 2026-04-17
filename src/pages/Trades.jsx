@@ -17,7 +17,7 @@ import {
   loadPersistedReportFilters,
   savePersistedReportFilters,
 } from "../storage/reportFiltersPersist";
-import { collectAllTagsFromTrades, getTradeTags } from "../lib/tradeTags";
+import { collectAllTagsFromTrades, collectAllSetupsFromTrades, getTradeTags, getTradeSetups } from "../lib/tradeTags";
 import { mergeTradesByStableIds, splitTradeIntoRoundTripsByStableId } from "../lib/tradeMerge";
 import ReportsFilterStrip from "../components/ReportsFilterStrip";
 import { REPORT_DURATION_OPTIONS } from "../lib/tradeDuration";
@@ -26,7 +26,7 @@ import { prefetchTradeExecutionChart } from "../lib/tradeChartPrefetch";
 
 const TRADES_PAGE_SIZE = 20;
 
-/** @typedef {"date"|"symbol"|"volume"|"executions"|"pnl"|"shared"|"notes"|"tags"} TradeSortKey */
+/** @typedef {"date"|"symbol"|"volume"|"executions"|"pnl"|"shared"|"notes"|"tags"|"setups"} TradeSortKey */
 /** @typedef {{ key: TradeSortKey, dir: "asc"|"desc" }} TradeSort */
 
 /**
@@ -66,6 +66,18 @@ function compareTradesForSort(a, b, key, dir) {
       cmp = ta.localeCompare(tb);
       break;
     }
+    case "setups": {
+      const sa = getTradeSetups(a)
+        .map((x) => String(x).toLowerCase())
+        .sort()
+        .join("\u0000");
+      const sb = getTradeSetups(b)
+        .map((x) => String(x).toLowerCase())
+        .sort()
+        .join("\u0000");
+      cmp = sa.localeCompare(sb);
+      break;
+    }
     case "shared":
     case "notes":
       cmp = 0;
@@ -82,7 +94,7 @@ function compareTradesForSort(a, b, key, dir) {
  * @returns {"asc"|"desc"}
  */
 function defaultSortDirForKey(key) {
-  if (key === "symbol" || key === "tags") return "asc";
+  if (key === "symbol" || key === "tags" || key === "setups") return "asc";
   return "desc";
 }
 
@@ -141,6 +153,7 @@ function Trades() {
   }, []);
 
   const allTags = useMemo(() => collectAllTagsFromTrades(trades), [trades]);
+  const allSetups = useMemo(() => collectAllSetupsFromTrades(trades), [trades]);
 
   const filteredTrades = useMemo(() => {
     const rows = filterTradesForReport(trades, appliedFilters);
@@ -261,6 +274,7 @@ function Trades() {
           onApply={applyFilters}
           onClear={clearFilters}
           allTags={allTags}
+          allSetups={allSetups}
           durationOptions={REPORT_DURATION_OPTIONS}
           symbolPlaceholder="Symbol"
         />
@@ -332,6 +346,7 @@ function Trades() {
           <TradesSortHeader label="Shared" sortKey="shared" sort={sort} onSort={setSortByKey} title="Sort (no data yet)" />
           <TradesSortHeader label="Notes" sortKey="notes" sort={sort} onSort={setSortByKey} title="Sort (no data yet)" />
           <TradesSortHeader label="Tags" sortKey="tags" sort={sort} onSort={setSortByKey} title="Sort by tags" />
+          <TradesSortHeader label="Setup" sortKey="setups" sort={sort} onSort={setSortByKey} title="Sort by setups" />
         </div>
 
         {trades.length === 0 ? (
@@ -345,6 +360,8 @@ function Trades() {
             const rowId = stableTradeId(trade);
             const tags = getTradeTags(trade);
             const tagsLabel = tags.length ? tags.join(", ") : "—";
+            const setups = getTradeSetups(trade);
+            const setupsLabel = setups.length ? setups.join(", ") : "—";
             const displayPnl = tradeNetPnl(trade);
             const rowTone = (pageOffset + idx) % 2;
             return (
@@ -369,6 +386,9 @@ function Trades() {
                   <div className="trades-cell-muted">—</div>
                   <div className={tags.length ? "trades-tags-cell" : "trades-cell-muted"} title={tagsLabel}>
                     {tagsLabel}
+                  </div>
+                  <div className={setups.length ? "trades-tags-cell" : "trades-cell-muted"} title={setupsLabel}>
+                    {setupsLabel}
                   </div>
                 </Link>
               </div>

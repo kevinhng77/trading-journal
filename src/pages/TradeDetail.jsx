@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useMemo, useState } from "react";
-import { collectAllTagsFromTrades } from "../lib/tradeTags";
+import { collectAllTagsFromTrades, collectAllSetupsFromTrades } from "../lib/tradeTags";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   formatMoney,
@@ -19,6 +19,7 @@ import ChartPresetsDropdown from "../components/ChartPresetsDropdown";
 const TradeExecutionChart = lazy(() => import("../components/TradeExecutionChart.jsx"));
 import TradeNotesEditor from "../components/TradeNotesEditor";
 import TradeTagsEditor from "../components/TradeTagsEditor";
+import TradeSetupsEditor from "../components/TradeSetupsEditor";
 import {
   computeFillReplayStats,
   tradeFeesPaid,
@@ -211,6 +212,7 @@ export default function TradeDetail() {
   );
 
   const allTagSuggestions = useMemo(() => collectAllTagsFromTrades(trades), [trades]);
+  const allSetupSuggestions = useMemo(() => collectAllSetupsFromTrades(trades), [trades]);
 
   function go(id) {
     if (!id) return;
@@ -321,6 +323,7 @@ export default function TradeDetail() {
         </header>
         <div className="trade-detail-header-tags">
           <TradeTagsEditor tradeId={tid} tags={trade.tags} suggestionTags={allTagSuggestions} />
+          <TradeSetupsEditor tradeId={tid} setups={trade.setups} suggestionSetups={allSetupSuggestions} />
         </div>
       </div>
 

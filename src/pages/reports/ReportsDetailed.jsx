@@ -75,10 +75,12 @@ function ChartEmpty({ children }) {
   return <div className="chart-empty">{children}</div>;
 }
 
-function Stat({ label, value, valueClass, locked }) {
+function Stat({ label, value, valueClass, locked, labelTitle }) {
   return (
     <div className="reports-detailed-stat">
-      <div className="reports-detailed-stat-label">{label}</div>
+      <div className="reports-detailed-stat-label" title={labelTitle || undefined}>
+        {label}
+      </div>
       <div className={`reports-detailed-stat-value ${valueClass ?? ""}`}>
         {locked ? (
           <>
@@ -92,7 +94,7 @@ function Stat({ label, value, valueClass, locked }) {
   );
 }
 
-/** @typedef {{ label: string, value: import("react").ReactNode, valueClass?: string, locked?: boolean }} StatSpec */
+/** @typedef {{ label: string, value: import("react").ReactNode, valueClass?: string, locked?: boolean, labelTitle?: string }} StatSpec */
 /** @typedef {{ placeholder: true, text: string }} PlaceholderSpec */
 /** @typedef {StatSpec | PlaceholderSpec | null} StatsCellSpec */
 
@@ -110,7 +112,13 @@ function StatsCell({ spec }) {
   const s = /** @type {StatSpec} */ (spec);
   return (
     <td className="reports-detailed-stat-td">
-      <Stat label={s.label} value={s.value} valueClass={s.valueClass} locked={s.locked} />
+      <Stat
+        label={s.label}
+        value={s.value}
+        valueClass={s.valueClass}
+        locked={s.locked}
+        labelTitle={s.labelTitle}
+      />
     </td>
   );
 }
@@ -384,6 +392,28 @@ export default function ReportsDetailed() {
         { label: "Total number of trades", value: String(stats.tradeCount) },
         { label: "Number of winning trades", value: `${stats.winCount} (${winPct}%)` },
         { label: "Number of losing trades", value: `${stats.lossCount} (${lossPct}%)` },
+      ],
+      [
+        {
+          label: "Avg win",
+          value: stats.winCount > 0 ? formatMoney(stats.avgWin) : "—",
+          valueClass: stats.winCount > 0 ? "green" : undefined,
+        },
+        {
+          label: "Avg loss",
+          value: stats.lossCount > 0 ? formatMoney(stats.avgLoss) : "—",
+          valueClass: stats.lossCount > 0 ? "red" : undefined,
+        },
+        {
+          label: "Avg R:R",
+          labelTitle: "Average win ÷ |average loss| (mean winner size vs mean loser size).",
+          value:
+            stats.winCount > 0 &&
+            stats.lossCount > 0 &&
+            Math.abs(stats.avgLoss) > 1e-9
+              ? (stats.avgWin / Math.abs(stats.avgLoss)).toFixed(2)
+              : "—",
+        },
       ],
       [
         { label: "Scratch trades", value: `${scratchN} (${scratchPct}%)` },

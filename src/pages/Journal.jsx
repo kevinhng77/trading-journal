@@ -16,7 +16,7 @@ import {
   savePersistedReportFilters,
 } from "../storage/reportFiltersPersist";
 import { REPORT_FILTERS_DATES_EVENT } from "../lib/reportFilterEvents";
-import { collectAllTagsFromTrades, getTradeTags } from "../lib/tradeTags";
+import { collectAllTagsFromTrades, collectAllSetupsFromTrades, getTradeTags, getTradeSetups } from "../lib/tradeTags";
 import ReportsFilterStrip from "../components/ReportsFilterStrip";
 import { REPORTS_DURATION_OPTIONS } from "../lib/tradeDuration";
 import { aggregateDayExecutionMetrics } from "../lib/tradeExecutionMetrics";
@@ -100,6 +100,7 @@ function Journal() {
   }, []);
 
   const allTags = useMemo(() => collectAllTagsFromTrades(trades), [trades]);
+  const allSetups = useMemo(() => collectAllSetupsFromTrades(trades), [trades]);
 
   const filteredTrades = useMemo(
     () => filterTradesForReport(trades, appliedFilters),
@@ -166,6 +167,7 @@ function Journal() {
             onApply={applyFilters}
             onClear={clearFilters}
             allTags={allTags}
+            allSetups={allSetups}
             durationOptions={REPORTS_DURATION_OPTIONS}
             symbolPlaceholder="Symbol"
           />
@@ -332,6 +334,7 @@ function Journal() {
                       <div>Shared</div>
                       <div>Notes</div>
                       <div>Tags</div>
+                      <div>Setup</div>
                     </div>
 
                     {day.rows.length === 0 ? (
@@ -341,6 +344,8 @@ function Journal() {
                         const rowKey = stableTradeId(trade);
                         const tags = getTradeTags(trade);
                         const tagsLabel = tags.length ? tags.join(", ") : "—";
+                        const setups = getTradeSetups(trade);
+                        const setupsLabel = setups.length ? setups.join(", ") : "—";
                         return (
                           <div
                             key={rowKey}
@@ -363,6 +368,9 @@ function Journal() {
                               <div className="trades-cell-muted">—</div>
                               <div className={tags.length ? "journal-tags-cell" : "trades-cell-muted"} title={tagsLabel}>
                                 {tagsLabel}
+                              </div>
+                              <div className={setups.length ? "journal-tags-cell" : "trades-cell-muted"} title={setupsLabel}>
+                                {setupsLabel}
                               </div>
                             </Link>
                           </div>

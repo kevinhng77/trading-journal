@@ -61,6 +61,10 @@ function Sidebar() {
         <NavLink to="/journal" className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}>
           Journal
         </NavLink>
+
+        <NavLink to="/playbook" className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}>
+          Playbook
+        </NavLink>
       </nav>
 
       <div className="sidebar-footer">

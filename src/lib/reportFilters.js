@@ -1,4 +1,4 @@
-import { getTradeTags } from "./tradeTags";
+import { getTradeTags, getTradeSetups } from "./tradeTags";
 import { inferOpeningSide } from "./tradeSide";
 import { tradeMatchesDurationBucket } from "./tradeDuration";
 
@@ -6,6 +6,8 @@ export const DEFAULT_REPORT_FILTERS = {
   symbol: "",
   selectedTags: [],
   tagsMatchAll: false,
+  selectedSetups: [],
+  setupsMatchAll: false,
   side: "all",
   duration: "all",
   dateFrom: "",
@@ -38,6 +40,10 @@ export function normalizeReportFilters(raw) {
     base.selectedTags = o.selectedTags.map((x) => String(x).trim()).filter(Boolean);
   }
   if (typeof o.tagsMatchAll === "boolean") base.tagsMatchAll = o.tagsMatchAll;
+  if (Array.isArray(o.selectedSetups)) {
+    base.selectedSetups = o.selectedSetups.map((x) => String(x).trim()).filter(Boolean);
+  }
+  if (typeof o.setupsMatchAll === "boolean") base.setupsMatchAll = o.setupsMatchAll;
   if (o.side === "long" || o.side === "short" || o.side === "all") base.side = o.side;
   const dur = String(o.duration ?? "all");
   base.duration = DURATION_VALUES.has(dur) ? dur : "all";
@@ -71,6 +77,20 @@ export function filterTradesForReport(trades, filters) {
     });
   }
 
+  const selectedSetups = Array.isArray(f.selectedSetups)
+    ? f.selectedSetups.map((x) => String(x).trim()).filter(Boolean)
+    : [];
+  if (selectedSetups.length > 0) {
+    const selectedLower = selectedSetups.map((s) => s.toLowerCase());
+    out = out.filter((t) => {
+      const setupSet = new Set(getTradeSetups(t).map((x) => x.toLowerCase()));
+      if (f.setupsMatchAll) {
+        return selectedLower.every((s) => setupSet.has(s));
+      }
+      return selectedLower.some((s) => setupSet.has(s));
+    });
+  }
+
   if (f.side === "long" || f.side === "short") {
     out = out.filter((t) => inferOpeningSide(t) === f.side);
   }
@@ -92,6 +112,7 @@ export function reportFiltersActive(f) {
   if (!f) return false;
   if (String(f.symbol ?? "").trim()) return true;
   if (Array.isArray(f.selectedTags) && f.selectedTags.length > 0) return true;
+  if (Array.isArray(f.selectedSetups) && f.selectedSetups.length > 0) return true;
   if (f.side === "long" || f.side === "short") return true;
   if (String(f.duration ?? "all") !== "all") return true;
   if (String(f.dateFrom ?? "").trim() || String(f.dateTo ?? "").trim()) return true;

@@ -14,6 +14,7 @@ import ReportsAdvancedTab from "./pages/reports/ReportsAdvancedTab";
 import Trades from "./pages/Trades";
 import TradeDetail from "./pages/TradeDetail";
 import Journal from "./pages/Journal";
+import Playbook from "./pages/Playbook";
 import TradeImportSettingsPage from "./pages/TradeImportSettingsPage";
 
 function App() {
@@ -36,6 +37,7 @@ function App() {
         <Route path="/trades/:tradeId" element={<TradeDetail />} />
         <Route path="/trades" element={<Trades />} />
         <Route path="/journal" element={<Journal />} />
+        <Route path="/playbook" element={<Playbook />} />
       </Route>
     </Routes>
   );

@@ -1,6 +1,6 @@
 import { groupFillsIntoTrades } from "../import/thinkorswimCsv.js";
 import { stableTradeId } from "../storage/tradeLookup";
-import { getTradeTags, normalizeTagList } from "./tradeTags";
+import { getTradeTags, getTradeSetups, normalizeTagList } from "./tradeTags";
 import { tradeNetPnl } from "./tradeExecutionMetrics";
 
 /**
@@ -74,6 +74,7 @@ export function mergeTradesByStableIds(stableIds, allTrades) {
   }
 
   const tags = normalizeTagList(picked.flatMap((t) => getTradeTags(t)));
+  const setups = normalizeTagList(picked.flatMap((t) => getTradeSetups(t)));
   const primary = picked[0];
   const merged = {
     ...primary,
@@ -83,6 +84,7 @@ export function mergeTradesByStableIds(stableIds, allTrades) {
     pnl: Math.round(pnlSum * 100) / 100,
     fills: mergedFills,
     ...(tags.length > 0 ? { tags } : {}),
+    ...(setups.length > 0 ? { setups } : {}),
   };
 
   let first = -1;
@@ -133,6 +135,7 @@ export function splitTradeIntoRoundTripsByStableId(stableId, allTrades) {
 
   const base = stableTradeId(trade);
   const tagList = normalizeTagList(getTradeTags(trade));
+  const setupList = normalizeTagList(getTradeSetups(trade));
   const notes = typeof trade.notes === "string" && trade.notes.trim() ? trade.notes : undefined;
   const idSuffix =
     typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : String(Date.now());
@@ -144,6 +147,7 @@ export function splitTradeIntoRoundTripsByStableId(stableId, allTrades) {
       id,
       source: trade.source ?? t.source,
       ...(tagList.length > 0 ? { tags: [...tagList] } : {}),
+      ...(setupList.length > 0 ? { setups: [...setupList] } : {}),
       ...(notes && i === 0 ? { notes } : {}),
     };
   });

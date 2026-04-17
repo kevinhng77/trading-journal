@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useSearchParams } from "react-router-dom";
 import { useLiveTrades } from "../../hooks/useLiveTrades";
-import { collectAllTagsFromTrades } from "../../lib/tradeTags";
+import { collectAllTagsFromTrades, collectAllSetupsFromTrades } from "../../lib/tradeTags";
 import { DEFAULT_REPORT_FILTERS } from "../../lib/reportFilters";
 import { REPORT_FILTERS_DATES_EVENT } from "../../lib/reportFilterEvents";
 import ReportsFilterStrip from "../../components/ReportsFilterStrip";
@@ -15,6 +15,7 @@ import {
 export default function ReportsLayout() {
   const trades = useLiveTrades();
   const allTags = useMemo(() => collectAllTagsFromTrades(trades), [trades]);
+  const allSetups = useMemo(() => collectAllSetupsFromTrades(trades), [trades]);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [filterDraft, setFilterDraft] = useState(() => loadPersistedReportFilters());
@@ -75,6 +76,7 @@ export default function ReportsLayout() {
         onApply={applyFilters}
         onClear={clearFilters}
         allTags={allTags}
+        allSetups={allSetups}
         durationOptions={REPORTS_DURATION_OPTIONS}
       />
 
@@ -127,6 +129,7 @@ export default function ReportsLayout() {
         context={{
           appliedReportFilters,
           allTags,
+          allSetups,
         }}
       />
     </div>

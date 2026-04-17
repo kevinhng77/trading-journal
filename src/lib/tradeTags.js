@@ -64,3 +64,46 @@ export function removeTagFromAllTrades(tag) {
   if (tradeCount > 0) saveTrades(next);
   return { tradeCount };
 }
+
+/** @param {unknown} trade */
+export function getTradeSetups(trade) {
+  return normalizeTagList(trade?.setups);
+}
+
+/** @param {object[]} trades */
+export function collectAllSetupsFromTrades(trades) {
+  const seen = new Set();
+  const out = [];
+  for (const t of trades) {
+    for (const s of getTradeSetups(t)) {
+      const k = s.toLowerCase();
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(s);
+    }
+  }
+  out.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  return out;
+}
+
+/**
+ * Remove one setup (case-insensitive) from every trade and persist.
+ * @param {string} setup
+ * @returns {{ tradeCount: number }}
+ */
+export function removeSetupFromAllTrades(setup) {
+  const needle = normalizeTagString(setup);
+  if (!needle) return { tradeCount: 0 };
+  const nk = needle.toLowerCase();
+  const trades = loadTrades();
+  let tradeCount = 0;
+  const next = trades.map((trade) => {
+    const setups = getTradeSetups(trade);
+    const filtered = setups.filter((x) => x.toLowerCase() !== nk);
+    if (filtered.length === setups.length) return trade;
+    tradeCount += 1;
+    return { ...trade, setups: filtered };
+  });
+  if (tradeCount > 0) saveTrades(next);
+  return { tradeCount };
+}
