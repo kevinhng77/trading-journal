@@ -1,4 +1,14 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": null
+  "framework": null,
+  "rewrites": [
+    {
+      "source": "/api/alpaca/(.*)",
+      "destination": "/api/proxy?service=alpaca&p=$1"
+    },
+    {
+      "source": "/api/massive/(.*)",
+      "destination": "/api/proxy?service=massive&p=$1"
+    }
+  ]
 }
