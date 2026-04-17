@@ -1,5 +1,5 @@
 import { groupTradesByDate } from "../storage/storage";
-import { getTradeTags } from "./tradeTags";
+import { getTradeTags, getTradeSetups } from "./tradeTags";
 import {
   getTradeDurationSeconds,
   tradeMatchesDurationBucket,
@@ -433,25 +433,49 @@ export function aggregateByHoldMinuteBuckets(trades) {
   return rows;
 }
 
-/** Tag → summed P&amp;L (each trade counted once per tag). */
-export function aggregateByTag(trades) {
+/**
+ * Sum P&amp;L by label (tags or setups). Each trade contributes its full P&amp;L once per label on that trade.
+ * Trades with no labels roll into `emptyBucketName`.
+ * @param {object[]} trades
+ * @param {(trade: object) => string[]} getLabels
+ * @param {string} emptyBucketName
+ * @param {number} [maxRows]
+ * @returns {{ name: string, pnl: number, trades: number }[]}
+ */
+function aggregateByTradeLabels(trades, getLabels, emptyBucketName, maxRows = 14) {
+  /** @type {Map<string, { pnl: number, trades: number }>} */
   const map = new Map();
+  function bump(key, p) {
+    const cur = map.get(key) || { pnl: 0, trades: 0 };
+    cur.pnl += p;
+    cur.trades += 1;
+    map.set(key, cur);
+  }
   for (const t of trades) {
     const p = Number(t.pnl) || 0;
-    const tags = getTradeTags(t);
-    if (tags.length === 0) {
-      const k = "(untagged)";
-      map.set(k, (map.get(k) || 0) + p);
+    const labels = getLabels(t);
+    if (!labels.length) {
+      bump(emptyBucketName, p);
     } else {
-      for (const tag of tags) {
-        map.set(tag, (map.get(tag) || 0) + p);
+      for (const name of labels) {
+        bump(name, p);
       }
     }
   }
   return [...map.entries()]
-    .map(([name, pnl]) => ({ name, pnl }))
+    .map(([name, v]) => ({ name, pnl: v.pnl, trades: v.trades }))
     .sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl))
-    .slice(0, 14);
+    .slice(0, maxRows);
+}
+
+/** Tag → summed P&amp;L (each trade counted once per tag). */
+export function aggregateByTag(trades) {
+  return aggregateByTradeLabels(trades, getTradeTags, "(untagged)", 14);
+}
+
+/** Setup → summed P&amp;L (each trade counted once per setup label). */
+export function aggregateBySetup(trades) {
+  return aggregateByTradeLabels(trades, getTradeSetups, "(no setup)", 14);
 }
 
 /** Last `count` calendar days ending today (ISO dates, oldest first). */

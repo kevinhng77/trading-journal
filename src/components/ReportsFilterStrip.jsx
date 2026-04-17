@@ -56,6 +56,7 @@ function IconCheck() {
  * @param {{ value: string, label: string }[]} [props.durationOptions]
  * @param {string} [props.symbolPlaceholder]
  * @param {import("react").ReactNode} [props.trailingSlot]
+ * @param {"default" | "none"} [props.stripActions] When `"none"`, hide Apply/Clear and treat filter changes as immediate (no submit row).
  */
 export default function ReportsFilterStrip({
   draft,
@@ -67,6 +68,7 @@ export default function ReportsFilterStrip({
   durationOptions = REPORT_DURATION_OPTIONS,
   symbolPlaceholder = "Symbol",
   trailingSlot = null,
+  stripActions = "default",
 }) {
   const [tagSearch, setTagSearch] = useState("");
   const [tagsPopOpen, setTagsPopOpen] = useState(false);
@@ -260,7 +262,7 @@ export default function ReportsFilterStrip({
         className="reports-filter-strip-form"
         onSubmit={(e) => {
           e.preventDefault();
-          onApply();
+          if (stripActions !== "none") onApply();
         }}
       >
       <div className="reports-filter-fields">
@@ -503,10 +505,14 @@ export default function ReportsFilterStrip({
                       <button
                         type="button"
                         className="reports-filter-setup-done-btn"
-                        title="Apply all strip filters and close this menu"
-                        aria-label="Apply filters and close setup menu"
+                        title={
+                          stripActions === "none"
+                            ? "Close setup menu"
+                            : "Apply all strip filters and close this menu"
+                        }
+                        aria-label={stripActions === "none" ? "Close setup menu" : "Apply filters and close setup menu"}
                         onClick={() => {
-                          onApply();
+                          if (stripActions !== "none") onApply();
                           setSetupsPopOpen(false);
                           setSetupSearch("");
                         }}
@@ -577,15 +583,19 @@ export default function ReportsFilterStrip({
             </div>
           </div>
 
-          <div ref={reportsStripActionsRef} className="reports-filter-strip-actions">
-            <button type="button" className="reports-action-btn reports-action-btn--clear" onClick={onClear} title="Clear filters" aria-label="Clear filters">
-              <IconTrash />
-            </button>
-            <button type="submit" className="reports-action-btn reports-action-btn--apply" title="Apply filters" aria-label="Apply filters">
-              <IconCheck />
-            </button>
-            {trailingSlot}
-          </div>
+          {stripActions !== "none" ? (
+            <div ref={reportsStripActionsRef} className="reports-filter-strip-actions">
+              <button type="button" className="reports-action-btn reports-action-btn--clear" onClick={onClear} title="Clear filters" aria-label="Clear filters">
+                <IconTrash />
+              </button>
+              <button type="submit" className="reports-action-btn reports-action-btn--apply" title="Apply filters" aria-label="Apply filters">
+                <IconCheck />
+              </button>
+              {trailingSlot}
+            </div>
+          ) : (
+            <div ref={reportsStripActionsRef} className="reports-filter-strip-actions reports-filter-strip-actions--placeholder" aria-hidden="true" />
+          )}
         </div>
       </div>
       </form>
