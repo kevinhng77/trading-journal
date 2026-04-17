@@ -406,6 +406,8 @@ export default function TradeExecutionChart({
   trendlineDrawMode = false,
   /** Shown on the right side of the bottom interval bar (e.g. screenshot / playbook actions). */
   chartIntervalBarEnd = null,
+  /** When set, chart context menu includes an entry that opens the indicators catalog (trade detail). */
+  onOpenIndicatorsCatalog = null,
 }) {
   const containerRef = useRef(null);
   const trendlineSvgRef = useRef(/** @type {SVGSVGElement | null} */ (null));
@@ -1374,7 +1376,8 @@ export default function TradeExecutionChart({
     chartContextMenu &&
     (() => {
       const menuW = 240;
-      const menuH = 44;
+      const itemCount = 1 + (typeof onOpenIndicatorsCatalog === "function" ? 1 : 0);
+      const menuH = itemCount * 44;
       const x = Math.max(6, Math.min(chartContextMenu.x, window.innerWidth - menuW - 6));
       const y = Math.max(6, Math.min(chartContextMenu.y, window.innerHeight - menuH - 6));
       return { left: x, top: y };
@@ -1393,7 +1396,7 @@ export default function TradeExecutionChart({
               aria-pressed={chartInterval === b.id}
               title={
                 b.id === "MAX"
-                  ? "1-minute bars over the same calendar window as Daily (5 years before the trade date)"
+                  ? "Daily (1Day) bars — up to 5 calendar years before the trade (same date window as 1d, widest daily history)"
                   : undefined
               }
             >
@@ -1526,6 +1529,22 @@ export default function TradeExecutionChart({
               <span className="trade-chart-context-item-label">Reset chart view</span>
               <kbd className="trade-chart-context-kbd">Alt+R</kbd>
             </button>
+            {typeof onOpenIndicatorsCatalog === "function" ? (
+              <button
+                type="button"
+                className="trade-chart-context-item"
+                role="menuitem"
+                onClick={() => {
+                  onOpenIndicatorsCatalog();
+                  setChartContextMenu(null);
+                }}
+              >
+                <span className="trade-chart-context-item-icon" aria-hidden>
+                  ≡
+                </span>
+                <span className="trade-chart-context-item-label">Browse indicators catalog…</span>
+              </button>
+            ) : null}
           </div>
         ) : null}
       </>

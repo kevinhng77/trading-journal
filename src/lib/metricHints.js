@@ -179,7 +179,7 @@ export function winLossDayStatHint(label) {
 }
 
 export const REPORTS_TAG_BREAKDOWN_CHART_HINT =
-  "Each row is one tag or setup. A trade’s full P&L is counted toward every tag/setup on that trade; rows sorted by absolute P&L.";
+  "List: every tag or setup with summed net P&L, trade count, and volume (same P&L counted on each label on a trade). Combinations: trades that have two or more labels at once (one row per sorted label set). Detailed: win rate, profit factor, and average replay MFE/MAE within each label’s trade bucket.";
 
 export const REPORTS_TAG_BREAKDOWN_MODE_HINT =
   "Tags use trade tag chips; setups use setup chips. Switching only changes how rows are grouped — the bar chart updates the same way.";

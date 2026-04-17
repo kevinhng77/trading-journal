@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { REPORT_DURATION_OPTIONS } from "../lib/tradeDuration";
-import { removeTagFromAllTrades, removeSetupFromAllTrades } from "../lib/tradeTags";
+import { removeTagFromAllTrades } from "../lib/tradeTags";
 import DateRangePicker from "./DateRangePicker";
 import ReportsFilterCombobox from "./ReportsFilterCombobox";
 
@@ -159,13 +159,6 @@ export default function ReportsFilterStrip({
     });
   }
 
-  function confirmRemoveSetupFromAllTrades(setup) {
-    const msg = `Remove setup “${setup}” from every trade? This cannot be undone.`;
-    if (!window.confirm(msg)) return;
-    removeSetupFromAllTrades(setup);
-    removeSetupFilter(setup);
-  }
-
   function addSetup(value) {
     const t = String(value ?? "").trim();
     if (!t) return;
@@ -277,6 +270,25 @@ export default function ReportsFilterStrip({
               placeholder={symbolPlaceholder}
               value={draft.symbol}
               onChange={(e) => patch({ symbol: e.target.value })}
+            />
+          </div>
+
+          <div
+            ref={reportsDateFieldRef}
+            className="reports-filter-field reports-filter-field--stacked reports-filter-field--date"
+          >
+            <span className="reports-filter-field-label" id={dateFieldLabelId}>
+              Date
+            </span>
+            <DateRangePicker
+              className="reports-filter-drp"
+              aria-labelledby={dateFieldLabelId}
+              alignPopoverEnd
+              positionAnchorRef={reportsDateFieldRef}
+              clampRightBeforeRef={reportsStripActionsRef}
+              dateFrom={draft.dateFrom}
+              dateTo={draft.dateTo}
+              onChange={(r) => patch(r)}
             />
           </div>
 
@@ -417,7 +429,12 @@ export default function ReportsFilterStrip({
                   {setupsTriggerLabel}
                 </button>
                 {setupsPopOpen ? (
-                  <div id={setupsPopId} className="reports-filter-tags-pop" role="dialog" aria-label="Setup filters">
+                  <div
+                    id={setupsPopId}
+                    className="reports-filter-tags-pop reports-filter-tags-pop--setups"
+                    role="dialog"
+                    aria-label="Setup filters"
+                  >
                     <input
                       ref={setupQueryInputRef}
                       type="text"
@@ -454,10 +471,7 @@ export default function ReportsFilterStrip({
                           </div>
                         ))}
                         {setupsDropdownAddable.map((t) => (
-                          <div
-                            key={`su-${t}`}
-                            className="reports-filter-tag-dropdown-row reports-filter-tag-dropdown-row--add reports-filter-tag-dropdown-row--split"
-                          >
+                          <div key={`su-${t}`} className="reports-filter-tag-dropdown-row reports-filter-tag-dropdown-row--add">
                             <button
                               type="button"
                               className="reports-filter-tag-dropdown-add-hit"
@@ -467,19 +481,6 @@ export default function ReportsFilterStrip({
                               }}
                             >
                               <span className="reports-filter-tag-dropdown-name">{t}</span>
-                            </button>
-                            <button
-                              type="button"
-                              className="reports-filter-tag-dropdown-remove"
-                              aria-label={`Delete setup ${t} from all trades`}
-                              title={`Remove “${t}” from every trade`}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                confirmRemoveSetupFromAllTrades(t);
-                              }}
-                            >
-                              <span aria-hidden>×</span>
                             </button>
                           </div>
                         ))}
@@ -561,42 +562,19 @@ export default function ReportsFilterStrip({
 
         <div className="reports-filter-fields-spacer" aria-hidden="true" />
 
-        <div className="reports-filter-strip-date-actions">
-          <div className="reports-filter-fields-right">
-            <div
-              ref={reportsDateFieldRef}
-              className="reports-filter-field reports-filter-field--stacked reports-filter-field--date"
-            >
-              <span className="reports-filter-field-label" id={dateFieldLabelId}>
-                Date
-              </span>
-              <DateRangePicker
-                className="reports-filter-drp"
-                aria-labelledby={dateFieldLabelId}
-                alignPopoverEnd
-                positionAnchorRef={reportsDateFieldRef}
-                clampRightBeforeRef={reportsStripActionsRef}
-                dateFrom={draft.dateFrom}
-                dateTo={draft.dateTo}
-                onChange={(r) => patch(r)}
-              />
-            </div>
+        {stripActions !== "none" ? (
+          <div ref={reportsStripActionsRef} className="reports-filter-strip-actions">
+            <button type="button" className="reports-action-btn reports-action-btn--clear" onClick={onClear} title="Clear filters" aria-label="Clear filters">
+              <IconTrash />
+            </button>
+            <button type="submit" className="reports-action-btn reports-action-btn--apply" title="Apply filters" aria-label="Apply filters">
+              <IconCheck />
+            </button>
+            {trailingSlot}
           </div>
-
-          {stripActions !== "none" ? (
-            <div ref={reportsStripActionsRef} className="reports-filter-strip-actions">
-              <button type="button" className="reports-action-btn reports-action-btn--clear" onClick={onClear} title="Clear filters" aria-label="Clear filters">
-                <IconTrash />
-              </button>
-              <button type="submit" className="reports-action-btn reports-action-btn--apply" title="Apply filters" aria-label="Apply filters">
-                <IconCheck />
-              </button>
-              {trailingSlot}
-            </div>
-          ) : (
-            <div ref={reportsStripActionsRef} className="reports-filter-strip-actions reports-filter-strip-actions--placeholder" aria-hidden="true" />
-          )}
-        </div>
+        ) : (
+          <div ref={reportsStripActionsRef} className="reports-filter-strip-actions reports-filter-strip-actions--placeholder" aria-hidden="true" />
+        )}
       </div>
       </form>
     </div>

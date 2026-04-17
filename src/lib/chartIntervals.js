@@ -25,7 +25,7 @@ const ALPACA_TIMEFRAME = /** @type {Record<string, string>} */ ({
   "240": "4Hour",
   D: "1Day",
   W: "1Week",
-  MAX: "1Min",
+  MAX: "1Day",
 });
 
 /** @param {string} interval */
@@ -34,10 +34,10 @@ export function chartIntervalToAlpacaTimeframe(interval) {
   return ALPACA_TIMEFRAME[k] || "1Min";
 }
 
-/** Daily or weekly — no session VWAP / volume histogram treatment like intraday. */
+/** Daily, weekly, or Max (1Day bars, widest calendar span) — no intraday VWAP / session volume treatment. */
 export function isDailyLikeInterval(interval) {
   const i = String(interval ?? "");
-  return i === "D" || i === "W";
+  return i === "D" || i === "W" || i === "MAX";
 }
 
 /** Bar length in seconds for intraday fill → bar snap (unused when daily-like). */
@@ -45,7 +45,7 @@ export function barPeriodSecondsForInterval(interval) {
   const i = String(interval);
   switch (i) {
     case "MAX":
-      return 60;
+      return 86400;
     case "2":
       return 120;
     case "3":

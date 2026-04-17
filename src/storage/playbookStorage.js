@@ -11,7 +11,16 @@ export const PLAYBOOK_MAX_SCREENSHOTS_PER_PLAY = 14;
 const STORAGE_KEY = PLAYBOOK_STORAGE_KEY;
 const MISSED_STORAGE_KEY = PLAYBOOK_MISSED_STORAGE_KEY;
 
-/** @typedef {{ id: string, dataUrl: string }} PlaybookScreenshot */
+/** @typedef {{ id: string, dataUrl: string, tradeTag?: string }} PlaybookScreenshot */
+
+const TRADE_TAG_MAX_LEN = 120;
+
+/** @param {unknown} v @returns {string | undefined} */
+function sanitizeTradeTag(v) {
+  if (typeof v !== "string") return undefined;
+  const t = v.trim().slice(0, TRADE_TAG_MAX_LEN);
+  return t || undefined;
+}
 
 /**
  * @typedef {object} PlaybookPlay
@@ -66,9 +75,11 @@ function normalizeScreenshot(row) {
   const dataUrl = /** @type {{ dataUrl?: unknown }} */ (row).dataUrl;
   const id = /** @type {{ id?: unknown }} */ (row).id;
   if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) return null;
+  const tradeTag = sanitizeTradeTag(/** @type {{ tradeTag?: unknown }} */ (row).tradeTag);
   return {
     id: typeof id === "string" && id ? id : newId(),
     dataUrl,
+    ...(tradeTag ? { tradeTag } : {}),
   };
 }
 
@@ -123,9 +134,10 @@ export function loadMissedPlays() {
  * Append one screenshot (data URL) to a play by id. Respects {@link PLAYBOOK_MAX_SCREENSHOTS_PER_PLAY}.
  * @param {string} playId
  * @param {string} dataUrl
+ * @param {{ tradeTag?: string }} [options]
  * @returns {{ ok: true } | { ok: false, message: string }}
  */
-export function appendScreenshotToPlay(playId, dataUrl) {
+export function appendScreenshotToPlay(playId, dataUrl, options) {
   if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) {
     return { ok: false, message: "Invalid image data." };
   }
@@ -140,8 +152,14 @@ export function appendScreenshotToPlay(playId, dataUrl) {
   }
   const shotId =
     typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `shot-${Date.now()}`;
+  const tradeTag = sanitizeTradeTag(options?.tradeTag);
+  const shot = /** @type {PlaybookScreenshot} */ ({
+    id: shotId,
+    dataUrl,
+    ...(tradeTag ? { tradeTag } : {}),
+  });
   const nextPlays = plays.map((p) =>
-    p.id === playId ? { ...p, screenshots: [...p.screenshots, { id: shotId, dataUrl }] } : p,
+    p.id === playId ? { ...p, screenshots: [...p.screenshots, shot] } : p,
   );
   return savePlaybook(nextPlays);
 }
@@ -172,9 +190,10 @@ export function saveMissedPlays(missed) {
  * Append a screenshot to a missed play by id.
  * @param {string} playId
  * @param {string} dataUrl
+ * @param {{ tradeTag?: string }} [options]
  * @returns {{ ok: true } | { ok: false, message: string }}
  */
-export function appendScreenshotToMissedPlay(playId, dataUrl) {
+export function appendScreenshotToMissedPlay(playId, dataUrl, options) {
   if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/")) {
     return { ok: false, message: "Invalid image data." };
   }
@@ -189,8 +208,14 @@ export function appendScreenshotToMissedPlay(playId, dataUrl) {
   }
   const shotId =
     typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `shot-${Date.now()}`;
+  const tradeTag = sanitizeTradeTag(options?.tradeTag);
+  const shot = /** @type {PlaybookScreenshot} */ ({
+    id: shotId,
+    dataUrl,
+    ...(tradeTag ? { tradeTag } : {}),
+  });
   const nextMissed = missed.map((p) =>
-    p.id === playId ? { ...p, screenshots: [...p.screenshots, { id: shotId, dataUrl }] } : p,
+    p.id === playId ? { ...p, screenshots: [...p.screenshots, shot] } : p,
   );
   return saveMissedPlays(nextMissed);
 }

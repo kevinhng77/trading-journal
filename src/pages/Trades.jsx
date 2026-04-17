@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { visiblePageNumbers } from "../lib/pagination";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   formatMoney,
   pnlClass,
@@ -31,6 +31,7 @@ import { tradeNetPnl } from "../lib/tradeExecutionMetrics";
 import { prefetchTradeExecutionChart } from "../lib/tradeChartPrefetch";
 import StarToggle from "../components/StarToggle";
 import { useStarred } from "../hooks/useStarred";
+import { readAllTradeNotes, TRADE_NOTES_CHANGED_EVENT } from "../storage/tradeNotes";
 
 const TRADES_PAGE_SIZE = 20;
 
@@ -43,7 +44,14 @@ const TRADES_PAGE_SIZE = 20;
  * @param {TradeSortKey} key
  * @param {"asc"|"desc"} dir
  */
-function compareTradesForSort(a, b, key, dir) {
+/**
+ * @param {object} a
+ * @param {object} b
+ * @param {TradeSortKey} key
+ * @param {"asc"|"desc"} dir
+ * @param {Record<string, string>} [notesById]
+ */
+function compareTradesForSort(a, b, key, dir, notesById) {
   const m = dir === "asc" ? 1 : -1;
   let cmp = 0;
   switch (key) {
@@ -86,9 +94,17 @@ function compareTradesForSort(a, b, key, dir) {
       cmp = sa.localeCompare(sb);
       break;
     }
-    case "notes":
-      cmp = 0;
+    case "notes": {
+      const map = notesById && typeof notesById === "object" ? notesById : readAllTradeNotes();
+      const na = String(map[stableTradeId(a)] ?? "")
+        .trim()
+        .toLowerCase();
+      const nb = String(map[stableTradeId(b)] ?? "")
+        .trim()
+        .toLowerCase();
+      cmp = na.localeCompare(nb);
       break;
+    }
     default:
       cmp = 0;
   }
@@ -101,7 +117,7 @@ function compareTradesForSort(a, b, key, dir) {
  * @returns {"asc"|"desc"}
  */
 function defaultSortDirForKey(key) {
-  if (key === "symbol" || key === "tags" || key === "setups") return "asc";
+  if (key === "symbol" || key === "tags" || key === "setups" || key === "notes") return "asc";
   return "desc";
 }
 
@@ -128,6 +144,7 @@ function TradesSortHeader({ label, sortKey, sort, onSort, title }) {
 
 function Trades() {
   const trades = useLiveTrades();
+  const location = useLocation();
   const { isTradeStarred, toggleTrade } = useStarred();
   const [filterDraft, setFilterDraft] = useState(() => loadPersistedReportFilters());
   const [appliedFilters, setAppliedFilters] = useState(() => loadPersistedReportFilters());
@@ -137,6 +154,24 @@ function Trades() {
   const [page, setPage] = useState(1);
   /** @type {["" | "merge" | "splitTrades" | "delete", import("react").Dispatch<import("react").SetStateAction<"" | "merge" | "splitTrades" | "delete">>]} */
   const [bulkAction, setBulkAction] = useState("");
+  const [tradeNotesRev, setTradeNotesRev] = useState(0);
+
+  useEffect(() => {
+    function bump() {
+      setTradeNotesRev((n) => n + 1);
+    }
+    window.addEventListener(TRADE_NOTES_CHANGED_EVENT, bump);
+    window.addEventListener("focus", bump);
+    function onStorage(/** @type {StorageEvent} */ e) {
+      if (e.key === "tradingJournalTradeNotes") bump();
+    }
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener(TRADE_NOTES_CHANGED_EVENT, bump);
+      window.removeEventListener("focus", bump);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
 
   useEffect(() => {
     if (selected.size === 0) setBulkAction("");
@@ -167,10 +202,12 @@ function Trades() {
     [trades, playbookPlayNames],
   );
 
+  const tradeNotesById = useMemo(() => readAllTradeNotes(), [trades, location.key, tradeNotesRev]);
+
   const filteredTrades = useMemo(() => {
     const rows = filterTradesForReport(trades, appliedFilters);
-    return [...rows].sort((a, b) => compareTradesForSort(a, b, sort.key, sort.dir));
-  }, [trades, appliedFilters, sort]);
+    return [...rows].sort((a, b) => compareTradesForSort(a, b, sort.key, sort.dir, tradeNotesById));
+  }, [trades, appliedFilters, sort, tradeNotesById]);
 
   const totalPages = Math.max(1, Math.ceil(filteredTrades.length / TRADES_PAGE_SIZE));
   const pageClamped = Math.min(page, totalPages);
@@ -355,7 +392,7 @@ function Trades() {
             onSort={setSortByKey}
             title="Sort by net P&amp;L (import; fees when provided)"
           />
-          <TradesSortHeader label="Notes" sortKey="notes" sort={sort} onSort={setSortByKey} title="Sort (no data yet)" />
+          <TradesSortHeader label="Notes" sortKey="notes" sort={sort} onSort={setSortByKey} title="Sort by trade note text" />
           <TradesSortHeader label="Tags" sortKey="tags" sort={sort} onSort={setSortByKey} title="Sort by tags" />
           <TradesSortHeader label="Setup" sortKey="setups" sort={sort} onSort={setSortByKey} title="Sort by setups" />
           <div className="trades-star-col-head" title="Star trade for * review">
@@ -377,6 +414,8 @@ function Trades() {
             const setups = getTradeSetups(trade);
             const setupsLabel = setups.length ? setups.join(", ") : "—";
             const displayPnl = tradeNetPnl(trade);
+            const noteRaw = String(tradeNotesById[rowId] ?? "").trim();
+            const notePreview = noteRaw || "—";
             const rowTone = (pageOffset + idx) % 2;
             return (
               <div key={rowId} className={`table-row trades-table-wide trades-row-open ${rowTone ? "trades-row-alt" : ""}`}>
@@ -396,7 +435,12 @@ function Trades() {
                   <div>{trade.volume}</div>
                   <div>{trade.executions}</div>
                   <div className={pnlClass(displayPnl)}>{formatMoney(displayPnl)}</div>
-                  <div className="trades-cell-muted trades-notes-cell">—</div>
+                  <div
+                    className={`trades-notes-cell${noteRaw ? "" : " trades-cell-muted"}`}
+                    title={noteRaw || undefined}
+                  >
+                    {notePreview}
+                  </div>
                   <div className={tags.length ? "trades-tags-cell" : "trades-cell-muted"} title={tagsLabel}>
                     {tagsLabel}
                   </div>

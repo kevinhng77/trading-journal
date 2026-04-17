@@ -108,21 +108,6 @@ export function chartHistoryQuery(tradeIsoDate, chartInterval) {
     };
   }
 
-  /** Same calendar span as Daily (5y before trade); still 1Min bars, capped by `MAX_BARS_CAP.MAX`. */
-  if (String(chartInterval) === "MAX") {
-    const yearsBack = 5;
-    const startCal = format(subYears(trade, yearsBack), "yyyy-MM-dd");
-    const start = fromZonedTime(`${startCal}T00:00:00`, "America/New_York");
-    let end = fromZonedTime(`${tradeIsoDate}T23:59:59.999`, "America/New_York");
-    const endMs = Math.min(end.getTime(), today.getTime());
-    end = new Date(endMs);
-    return {
-      start: start.toISOString(),
-      end: end.toISOString(),
-      maxTotalBars,
-    };
-  }
-
   const lookbackDays = LOOKBACK_DAYS[key] ?? LOOKBACK_DAYS[1];
   const startLocal = subDays(trade, lookbackDays);
   const startStr = format(startLocal, "yyyy-MM-dd");

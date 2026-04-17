@@ -1,18 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ReferenceLine } from "recharts";
 import { useLiveTrades } from "../../hooks/useLiveTrades";
 import { filterTradesForReport, reportFiltersActive, DEFAULT_REPORT_FILTERS } from "../../lib/reportFilters";
-import { tradesInLastDays, aggregateByTag, aggregateBySetup } from "../../lib/dashboardStats";
-import { CHART_GREEN, CHART_RED } from "../../lib/chartPalette";
-import { formatMoney } from "../../storage/storage";
+import {
+  tradesInLastDays,
+  buildTagPnLVolumeRows,
+  buildSetupPnLVolumeRows,
+  buildTagCombinationRows,
+  buildSetupCombinationRows,
+  buildTagDetailedRows,
+  buildSetupDetailedRows,
+} from "../../lib/dashboardStats";
+import { formatMoney, pnlClass } from "../../storage/storage";
 import MetricHintIcon from "../../components/MetricHintIcon";
 import { REPORTS_TAG_BREAKDOWN_CHART_HINT, REPORTS_TAG_BREAKDOWN_MODE_HINT } from "../../lib/metricHints";
 
-const GRID = "#2a3140";
-const TICK = { fill: "#94a3b8", fontSize: 10 };
-
 const MODE_STORAGE_KEY = "tradingJournalTagBreakdownMode";
+const VIEW_STORAGE_KEY = "tradingJournalTagBreakdownView";
 
 /** @returns {"tags" | "setups"} */
 function loadBreakdownMode() {
@@ -25,26 +29,48 @@ function loadBreakdownMode() {
   return "tags";
 }
 
-function BreakdownTip({ active, payload }) {
-  if (!active || !payload?.length) return null;
-  const row = payload[0]?.payload;
-  const name = row?.name ?? payload[0]?.name;
-  const pnl = typeof row?.pnl === "number" ? row.pnl : Number(payload[0]?.value) || 0;
-  const trades = typeof row?.trades === "number" ? row.trades : null;
+/** @returns {"list" | "combinations" | "detailed"} */
+function loadBreakdownView() {
+  try {
+    const v = localStorage.getItem(VIEW_STORAGE_KEY);
+    if (v === "combinations" || v === "detailed") return v;
+  } catch {
+    /* ignore */
+  }
+  return "list";
+}
+
+function fmtProfitFactor(v) {
+  if (v == null) return "—";
+  if (!Number.isFinite(v)) return "∞";
+  return v.toFixed(2);
+}
+
+/** @param {{ pnl: number, maxAbs: number }} props */
+function PnlBarCell({ pnl, maxAbs }) {
+  const pct = maxAbs > 0 ? Math.min(100, (Math.abs(pnl) / maxAbs) * 100) : 0;
+  const pos = pnl >= 0;
   return (
-    <div className="chart-tooltip">
-      {name != null && <div className="chart-tooltip-label">{name}</div>}
-      <div className="chart-tooltip-row">
-        <span>Net P&amp;L</span>
-        <span>{formatMoney(pnl)}</span>
+    <div className="reports-tag-bd-bar-cell" aria-hidden>
+      <div className="reports-tag-bd-bar-track">
+        <div className={`reports-tag-bd-bar-fill ${pos ? "is-pos" : "is-neg"}`} style={{ width: `${pct}%` }} />
       </div>
-      {trades != null ? (
-        <div className="chart-tooltip-row">
-          <span>Trades</span>
-          <span>{trades}</span>
-        </div>
-      ) : null}
     </div>
+  );
+}
+
+/** @param {{ label: string, sortKey: string, activeKey: string, dir: string, onSort: (k: string) => void }} props */
+function SortTh({ label, sortKey, activeKey, dir, onSort }) {
+  const active = activeKey === sortKey;
+  return (
+    <th scope="col">
+      <button type="button" className={`reports-tag-bd-sort-btn${active ? " is-active" : ""}`} onClick={() => onSort(sortKey)}>
+        <span>{label}</span>
+        <span className="reports-tag-bd-sort-glyph" aria-hidden>
+          {active ? (dir === "asc" ? "↑" : "↓") : "↕"}
+        </span>
+      </button>
+    </th>
   );
 }
 
@@ -59,6 +85,9 @@ export default function ReportsTagBreakdown() {
   const usesReportDateSpan = Boolean(dateFrom || dateTo);
 
   const [mode, setMode] = useState(loadBreakdownMode);
+  const [view, setView] = useState(loadBreakdownView);
+  const [sortKey, setSortKey] = useState("pnl");
+  const [sortDir, setSortDir] = useState(/** @type {"asc"|"desc"} */ ("desc"));
 
   useEffect(() => {
     try {
@@ -68,31 +97,88 @@ export default function ReportsTagBreakdown() {
     }
   }, [mode]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(VIEW_STORAGE_KEY, view);
+    } catch {
+      /* ignore */
+    }
+  }, [view]);
+
   const filtered = useMemo(() => filterTradesForReport(trades, applied), [trades, applied]);
   const scoped = useMemo(() => {
     if (usesReportDateSpan) return filtered;
     return tradesInLastDays(filtered, windowDays);
   }, [filtered, usesReportDateSpan, windowDays]);
-  const rows = useMemo(
-    () => (mode === "tags" ? aggregateByTag(scoped) : aggregateBySetup(scoped)),
-    [scoped, mode],
-  );
-  const filtersOn = reportFiltersActive(applied);
 
   const isTags = mode === "tags";
   const noun = isTags ? "tag" : "setup";
   const nounPlural = isTags ? "tags" : "setups";
 
-  const chartHeight = rows.length === 0 ? 260 : Math.max(280, rows.length * 44);
+  const listRows = useMemo(
+    () => (isTags ? buildTagPnLVolumeRows(scoped) : buildSetupPnLVolumeRows(scoped)),
+    [scoped, isTags],
+  );
+  const comboRows = useMemo(
+    () => (isTags ? buildTagCombinationRows(scoped) : buildSetupCombinationRows(scoped)),
+    [scoped, isTags],
+  );
+  const detailedRowsRaw = useMemo(
+    () => (isTags ? buildTagDetailedRows(scoped) : buildSetupDetailedRows(scoped)),
+    [scoped, isTags],
+  );
+
+  const maxAbsList = useMemo(() => Math.max(1e-9, ...listRows.map((r) => Math.abs(r.pnl))), [listRows]);
+  const maxAbsCombo = useMemo(() => Math.max(1e-9, ...comboRows.map((r) => Math.abs(r.pnl))), [comboRows]);
+
+  function onSortColumn(key) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "name" ? "asc" : "desc");
+    }
+  }
+
+  const detailedRows = useMemo(() => {
+    const arr = [...detailedRowsRaw];
+    const m = sortDir === "asc" ? 1 : -1;
+    const key = sortKey;
+    arr.sort((a, b) => {
+      const av = a[key];
+      const bv = b[key];
+      if (key === "name") {
+        return m * String(av).localeCompare(String(bv), undefined, { sensitivity: "base" });
+      }
+      const an = typeof av === "number" && Number.isFinite(av) ? av : null;
+      const bn = typeof bv === "number" && Number.isFinite(bv) ? bv : null;
+      if (an == null && bn == null) return 0;
+      if (an == null) return 1;
+      if (bn == null) return -1;
+      if (an === bn) return 0;
+      return an < bn ? -m : m;
+    });
+    return arr;
+  }, [detailedRowsRaw, sortKey, sortDir]);
+
+  const filtersOn = reportFiltersActive(applied);
   const windowLabel = usesReportDateSpan ? "report date range (from / to)" : `last ${windowDays} calendar days`;
+
+  const emptyListMsg = usesReportDateSpan
+    ? "No trades in the selected date range after filters — adjust dates or Apply filters."
+    : `No trades in the last ${windowDays} days after filters — import trades or widen the window with date filters.`;
+
+  const comboEmptyMsg = isTags
+    ? `No trades carry two or more ${nounPlural} at once. Add multiple tags on a trade to see combination rows.`
+    : `No trades carry two or more ${nounPlural} at once. Add multiple setups on a trade to see combination rows.`;
 
   return (
     <>
       <div className="reports-overview-toolbar reports-tag-breakdown-toolbar">
         <p className="reports-filter-summary">
           <strong>Tag breakdown</strong> — net P&amp;L by <strong>{noun}</strong> over the{" "}
-          <strong>{windowLabel}</strong> (top {nounPlural} by absolute P&amp;L). Use <strong>Setups</strong> to compare
-          playbook-style setups the same way.
+          <strong>{windowLabel}</strong> (each trade contributes its full P&amp;L once per {noun} on that trade). Use{" "}
+          <strong>Setups</strong> to compare playbook-style setups the same way.
           {filtersOn ? (
             <>
               {" "}
@@ -133,29 +219,158 @@ export default function ReportsTagBreakdown() {
             <MetricHintIcon text={REPORTS_TAG_BREAKDOWN_MODE_HINT} />
           </div>
         </div>
-        <div className="reports-detailed-chart-area reports-tag-breakdown-chart-host">
-          {rows.length === 0 ? (
-            <div className="chart-empty" style={{ minHeight: chartHeight }}>
-              {usesReportDateSpan
-                ? "No trades in the selected date range after filters — adjust dates or Apply filters."
-                : `No trades in the last ${windowDays} days after filters — import trades or widen the window with date filters.`}
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={chartHeight} minHeight={200} debounce={32}>
-              <BarChart layout="vertical" data={rows} margin={{ left: 8, right: 12, top: 8, bottom: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={GRID} horizontal={false} />
-                <XAxis type="number" tick={TICK} stroke="#475569" tickFormatter={(v) => `$${v}`} />
-                <YAxis type="category" dataKey="name" width={120} tick={TICK} stroke="#475569" />
-                <ReferenceLine x={0} stroke="#64748b" />
-                <Tooltip content={<BreakdownTip />} cursor={false} />
-                <Bar dataKey="pnl" name="P&amp;L" radius={[0, 4, 4, 0]}>
-                  {rows.map((e) => (
-                    <Cell key={e.name} fill={e.pnl >= 0 ? CHART_GREEN : CHART_RED} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          )}
+
+        <div className="reports-tag-bd-view-tabs" role="tablist" aria-label="Breakdown view">
+          <button
+            type="button"
+            role="tab"
+            className={`reports-tag-bd-view-tab ${view === "list" ? "is-active" : ""}`}
+            aria-selected={view === "list"}
+            onClick={() => setView("list")}
+          >
+            List
+          </button>
+          <button
+            type="button"
+            role="tab"
+            className={`reports-tag-bd-view-tab ${view === "combinations" ? "is-active" : ""}`}
+            aria-selected={view === "combinations"}
+            onClick={() => setView("combinations")}
+          >
+            Combinations
+          </button>
+          <button
+            type="button"
+            role="tab"
+            className={`reports-tag-bd-view-tab ${view === "detailed" ? "is-active" : ""}`}
+            aria-selected={view === "detailed"}
+            onClick={() => setView("detailed")}
+          >
+            Detailed
+          </button>
+        </div>
+
+        <div className="reports-tag-bd-panel">
+          {view === "list" ? (
+            listRows.length === 0 ? (
+              <div className="chart-empty reports-tag-bd-empty">{emptyListMsg}</div>
+            ) : (
+              <div className="reports-tag-bd-table-wrap">
+                <table className="reports-tag-bd-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">{isTags ? "Tags" : "Setups"}</th>
+                      <th scope="col">Graph</th>
+                      <th scope="col" className="reports-tag-bd-num">
+                        Net P&amp;L
+                      </th>
+                      <th scope="col" className="reports-tag-bd-num">
+                        Count
+                      </th>
+                      <th scope="col" className="reports-tag-bd-num">
+                        Volume
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {listRows.map((r) => (
+                      <tr key={r.name}>
+                        <td>
+                          <span className="reports-tag-bd-label-pill">{r.name}</span>
+                        </td>
+                        <td className="reports-tag-bd-graph-col">
+                          <PnlBarCell pnl={r.pnl} maxAbs={maxAbsList} />
+                        </td>
+                        <td className={`reports-tag-bd-num ${pnlClass(r.pnl)}`}>{formatMoney(r.pnl)}</td>
+                        <td className="reports-tag-bd-num">{r.trades}</td>
+                        <td className="reports-tag-bd-num">{r.volume.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          ) : null}
+
+          {view === "combinations" ? (
+            comboRows.length === 0 ? (
+              <div className="chart-empty reports-tag-bd-empty">{scoped.length === 0 ? emptyListMsg : comboEmptyMsg}</div>
+            ) : (
+              <div className="reports-tag-bd-table-wrap">
+                <table className="reports-tag-bd-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Combination</th>
+                      <th scope="col">Graph</th>
+                      <th scope="col" className="reports-tag-bd-num">
+                        Net P&amp;L
+                      </th>
+                      <th scope="col" className="reports-tag-bd-num">
+                        Count
+                      </th>
+                      <th scope="col" className="reports-tag-bd-num">
+                        Volume
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {comboRows.map((r) => (
+                      <tr key={r.name}>
+                        <td>
+                          <span className="reports-tag-bd-label-pill reports-tag-bd-label-pill--combo">{r.name}</span>
+                        </td>
+                        <td className="reports-tag-bd-graph-col">
+                          <PnlBarCell pnl={r.pnl} maxAbs={maxAbsCombo} />
+                        </td>
+                        <td className={`reports-tag-bd-num ${pnlClass(r.pnl)}`}>{formatMoney(r.pnl)}</td>
+                        <td className="reports-tag-bd-num">{r.trades}</td>
+                        <td className="reports-tag-bd-num">{r.volume.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          ) : null}
+
+          {view === "detailed" ? (
+            detailedRows.length === 0 ? (
+              <div className="chart-empty reports-tag-bd-empty">{emptyListMsg}</div>
+            ) : (
+              <div className="reports-tag-bd-table-wrap reports-tag-bd-table-wrap--scroll">
+                <table className="reports-tag-bd-table reports-tag-bd-table--detailed">
+                  <thead>
+                    <tr>
+                      <SortTh label={isTags ? "Tags" : "Setups"} sortKey="name" activeKey={sortKey} dir={sortDir} onSort={onSortColumn} />
+                      <SortTh label="Win %" sortKey="winPct" activeKey={sortKey} dir={sortDir} onSort={onSortColumn} />
+                      <SortTh label="Profit factor" sortKey="profitFactor" activeKey={sortKey} dir={sortDir} onSort={onSortColumn} />
+                      <SortTh label="Avg pos MFE" sortKey="avgPosMfe" activeKey={sortKey} dir={sortDir} onSort={onSortColumn} />
+                      <SortTh label="Avg pos MAE" sortKey="avgPosMae" activeKey={sortKey} dir={sortDir} onSort={onSortColumn} />
+                      <SortTh label="Net P&amp;L" sortKey="pnl" activeKey={sortKey} dir={sortDir} onSort={onSortColumn} />
+                      <SortTh label="Count" sortKey="trades" activeKey={sortKey} dir={sortDir} onSort={onSortColumn} />
+                      <SortTh label="Volume" sortKey="volume" activeKey={sortKey} dir={sortDir} onSort={onSortColumn} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detailedRows.map((r) => (
+                      <tr key={r.name}>
+                        <td>
+                          <span className="reports-tag-bd-label-pill">{r.name}</span>
+                        </td>
+                        <td className="reports-tag-bd-num">{r.winPct != null ? `${r.winPct.toFixed(1)}%` : "—"}</td>
+                        <td className="reports-tag-bd-num">{fmtProfitFactor(r.profitFactor)}</td>
+                        <td className="reports-tag-bd-num">{r.avgPosMfe != null ? formatMoney(r.avgPosMfe) : "—"}</td>
+                        <td className="reports-tag-bd-num">{r.avgPosMae != null ? formatMoney(r.avgPosMae) : "—"}</td>
+                        <td className={`reports-tag-bd-num ${pnlClass(r.pnl)}`}>{formatMoney(r.pnl)}</td>
+                        <td className="reports-tag-bd-num">{r.trades}</td>
+                        <td className="reports-tag-bd-num">{r.volume.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          ) : null}
         </div>
       </div>
     </>

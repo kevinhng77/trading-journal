@@ -5,9 +5,6 @@ import { useLiveTrades } from "../../hooks/useLiveTrades";
 import { filterTradesForReport, DEFAULT_REPORT_FILTERS } from "../../lib/reportFilters";
 import { getDayAggregate } from "../../lib/dashboardStats";
 import { buildCalendarWeeks, formatMonthTitle, sumMonthPnl } from "../../lib/calendarGrid";
-import MetricHintIcon from "../../components/MetricHintIcon";
-import { REPORTS_CALENDAR_MONTH_HINT, REPORTS_CALENDAR_MONTHLY_PNL_HINT } from "../../lib/metricHints";
-
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function parseYear(searchParams) {
@@ -68,10 +65,7 @@ function MonthExpandedGrid({ year, monthIndex, grouped }) {
     <div className="reports-cal-expanded">
       <div className="reports-cal-expanded-meta">
         <span className={`reports-cal-month-pnl reports-cal-month-pnl-row ${pnlClass(monthPnl)}`}>
-          <span>
-            Monthly P&amp;L: {formatMoney(monthPnl)}
-          </span>
-          <MetricHintIcon text={REPORTS_CALENDAR_MONTHLY_PNL_HINT} />
+          Monthly P&amp;L: {formatMoney(monthPnl)}
         </span>
       </div>
       <table className="reports-cal-table">
@@ -184,7 +178,6 @@ export default function ReportsCalendar() {
         <div className="month-card-header">
           <div className="reports-month-title-row">
             <h3>{title}</h3>
-            <MetricHintIcon text={REPORTS_CALENDAR_MONTH_HINT} />
           </div>
           <button
             type="button"

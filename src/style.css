@@ -1475,6 +1475,11 @@ body {
   min-width: 0;
 }
 
+.reports-filter-fields > .reports-filter-strip-actions {
+  flex: 0 0 auto;
+  align-self: flex-end;
+}
+
 .reports-filter-field--stacked {
   display: flex;
   flex-direction: column;
@@ -1503,9 +1508,9 @@ body {
 }
 
 .reports-filter-field--setups {
-  flex: 0 1 200px;
-  min-width: 140px;
-  max-width: min(260px, 36vw);
+  flex: 0 1 260px;
+  min-width: 160px;
+  max-width: min(360px, 48vw);
 }
 
 .reports-filter-field--side,
@@ -1516,6 +1521,13 @@ body {
 .reports-filter-field--date {
   flex: 0 0 auto;
   min-width: min(220px, 100%);
+}
+
+/* Date sits after Symbol, before Tags: grow so From–To reaches left of Tags column (Trades / Journal / Reports). */
+.reports-filter-fields-left .reports-filter-field--date {
+  flex: 1 1 200px;
+  min-width: min(200px, 46vw);
+  max-width: none;
 }
 
 .reports-filter-field--date .reports-filter-drp {
@@ -1915,6 +1927,28 @@ body {
 
 .reports-filter-tags-pop .reports-filter-tag-dropdown {
   max-width: 100%;
+}
+
+/* Setup menu: wider popover, wrapped names, scroll when list is long */
+.reports-filter-tags-pop.reports-filter-tags-pop--setups {
+  min-width: min(100%, 280px);
+  width: max(100%, 300px);
+  max-width: min(calc(100vw - 24px), 520px);
+}
+
+.reports-filter-tags-pop--setups .reports-filter-tag-dropdown {
+  max-height: min(42vh, 300px);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.reports-filter-tags-pop--setups .reports-filter-tag-dropdown-name {
+  overflow: visible;
+  text-overflow: unset;
+  white-space: normal;
+  word-break: break-word;
 }
 
 /* Single-line search: do not flex-grow in column popover; tighter padding than strip inputs */
@@ -2611,6 +2645,173 @@ a.reports-primary-tab {
 .reports-tag-breakdown-chart-host {
   position: relative;
   width: 100%;
+}
+
+.reports-tag-bd-view-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.reports-tag-bd-view-tab {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(100, 116, 139, 0.45);
+  background: rgba(22, 28, 40, 0.85);
+  color: #cbd5e1;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.reports-tag-bd-view-tab:hover {
+  border-color: rgba(148, 163, 184, 0.55);
+  color: #f1f5f9;
+}
+
+.reports-tag-bd-view-tab.is-active {
+  border-color: rgba(74, 222, 128, 0.55);
+  background: rgba(74, 222, 128, 0.14);
+  color: var(--accent-green);
+}
+
+.reports-tag-bd-panel {
+  min-height: 120px;
+}
+
+.reports-tag-bd-empty {
+  padding: 20px 8px;
+  text-align: center;
+}
+
+.reports-tag-bd-table-wrap {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: min(52vh, 480px);
+  margin: 0 -2px;
+  padding: 0 2px 4px;
+  scrollbar-gutter: stable;
+}
+
+.reports-tag-bd-table-wrap--scroll {
+  max-height: min(58vh, 560px);
+}
+
+.reports-tag-bd-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.reports-tag-bd-table--detailed {
+  min-width: 920px;
+}
+
+.reports-tag-bd-table th,
+.reports-tag-bd-table td {
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.reports-tag-bd-table th {
+  font-weight: 700;
+  color: #94a3b8;
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: 0.01em;
+}
+
+.reports-tag-bd-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.reports-tag-bd-num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.reports-tag-bd-graph-col {
+  width: 160px;
+  min-width: 120px;
+}
+
+.reports-tag-bd-bar-cell {
+  width: 100%;
+}
+
+.reports-tag-bd-bar-track {
+  height: 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.reports-tag-bd-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  min-width: 0;
+  transition: width 0.2s ease;
+}
+
+.reports-tag-bd-bar-fill.is-pos {
+  background: var(--accent-green);
+}
+
+.reports-tag-bd-bar-fill.is-neg {
+  background: var(--accent-red);
+}
+
+.reports-tag-bd-label-pill {
+  display: inline-block;
+  max-width: min(420px, 55vw);
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: rgba(51, 65, 85, 0.55);
+  border: 1px solid rgba(100, 116, 139, 0.35);
+  color: #e2e8f0;
+  font-weight: 500;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.reports-tag-bd-label-pill--combo {
+  max-width: min(520px, 70vw);
+}
+
+.reports-tag-bd-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 2px 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  color: #94a3b8;
+}
+
+.reports-tag-bd-sort-btn:hover {
+  color: #e2e8f0;
+}
+
+.reports-tag-bd-sort-btn.is-active {
+  color: #f1f5f9;
+}
+
+.reports-tag-bd-sort-glyph {
+  font-size: 11px;
+  opacity: 0.75;
 }
 
 @media (max-width: 960px) {
@@ -4274,67 +4475,6 @@ a.journal-row-trade-link:visited {
   background: linear-gradient(180deg, rgba(80, 40, 48, 0.55) 0%, rgba(42, 26, 32, 0.95) 100%);
 }
 
-.trade-detail-header-more {
-  position: relative;
-}
-
-.trade-detail-header-more-summary {
-  list-style: none;
-  width: 40px;
-  height: 40px;
-  border-radius: 11px;
-  border: 1px solid rgba(100, 116, 139, 0.38);
-  background: linear-gradient(180deg, rgba(42, 50, 68, 0.96) 0%, rgba(26, 32, 46, 0.98) 100%);
-  color: #cbd5e1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  user-select: none;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-}
-
-.trade-detail-header-more-summary::-webkit-details-marker {
-  display: none;
-}
-
-.trade-detail-header-more[open] .trade-detail-header-more-summary {
-  border-color: rgba(74, 222, 128, 0.45);
-  color: var(--accent-green);
-}
-
-.trade-detail-header-more-menu {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
-  z-index: 50;
-  min-width: 200px;
-  padding: 6px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
-}
-
-.trade-detail-header-more-item {
-  display: block;
-  width: 100%;
-  text-align: left;
-  border: none;
-  background: transparent;
-  color: var(--text);
-  padding: 9px 10px;
-  border-radius: 8px;
-  font-size: 13px;
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.trade-detail-header-more-item:hover {
-  background: rgba(74, 222, 128, 0.1);
-  color: var(--accent-green);
-}
-
 .star-toggle-btn {
   display: inline-flex;
   align-items: center;
@@ -4395,34 +4535,6 @@ a.journal-row-trade-link:visited {
 
 .star-toggle-btn.trade-detail-header-icon-btn--star .star-toggle-glyph {
   font-size: 20px;
-}
-
-.star-toggle-btn.star-toggle-btn--interval-bar {
-  width: 40px;
-  height: 40px;
-  min-width: 40px;
-  min-height: 40px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--bg-card-inner);
-  color: #94a3b8;
-  box-shadow: none;
-}
-
-.star-toggle-btn.star-toggle-btn--interval-bar:hover {
-  color: #fff;
-  border-color: rgba(74, 222, 128, 0.45);
-  background: rgba(74, 222, 128, 0.1);
-}
-
-.star-toggle-btn.star-toggle-btn--interval-bar.star-toggle-btn--on {
-  color: #fbbf24;
-  border-color: rgba(251, 191, 36, 0.45);
-  background: rgba(55, 48, 22, 0.35);
-}
-
-.star-toggle-btn.star-toggle-btn--interval-bar .star-toggle-glyph {
-  font-size: 19px;
 }
 
 .trades-star-col-head,
@@ -4929,6 +5041,33 @@ a.journal-row-trade-link:visited {
   align-items: center;
   gap: 6px;
   margin-left: auto;
+}
+
+.trade-detail-chart-tv-bar .star-toggle-btn.trade-detail-chart-tv-bar-star {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-card-inner);
+  color: var(--muted);
+}
+
+.trade-detail-chart-tv-bar .star-toggle-btn.trade-detail-chart-tv-bar-star:hover {
+  color: #fff;
+  border-color: rgba(74, 222, 128, 0.45);
+  background: rgba(74, 222, 128, 0.1);
+}
+
+.trade-detail-chart-tv-bar .star-toggle-btn.trade-detail-chart-tv-bar-star.star-toggle-btn--on {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.45);
+  background: rgba(251, 191, 36, 0.12);
+}
+
+.trade-detail-chart-tv-bar .star-toggle-btn.trade-detail-chart-tv-bar-star .star-toggle-glyph {
+  font-size: 20px;
 }
 
 .chart-presets-dropdown {
@@ -7440,12 +7579,14 @@ a.journal-row-trade-link:visited {
 }
 
 .reports-filter-drp {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
+  align-self: stretch;
+  width: 100%;
   min-width: 0;
   max-width: 100%;
 }
 
-.reports-filter-drp .drp-wrap {
+.reports-filter-drp.drp-wrap {
   max-width: 100%;
 }
 
@@ -7481,7 +7622,20 @@ a.journal-row-trade-link:visited {
     max-width: 100%;
   }
 
+  .reports-filter-fields-left .reports-filter-field--date {
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
   .reports-filter-strip-date-actions {
+    width: 100%;
+    max-width: 100%;
+    justify-content: flex-end;
+  }
+
+  .reports-filter-fields > .reports-filter-strip-actions {
     width: 100%;
     max-width: 100%;
     justify-content: flex-end;
@@ -7495,7 +7649,7 @@ a.journal-row-trade-link:visited {
 
   .reports-filter-field--setups {
     flex: 1 1 auto;
-    min-width: 120px;
+    min-width: 140px;
     max-width: 100%;
   }
 
@@ -8493,12 +8647,28 @@ a.journal-row-trade-link:visited {
 
 .playbook-shot-cap {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
   padding: 8px 10px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+.playbook-shot-trade-tag {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .playbook-shot-remove {
+  flex-shrink: 0;
+  margin-left: auto;
   border: none;
   background: transparent;
   color: #f87171;

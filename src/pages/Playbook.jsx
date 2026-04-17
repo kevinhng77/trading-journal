@@ -623,6 +623,11 @@ export default function Playbook() {
                           <img src={shot.dataUrl} alt="" className="playbook-shot-img" loading="lazy" />
                         </button>
                         <figcaption className="playbook-shot-cap">
+                          {shot.tradeTag ? (
+                            <span className="playbook-shot-trade-tag" title={shot.tradeTag}>
+                              {shot.tradeTag}
+                            </span>
+                          ) : null}
                           <button
                             type="button"
                             className="playbook-shot-remove"

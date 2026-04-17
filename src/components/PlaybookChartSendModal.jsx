@@ -16,9 +16,10 @@ import { blobToJpegDataUrl, captureChartElementAsPngBlob } from "../lib/chartIma
  * @param {() => void} props.onClose
  * @param {() => HTMLElement | null} props.getCaptureEl
  * @param {string} props.tradeSummary
+ * @param {string} [props.tradeTag] Shown on Playbook next to Remove (e.g. "NXTT 02.03.26")
  * @param {() => void} [props.onSaved]
  */
-export default function PlaybookChartSendModal({ open, onClose, getCaptureEl, tradeSummary, onSaved }) {
+export default function PlaybookChartSendModal({ open, onClose, getCaptureEl, tradeSummary, tradeTag, onSaved }) {
   /** @type {[PlaybookSendTarget[], import("react").Dispatch<import("react").SetStateAction<PlaybookSendTarget[]>>]} */
   const [targets, setTargets] = useState([]);
   const [selectedKey, setSelectedKey] = useState("");
@@ -92,10 +93,12 @@ export default function PlaybookChartSendModal({ open, onClose, getCaptureEl, tr
     try {
       const pngBlob = await captureChartElementAsPngBlob(el);
       const dataUrl = await blobToJpegDataUrl(pngBlob);
+      const tag = typeof tradeTag === "string" && tradeTag.trim() ? tradeTag.trim() : undefined;
+      const opts = tag ? { tradeTag: tag } : undefined;
       const r =
         kind === "missed"
-          ? appendScreenshotToMissedPlay(id, dataUrl)
-          : appendScreenshotToPlay(id, dataUrl);
+          ? appendScreenshotToMissedPlay(id, dataUrl, opts)
+          : appendScreenshotToPlay(id, dataUrl, opts);
       if (!r.ok) {
         setErr(r.message || "Could not save to playbook.");
         return;

@@ -32,6 +32,7 @@ import { appendSpacedChunk } from "../lib/appendDictationChunk";
 import NotesVoiceInputButton from "../components/NotesVoiceInputButton";
 import StarToggle from "../components/StarToggle";
 import { useStarred } from "../hooks/useStarred";
+import { readAllTradeNotes, TRADE_NOTES_CHANGED_EVENT } from "../storage/tradeNotes";
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 const JOURNAL_NOTES_KEY = "tradingJournalDayNotes";
@@ -116,6 +117,29 @@ function Journal() {
   const groupedFiltered = useMemo(() => groupTradesByDate(filteredTrades), [filteredTrades]);
 
   const [notesByDate, setNotesByDate] = useState(() => loadJournalNotesMap());
+  const [tradeNotesRev, setTradeNotesRev] = useState(0);
+
+  useEffect(() => {
+    function bump() {
+      setTradeNotesRev((n) => n + 1);
+    }
+    window.addEventListener(TRADE_NOTES_CHANGED_EVENT, bump);
+    window.addEventListener("focus", bump);
+    function onStorage(/** @type {StorageEvent} */ e) {
+      if (e.key === "tradingJournalTradeNotes") bump();
+    }
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener(TRADE_NOTES_CHANGED_EVENT, bump);
+      window.removeEventListener("focus", bump);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
+
+  const tradeNotesById = useMemo(
+    () => readAllTradeNotes(),
+    [trades, searchParams.toString(), tradeNotesRev],
+  );
 
   const days = focusDate
     ? [getDayAggregate(groupedFiltered, focusDate)]
@@ -343,6 +367,7 @@ function Journal() {
                         const tagsLabel = tags.length ? tags.join(", ") : "—";
                         const setups = getTradeSetups(trade);
                         const setupsLabel = setups.length ? setups.join(", ") : "—";
+                        const noteRaw = String(tradeNotesById[rowKey] ?? "").trim();
                         return (
                           <div
                             key={rowKey}
@@ -361,7 +386,12 @@ function Journal() {
                               <div>{trade.volume}</div>
                               <div>{trade.executions}</div>
                               <div className={pnlClass(trade.pnl)}>{formatMoney(trade.pnl)}</div>
-                              <div className="trades-cell-muted trades-notes-cell">—</div>
+                              <div
+                                className={`trades-notes-cell${noteRaw ? "" : " trades-cell-muted"}`}
+                                title={noteRaw || undefined}
+                              >
+                                {noteRaw || "—"}
+                              </div>
                               <div className={tags.length ? "journal-tags-cell" : "trades-cell-muted"} title={tagsLabel}>
                                 {tagsLabel}
                               </div>

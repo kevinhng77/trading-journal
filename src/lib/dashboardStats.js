@@ -1,6 +1,7 @@
 import { groupTradesByDate } from "../storage/storage";
 import { stableTradeId } from "../storage/tradeLookup";
 import { getTradeTags, getTradeSetups } from "./tradeTags";
+import { computeFillReplayStats } from "./tradeExecutionMetrics";
 import {
   getTradeDurationSeconds,
   tradeMatchesDurationBucket,
@@ -684,6 +685,161 @@ export function aggregateByTag(trades) {
 /** Setup → summed P&amp;L (each trade counted once per setup label). */
 export function aggregateBySetup(trades) {
   return aggregateByTradeLabels(trades, getTradeSetups, "(no setup)", 14);
+}
+
+/**
+ * @param {object[]} trades
+ * @param {(t: object) => string[]} getLabels
+ * @param {string} emptyLabel
+ * @returns {{ name: string, pnl: number, trades: number, volume: number }[]}
+ */
+function buildLabelPnLVolumeRows(trades, getLabels, emptyLabel) {
+  /** @type {Map<string, { pnl: number, tradeIds: Set<string>, volume: number }>} */
+  const map = new Map();
+  function bump(key, tradeId, p, vol) {
+    let cur = map.get(key);
+    if (!cur) {
+      cur = { pnl: 0, tradeIds: new Set(), volume: 0 };
+      map.set(key, cur);
+    }
+    cur.pnl += p;
+    cur.tradeIds.add(tradeId);
+    cur.volume += vol;
+  }
+  for (const t of trades) {
+    const p = Number(t.pnl) || 0;
+    const vol = Number(t.volume) || 0;
+    const tradeId = String(stableTradeId(t));
+    const labels = getLabels(t);
+    if (!labels.length) bump(emptyLabel, tradeId, p, vol);
+    else for (const name of labels) bump(name, tradeId, p, vol);
+  }
+  return [...map.entries()]
+    .map(([name, v]) => ({ name, pnl: v.pnl, trades: v.tradeIds.size, volume: v.volume }))
+    .sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl));
+}
+
+/** All tags with summed net P&amp;L, trade count, and volume (volume summed per tag row like P&amp;L). */
+export function buildTagPnLVolumeRows(trades) {
+  return buildLabelPnLVolumeRows(trades, getTradeTags, "(untagged)");
+}
+
+/** All setups with summed net P&amp;L, trade count, and volume. */
+export function buildSetupPnLVolumeRows(trades) {
+  return buildLabelPnLVolumeRows(trades, getTradeSetups, "(no setup)");
+}
+
+/**
+ * Trades that carry two or more labels — one row per distinct multiset (sorted join).
+ * @param {object[]} trades
+ * @param {(t: object) => string[]} getLabels
+ * @returns {{ name: string, pnl: number, trades: number, volume: number }[]}
+ */
+function buildLabelCombinationRows(trades, getLabels) {
+  /** @type {Map<string, { pnl: number, tradeIds: Set<string>, volume: number }>} */
+  const map = new Map();
+  for (const t of trades) {
+    const labels = getLabels(t);
+    if (labels.length < 2) continue;
+    const key = [...labels].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" })).join(" · ");
+    const p = Number(t.pnl) || 0;
+    const vol = Number(t.volume) || 0;
+    const tradeId = String(stableTradeId(t));
+    let cur = map.get(key);
+    if (!cur) {
+      cur = { pnl: 0, tradeIds: new Set(), volume: 0 };
+      map.set(key, cur);
+    }
+    if (cur.tradeIds.has(tradeId)) continue;
+    cur.tradeIds.add(tradeId);
+    cur.pnl += p;
+    cur.volume += vol;
+  }
+  return [...map.entries()]
+    .map(([name, v]) => ({ name, pnl: v.pnl, trades: v.tradeIds.size, volume: v.volume }))
+    .sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl));
+}
+
+export function buildTagCombinationRows(trades) {
+  return buildLabelCombinationRows(trades, getTradeTags);
+}
+
+export function buildSetupCombinationRows(trades) {
+  return buildLabelCombinationRows(trades, getTradeSetups);
+}
+
+/**
+ * Per-label stats from trades that carry that label (trade counted once per label).
+ * @returns {{ name: string, pnl: number, trades: number, volume: number, winPct: number | null, profitFactor: number | null, avgPosMfe: number | null, avgPosMae: number | null }[]}
+ */
+function buildLabelDetailedRows(trades, getLabels, emptyLabel) {
+  /** @type {Map<string, object[]>} */
+  const by = new Map();
+  function add(key, trade) {
+    let arr = by.get(key);
+    if (!arr) {
+      arr = [];
+      by.set(key, arr);
+    }
+    arr.push(trade);
+  }
+  for (const t of trades) {
+    const labels = getLabels(t);
+    if (!labels.length) add(emptyLabel, t);
+    else for (const name of labels) add(name, t);
+  }
+  const rows = [];
+  for (const [name, list] of by) {
+    let wins = 0;
+    let losses = 0;
+    for (const t of list) {
+      const p = Number(t.pnl) || 0;
+      if (p > 0) wins += 1;
+      else if (p < 0) losses += 1;
+    }
+    const decided = wins + losses;
+    const winPct = decided > 0 ? (wins / decided) * 100 : null;
+    const profitFactor = computeProfitFactor(list);
+    let mfeSum = 0;
+    let maeSum = 0;
+    let mfeN = 0;
+    let maeN = 0;
+    for (const t of list) {
+      const r = computeFillReplayStats(t);
+      if (r?.mfeDollars != null && Number.isFinite(r.mfeDollars)) {
+        mfeSum += r.mfeDollars;
+        mfeN += 1;
+      }
+      if (r?.maeDollars != null && Number.isFinite(r.maeDollars)) {
+        maeSum += r.maeDollars;
+        maeN += 1;
+      }
+    }
+    const avgPosMfe = mfeN ? mfeSum / mfeN : null;
+    const avgPosMae = maeN ? maeSum / maeN : null;
+    const pnl = list.reduce((s, t) => s + (Number(t.pnl) || 0), 0);
+    const volume = list.reduce((s, t) => s + (Number(t.volume) || 0), 0);
+    rows.push({
+      name,
+      pnl,
+      trades: list.length,
+      volume,
+      winPct,
+      profitFactor,
+      avgPosMfe,
+      avgPosMae,
+    });
+  }
+  rows.sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl));
+  return rows;
+}
+
+export function buildTagDetailedRows(trades) {
+  return buildLabelDetailedRows(trades, getTradeTags, "(untagged)");
+}
+
+export function buildSetupDetailedRows(trades) {
+  return buildLabelDetailedRows(trades, getTradeSetups, "(no setup)");
 }
 
 /** Last `count` calendar days ending today (ISO dates, oldest first). */

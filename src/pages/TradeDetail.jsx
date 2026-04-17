@@ -22,7 +22,11 @@ import TradeNotesEditor from "../components/TradeNotesEditor";
 import TradeTagsEditor from "../components/TradeTagsEditor";
 import TradeSetupsEditor from "../components/TradeSetupsEditor";
 import PlaybookChartSendModal from "../components/PlaybookChartSendModal";
-import { captureChartElementAsPngBlob, captureDomElementAsPngBlob } from "../lib/chartImageCapture";
+import {
+  captureChartElementAsPngBlob,
+  captureDomElementAsPngBlob,
+  stackPngBlobsVertical,
+} from "../lib/chartImageCapture";
 import {
   computeFillReplayStats,
   tradeFeesPaid,
@@ -30,6 +34,7 @@ import {
   tradeNetPnl,
 } from "../lib/tradeExecutionMetrics";
 import { formatChartIntervalLabel } from "../lib/chartIntervals";
+import { formatPlaybookTradeTag } from "../lib/formatPlaybookTradeTag";
 import { loadTradeAnnotationNotes, saveTradeAnnotationNotes } from "../storage/tradeAnnotationNotes";
 import {
   loadTradeChartRiskLinesRaw,
@@ -193,6 +198,8 @@ export default function TradeDetail() {
   const [annotationNotes, setAnnotationNotes] = useState(() => []);
   const chartWrapRef = useRef(null);
   const tradeShareBundleRef = useRef(/** @type {HTMLDivElement | null} */ (null));
+  const tradeSharePanelsRef = useRef(/** @type {HTMLDivElement | null} */ (null));
+  const tradeShareChartSectionRef = useRef(/** @type {HTMLElement | null} */ (null));
   const chartIntervalLabel = useMemo(() => formatChartIntervalLabel(chartInterval), [chartInterval]);
 
   const getChartCaptureEl = useCallback(() => {
@@ -321,8 +328,10 @@ export default function TradeDetail() {
   }
 
   async function copyTradeShareBundleToClipboard() {
-    const el = tradeShareBundleRef.current;
-    if (!el) {
+    const bundleEl = tradeShareBundleRef.current;
+    const panelsEl = tradeSharePanelsRef.current;
+    const chartSectionEl = tradeShareChartSectionRef.current;
+    if (!bundleEl) {
       setChartToolbarMsg("Nothing to capture yet.");
       return;
     }
@@ -332,9 +341,19 @@ export default function TradeDetail() {
     }
     setShareBusy(true);
     try {
-      const blob = await captureDomElementAsPngBlob(el);
+      /** @type {Blob} */
+      let blob;
+      if (panelsEl && chartSectionEl) {
+        const [chartBlob, panelsBlob] = await Promise.all([
+          captureDomElementAsPngBlob(chartSectionEl),
+          captureDomElementAsPngBlob(panelsEl),
+        ]);
+        blob = await stackPngBlobsVertical(chartBlob, panelsBlob);
+      } else {
+        blob = await captureDomElementAsPngBlob(bundleEl);
+      }
       await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
-      setChartToolbarMsg("Snapshot, notes, and chart copied to clipboard.");
+      setChartToolbarMsg("Chart, snapshot, and notes copied to clipboard.");
     } catch {
       setChartToolbarMsg("Could not copy the image. Wait for the chart to load, then try again.");
     } finally {
@@ -406,14 +425,6 @@ export default function TradeDetail() {
   function go(id) {
     if (!id) return;
     navigate(`/trades/${encodeURIComponent(id)}`);
-  }
-
-  async function copyTradeUrl() {
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-    } catch {
-      /* ignore */
-    }
   }
 
   function removeTrade() {
@@ -504,8 +515,8 @@ export default function TradeDetail() {
               className="trade-detail-header-share-btn"
               onClick={() => void copyTradeShareBundleToClipboard()}
               disabled={shareBusy}
-              title="Copy Snapshot, Notes, and chart as one image"
-              aria-label="Copy Snapshot, Notes, and chart image to clipboard"
+              title="Copy chart, snapshot, and notes as one image (chart on top)"
+              aria-label="Copy chart, snapshot, and notes as one image to clipboard"
             >
               <svg
                 className="trade-detail-header-share-icon"
@@ -526,16 +537,6 @@ export default function TradeDetail() {
               </svg>
               <span>Share</span>
             </button>
-            <details className="trade-detail-header-more">
-              <summary className="trade-detail-header-more-summary" title="More">
-                ⋯
-              </summary>
-              <div className="trade-detail-header-more-menu">
-                <button type="button" className="trade-detail-header-more-item" onClick={() => void copyTradeUrl()}>
-                  Copy link to this trade
-                </button>
-              </div>
-            </details>
             <button
               type="button"
               className="trade-detail-header-icon-btn trade-detail-header-icon-btn--danger"
@@ -556,7 +557,7 @@ export default function TradeDetail() {
       </div>
 
       <div ref={tradeShareBundleRef} className="trade-detail-share-bundle">
-        <div className="trade-detail-panels">
+        <div ref={tradeSharePanelsRef} className="trade-detail-panels">
         <section className="card trade-detail-stats">
           <h2 className="trade-detail-section-title">Snapshot</h2>
           <dl className="trade-detail-stat-grid">
@@ -629,6 +630,7 @@ export default function TradeDetail() {
         </div>
 
         <section
+        ref={tradeShareChartSectionRef}
         className="card trade-detail-chart-section trade-detail-chart-section--primary"
         aria-label="Execution chart"
       >
@@ -739,6 +741,7 @@ export default function TradeDetail() {
                 </button>
               ) : null}
             </div>
+            <ChartPresetsDropdown prefs={indicatorPrefs} onChange={applyIndicatorPrefs} />
             {chartToolbarMsg ? (
               <p className="trade-detail-chart-toolbar-msg" role="status" aria-live="polite">
                 {chartToolbarMsg}
@@ -748,32 +751,59 @@ export default function TradeDetail() {
           <div className="trade-detail-chart-tv-bar">
             <button
               type="button"
-              className="chart-tv-toolbar-btn chart-tv-toolbar-btn--indicator-catalog chart-tv-toolbar-btn--icon-only"
-              onClick={() => setIndicatorsCatalogOpen(true)}
-              aria-haspopup="dialog"
-              aria-label="Indicators catalog"
-              title="Browse indicators"
+              className="chart-tv-toolbar-btn chart-tv-toolbar-btn--icon-only"
+              onClick={() => void copyChartScreenshotToClipboard()}
+              aria-label="Copy chart screenshot to clipboard"
+              title="Copy chart screenshot to clipboard"
             >
               <svg
-                className="chart-tv-toolbar-indicators-icon chart-tv-toolbar-catalog-icon"
+                className="chart-tv-toolbar-catalog-icon"
                 viewBox="0 0 24 24"
                 width="20"
                 height="20"
                 aria-hidden
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
               >
-                <line x1="3" y1="7" x2="21" y2="7" opacity="0.38" />
-                <line x1="3" y1="12" x2="21" y2="12" opacity="0.38" />
-                <line x1="3" y1="17" x2="21" y2="17" opacity="0.38" />
-                <circle cx="16" cy="7" r="3.25" fill="currentColor" stroke="none" opacity="0.95" />
-                <circle cx="9" cy="12" r="3.25" fill="currentColor" stroke="none" opacity="0.95" />
-                <circle cx="14" cy="17" r="3.25" fill="currentColor" stroke="none" opacity="0.95" />
+                <path
+                  fill="currentColor"
+                  d="M9 3h6l1.5 2H21a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4.5L9 3zm3 16a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0-2a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"
+                  opacity="0.92"
+                />
               </svg>
             </button>
-            <ChartPresetsDropdown prefs={indicatorPrefs} onChange={applyIndicatorPrefs} />
+            <button
+              type="button"
+              className="chart-tv-toolbar-btn chart-tv-toolbar-btn--icon-only"
+              onClick={() => setPlaybookSendOpen(true)}
+              aria-label="Save chart screenshot to playbook"
+              title="Save chart screenshot to a playbook play"
+            >
+              <svg
+                className="chart-tv-toolbar-catalog-icon"
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+                aria-hidden
+              >
+                <path
+                  fill="currentColor"
+                  d="M6 2h12a2 2 0 0 1 2 2v16.5a1 1 0 0 1-1.55.83L12 18.09l-6.45 4.24A1 1 0 0 1 4 21.5V4a2 2 0 0 1 2-2zm2 2v15.09l4.45-2.92a1 1 0 0 1 1.1 0L16 19.09V4H8z"
+                  opacity="0.92"
+                />
+              </svg>
+            </button>
+            <StarToggle
+              starred={Boolean(tid && isTradeStarred(tid))}
+              onToggle={() => {
+                if (tid) toggleTrade(tid);
+              }}
+              className="trade-detail-chart-tv-bar-star"
+              title={
+                tid && isTradeStarred(tid)
+                  ? "Remove from starred (*)"
+                  : "Star this trade for review on the * page"
+              }
+              aria-label={tid && isTradeStarred(tid) ? "Unstar trade" : "Star trade"}
+            />
           </div>
         </div>
         <ChartIndicatorsModal
@@ -811,65 +841,7 @@ export default function TradeDetail() {
               trendlines={trendlines}
               onTrendlinesChange={onTrendlinesChange}
               trendlineDrawMode={trendlineDrawMode}
-              chartIntervalBarEnd={
-                <>
-                  <button
-                    type="button"
-                    className="chart-tv-toolbar-btn chart-tv-toolbar-btn--icon-only"
-                    onClick={() => void copyChartScreenshotToClipboard()}
-                    aria-label="Copy chart screenshot to clipboard"
-                    title="Copy chart screenshot to clipboard"
-                  >
-                    <svg
-                      className="chart-tv-toolbar-catalog-icon"
-                      viewBox="0 0 24 24"
-                      width="20"
-                      height="20"
-                      aria-hidden
-                    >
-                      <path
-                        fill="currentColor"
-                        d="M9 3h6l1.5 2H21a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4.5L9 3zm3 16a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0-2a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"
-                        opacity="0.92"
-                      />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    className="chart-tv-toolbar-btn chart-tv-toolbar-btn--icon-only"
-                    onClick={() => setPlaybookSendOpen(true)}
-                    aria-label="Save chart screenshot to playbook"
-                    title="Save chart screenshot to a playbook play"
-                  >
-                    <svg
-                      className="chart-tv-toolbar-catalog-icon"
-                      viewBox="0 0 24 24"
-                      width="20"
-                      height="20"
-                      aria-hidden
-                    >
-                      <path
-                        fill="currentColor"
-                        d="M6 2h12a2 2 0 0 1 2 2v16.5a1 1 0 0 1-1.55.83L12 18.09l-6.45 4.24A1 1 0 0 1 4 21.5V4a2 2 0 0 1 2-2zm2 2v15.09l4.45-2.92a1 1 0 0 1 1.1 0L16 19.09V4H8z"
-                        opacity="0.92"
-                      />
-                    </svg>
-                  </button>
-                  <StarToggle
-                    starred={Boolean(tid && isTradeStarred(tid))}
-                    onToggle={() => {
-                      if (tid) toggleTrade(tid);
-                    }}
-                    className="star-toggle-btn--interval-bar"
-                    title={
-                      tid && isTradeStarred(tid)
-                        ? "Remove from starred (*)"
-                        : "Star this trade for review on the * page"
-                    }
-                    aria-label={tid && isTradeStarred(tid) ? "Unstar trade" : "Star trade"}
-                  />
-                </>
-              }
+              onOpenIndicatorsCatalog={() => setIndicatorsCatalogOpen(true)}
             />
           </Suspense>
         </div>
@@ -878,6 +850,7 @@ export default function TradeDetail() {
           onClose={() => setPlaybookSendOpen(false)}
           getCaptureEl={getChartCaptureEl}
           tradeSummary={`${trade.symbol} · ${trade.date}`}
+          tradeTag={formatPlaybookTradeTag(trade.symbol, trade.date)}
           onSaved={() => setChartToolbarMsg("Chart saved to playbook.")}
         />
       </section>
