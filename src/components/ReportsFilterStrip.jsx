@@ -4,7 +4,8 @@ import { removeTagFromAllTrades } from "../lib/tradeTags";
 import DateRangePicker from "./DateRangePicker";
 import ReportsFilterCombobox from "./ReportsFilterCombobox";
 
-function IconTrash() {
+/** Clear filters — funnel + slash (reads as “remove filters”, not delete data). */
+function IconClearFilters() {
   return (
     <svg
       className="reports-action-icon reports-action-icon--stroke"
@@ -18,10 +19,8 @@ function IconTrash() {
       strokeLinejoin="round"
       aria-hidden
     >
-      <path d="M3 6h18" />
-      <path d="M8 6V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1" />
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-      <path d="M10 11v5M14 11v5" />
+      <path d="M4 5h16l-5.5 7.3V18l-3 1.5v-7.2L4 5z" />
+      <path d="M5.5 19.5 19 6" />
     </svg>
   );
 }
@@ -569,7 +568,7 @@ export default function ReportsFilterStrip({
         {stripActions !== "none" ? (
           <div ref={reportsStripActionsRef} className="reports-filter-strip-actions">
             <button type="button" className="reports-action-btn reports-action-btn--clear" onClick={onClear} title="Clear filters" aria-label="Clear filters">
-              <IconTrash />
+              <IconClearFilters />
             </button>
             <button type="submit" className="reports-action-btn reports-action-btn--apply" title="Apply filters" aria-label="Apply filters">
               <IconCheck />
