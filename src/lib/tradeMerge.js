@@ -1,40 +1,35 @@
+import { groupFillsIntoTrades } from "../import/thinkorswimCsv.js";
 import { stableTradeId } from "../storage/tradeLookup";
 import { getTradeTags, normalizeTagList } from "./tradeTags";
 import { tradeNetPnl } from "./tradeExecutionMetrics";
 
 /**
- * @param {object} fill
+ * Parser-style fill row for {@link groupFillsIntoTrades} from a stored trade fill.
+ * @param {object} f
  * @param {string} date
  * @param {string} symbol
- * @param {string} tradeId
  */
-function tradeFromSingleFill(fill, date, symbol, tradeId, source) {
-  const q = Math.abs(Number(fill.quantity) || 0);
-  const net = Number(fill.netCash);
-  const pnl = Number.isFinite(net) ? Math.round(net * 100) / 100 : 0;
+function fillToGroupingFill(f, date, symbol) {
+  const qty = Math.abs(Number(f.quantity) || 0);
+  const amount = Number.isFinite(Number(f.amount)) ? Number(f.amount) : 0;
+  const misc = Number.isFinite(Number(f.misc ?? f.miscFees)) ? Number(f.misc ?? f.miscFees) : 0;
+  const comm = Number.isFinite(Number(f.comm ?? f.commission)) ? Number(f.comm ?? f.commission) : 0;
+  let netCash = Number(f.netCash);
+  if (!Number.isFinite(netCash)) netCash = amount + misc + comm;
   return {
-    id: tradeId,
+    id: String(f.id ?? ""),
     date,
-    time: fill.time ?? "",
+    time: String(f.time ?? ""),
+    ref: String(f.ref ?? ""),
     symbol,
-    volume: q,
-    executions: 1,
-    pnl,
-    source: source ?? "thinkorswim",
-    fills: [
-      {
-        id: fill.id,
-        time: fill.time,
-        side: fill.side,
-        quantity: fill.quantity,
-        price: fill.price,
-        amount: fill.amount,
-        commission: fill.commission,
-        miscFees: fill.miscFees,
-        netCash: fill.netCash,
-        description: fill.description,
-      },
-    ],
+    side: f.side === "SOLD" ? "SOLD" : "BOT",
+    quantity: qty,
+    price: Number(f.price) || 0,
+    amount,
+    misc,
+    comm,
+    netCash,
+    description: String(f.description ?? ""),
   };
 }
 
@@ -105,27 +100,54 @@ export function mergeTradesByStableIds(stableIds, allTrades) {
 }
 
 /**
- * Split one trade into one row per fill (inverse of merge when fills exist).
+ * Split one trade into one row per completed round trip (flat → 0 shares), not one row per fill.
+ * Uses the same rules as Thinkorswim import "normal" grouping.
  * @param {string} stableId
  * @param {object[]} allTrades
  * @returns {{ ok: true, next: object[] } | { ok: false, message: string }}
  */
-export function unmergeTradeByStableId(stableId, allTrades) {
+export function splitTradeIntoRoundTripsByStableId(stableId, allTrades) {
   const idx = allTrades.findIndex((t) => stableTradeId(t) === stableId);
   if (idx < 0) return { ok: false, message: "Trade not found." };
   const trade = allTrades[idx];
   const fills = Array.isArray(trade.fills) ? trade.fills : [];
   if (fills.length < 2) {
-    return { ok: false, message: "This trade only has one fill. Unmerge needs at least two executions." };
+    return {
+      ok: false,
+      message: "This trade only has one execution. Split needs at least two fills to form round trips.",
+    };
   }
 
   const date = String(trade.date ?? "");
   const symbol = String(trade.symbol ?? "");
-  const base = stableTradeId(trade);
-  const split = fills.map((f, i) =>
-    tradeFromSingleFill(f, date, symbol, `${base}~unm~${i}~${String(f.id ?? i)}`, trade.source),
-  );
+  const groupingFills = fills.map((f) => fillToGroupingFill(f, date, symbol));
+  const split = groupFillsIntoTrades(groupingFills, "normal");
 
-  const next = [...allTrades.slice(0, idx), ...split, ...allTrades.slice(idx + 1)];
+  if (split.length <= 1) {
+    return {
+      ok: false,
+      message:
+        "This trade is already a single completed round trip or one open position. There is nothing to split into separate exits.",
+    };
+  }
+
+  const base = stableTradeId(trade);
+  const tagList = normalizeTagList(getTradeTags(trade));
+  const notes = typeof trade.notes === "string" && trade.notes.trim() ? trade.notes : undefined;
+  const idSuffix =
+    typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : String(Date.now());
+
+  const stamped = split.map((t, i) => {
+    const id = `${base}~rt~${i}~${idSuffix}`;
+    return {
+      ...t,
+      id,
+      source: trade.source ?? t.source,
+      ...(tagList.length > 0 ? { tags: [...tagList] } : {}),
+      ...(notes && i === 0 ? { notes } : {}),
+    };
+  });
+
+  const next = [...allTrades.slice(0, idx), ...stamped, ...allTrades.slice(idx + 1)];
   return { ok: true, next };
 }

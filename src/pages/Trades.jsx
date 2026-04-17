@@ -18,7 +18,7 @@ import {
   savePersistedReportFilters,
 } from "../storage/reportFiltersPersist";
 import { collectAllTagsFromTrades, getTradeTags } from "../lib/tradeTags";
-import { mergeTradesByStableIds, unmergeTradeByStableId } from "../lib/tradeMerge";
+import { mergeTradesByStableIds, splitTradeIntoRoundTripsByStableId } from "../lib/tradeMerge";
 import ReportsFilterStrip from "../components/ReportsFilterStrip";
 import { REPORT_DURATION_OPTIONS } from "../lib/tradeDuration";
 import { tradeNetPnl } from "../lib/tradeExecutionMetrics";
@@ -114,7 +114,7 @@ function Trades() {
   /** @type {[TradeSort, import("react").Dispatch<import("react").SetStateAction<TradeSort>>]} */
   const [sort, setSort] = useState(() => /** @type {TradeSort} */ ({ key: "date", dir: "desc" }));
   const [page, setPage] = useState(1);
-  /** @type {["" | "merge" | "unmerge" | "delete", import("react").Dispatch<import("react").SetStateAction<"" | "merge" | "unmerge" | "delete">>]} */
+  /** @type {["" | "merge" | "splitTrades" | "delete", import("react").Dispatch<import("react").SetStateAction<"" | "merge" | "splitTrades" | "delete">>]} */
   const [bulkAction, setBulkAction] = useState("");
 
   useEffect(() => {
@@ -202,12 +202,14 @@ function Trades() {
       return;
     }
 
-    if (bulkAction === "unmerge") {
+    if (bulkAction === "splitTrades") {
       if (ids.length !== 1) {
-        window.alert("Select exactly one trade to unmerge (split into one row per fill).");
+        window.alert(
+          "Select exactly one trade to split. Each new row is one completed round trip (flat position), not one row per execution.",
+        );
         return;
       }
-      const r = unmergeTradeByStableId(ids[0], list);
+      const r = splitTradeIntoRoundTripsByStableId(ids[0], list);
       if (!r.ok) {
         window.alert(r.message);
         return;
@@ -260,11 +262,11 @@ function Trades() {
                   id="trades-bulk-action"
                   className="trades-bulk-select"
                   value={bulkAction}
-                  onChange={(e) => setBulkAction(/** @type {"" | "merge" | "unmerge" | "delete"} */ (e.target.value))}
+                  onChange={(e) => setBulkAction(/** @type {"" | "merge" | "splitTrades" | "delete"} */ (e.target.value))}
                 >
                   <option value="">Select action</option>
                   <option value="merge">Merge trade</option>
-                  <option value="unmerge">Unmerge trade</option>
+                  <option value="splitTrades">Split trades</option>
                   <option value="delete">Delete trade</option>
                 </select>
                 <button
