@@ -30,6 +30,8 @@ import DayPnLSparkline from "../components/DayPnLSparkline";
 import { prefetchTradeExecutionChart } from "../lib/tradeChartPrefetch";
 import { appendSpacedChunk } from "../lib/appendDictationChunk";
 import NotesVoiceInputButton from "../components/NotesVoiceInputButton";
+import StarToggle from "../components/StarToggle";
+import { useStarred } from "../hooks/useStarred";
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 const JOURNAL_NOTES_KEY = "tradingJournalDayNotes";
@@ -77,6 +79,7 @@ function Journal() {
   const focusDate = focusDateRaw && DATE_RE.test(focusDateRaw) ? focusDateRaw : null;
 
   const trades = useLiveTrades();
+  const { isDayStarred, toggleDay, isTradeStarred, toggleTrade } = useStarred();
   const [filterDraft, setFilterDraft] = useState(() => loadPersistedReportFilters());
   const [appliedFilters, setAppliedFilters] = useState(() => loadPersistedReportFilters());
 
@@ -292,11 +295,22 @@ function Journal() {
                           </div>
                         </div>
                       </div>
-                      <details className="journal-day-settings">
-                        <summary className="journal-day-settings-summary" title="Day actions">
-                          ⚙
-                        </summary>
-                        <div className="journal-day-settings-menu">
+                      <div className="journal-day-head-actions">
+                        <StarToggle
+                          starred={isDayStarred(day.date)}
+                          onToggle={() => toggleDay(day.date)}
+                          title={
+                            isDayStarred(day.date)
+                              ? "Remove this day from starred (*)"
+                              : "Star this day for review on the * page"
+                          }
+                          aria-label={isDayStarred(day.date) ? "Unstar day" : "Star day"}
+                        />
+                        <details className="journal-day-settings">
+                          <summary className="journal-day-settings-summary" title="Day actions">
+                            ⋯
+                          </summary>
+                          <div className="journal-day-settings-menu">
                           <button
                             type="button"
                             className="journal-day-settings-item"
@@ -327,8 +341,9 @@ function Journal() {
                           >
                             Copy trade IDs
                           </button>
-                        </div>
-                      </details>
+                          </div>
+                        </details>
+                      </div>
                     </div>
                   </div>
 
@@ -359,6 +374,9 @@ function Journal() {
                       <div>Notes</div>
                       <div>Tags</div>
                       <div>Setup</div>
+                      <div className="journal-star-col-head" title="Star trade for * review">
+                        *
+                      </div>
                     </div>
 
                     {day.rows.length === 0 ? (
@@ -396,6 +414,13 @@ function Journal() {
                                 {setupsLabel}
                               </div>
                             </Link>
+                            <div className="journal-trade-star-cell">
+                              <StarToggle
+                                starred={isTradeStarred(rowKey)}
+                                onToggle={() => toggleTrade(rowKey)}
+                                aria-label="Star this trade for review"
+                              />
+                            </div>
                           </div>
                         );
                       })

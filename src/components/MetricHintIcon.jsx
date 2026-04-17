@@ -14,7 +14,7 @@ export default function MetricHintIcon({ text, className = "" }) {
       title={t}
       aria-label={`Explanation: ${t}`}
     >
-      i
+      I
     </button>
   );
 }

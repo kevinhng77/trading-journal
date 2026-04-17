@@ -29,6 +29,8 @@ import ReportsFilterStrip from "../components/ReportsFilterStrip";
 import { REPORT_DURATION_OPTIONS } from "../lib/tradeDuration";
 import { tradeNetPnl } from "../lib/tradeExecutionMetrics";
 import { prefetchTradeExecutionChart } from "../lib/tradeChartPrefetch";
+import StarToggle from "../components/StarToggle";
+import { useStarred } from "../hooks/useStarred";
 
 const TRADES_PAGE_SIZE = 20;
 
@@ -126,6 +128,7 @@ function TradesSortHeader({ label, sortKey, sort, onSort, title }) {
 
 function Trades() {
   const trades = useLiveTrades();
+  const { isTradeStarred, toggleTrade } = useStarred();
   const [filterDraft, setFilterDraft] = useState(() => loadPersistedReportFilters());
   const [appliedFilters, setAppliedFilters] = useState(() => loadPersistedReportFilters());
   const [selected, setSelected] = useState(() => new Set());
@@ -355,6 +358,9 @@ function Trades() {
           <TradesSortHeader label="Notes" sortKey="notes" sort={sort} onSort={setSortByKey} title="Sort (no data yet)" />
           <TradesSortHeader label="Tags" sortKey="tags" sort={sort} onSort={setSortByKey} title="Sort by tags" />
           <TradesSortHeader label="Setup" sortKey="setups" sort={sort} onSort={setSortByKey} title="Sort by setups" />
+          <div className="trades-star-col-head" title="Star trade for * review">
+            *
+          </div>
         </div>
 
         {trades.length === 0 ? (
@@ -398,6 +404,13 @@ function Trades() {
                     {setupsLabel}
                   </div>
                 </Link>
+                <div className="trades-star-cell">
+                  <StarToggle
+                    starred={isTradeStarred(rowId)}
+                    onToggle={() => toggleTrade(rowId)}
+                    aria-label="Star this trade for review"
+                  />
+                </div>
               </div>
             );
           })
