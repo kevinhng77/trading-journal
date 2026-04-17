@@ -61,13 +61,6 @@ function compressImageFile(file) {
   });
 }
 
-function rulesPreviewLines(text) {
-  return text
-    .split(/\r?\n/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
 /** @param {DataTransfer | null} dt */
 function imageFilesFromDataTransfer(dt) {
   if (!dt?.files?.length) return [];
@@ -354,17 +347,11 @@ export default function Playbook() {
     patchPlay(playId, { screenshots: nextShots });
   }
 
-  const previewLines = selectedPlay ? rulesPreviewLines(selectedPlay.rules) : [];
-
   return (
     <div className="page-wrap playbook-page">
       <div className="page-header playbook-page-header">
         <div>
           <h1>Playbook</h1>
-          <p className="playbook-intro">
-            Document executed setups under Plays and passed-on ideas under Missed plays — rules, criteria, entries,
-            exits, screenshots. Everything stays in this browser only.
-          </p>
         </div>
         <div className="page-header-actions">
           <button type="button" className="import-btn playbook-header-btn" onClick={addPlay}>
@@ -496,19 +483,8 @@ export default function Playbook() {
                     rows={5}
                     value={selectedPlay.rules}
                     onChange={(e) => patchPlay(selectedPlay.id, { rules: e.target.value })}
-                    placeholder="e.g. Only trade first hour&#10;Max 2 trades per day"
                   />
                 </label>
-                {previewLines.length > 0 && (
-                  <div className="playbook-rules-preview playbook-field--full">
-                    <span className="playbook-field-label">Preview</span>
-                    <ol className="playbook-rules-ol">
-                      {previewLines.map((line, i) => (
-                        <li key={i}>{line}</li>
-                      ))}
-                    </ol>
-                  </div>
-                )}
 
                 <label className="playbook-field">
                   <span className="playbook-field-label-row">
@@ -521,6 +497,20 @@ export default function Playbook() {
                     value={selectedPlay.criteria}
                     onChange={(e) => patchPlay(selectedPlay.id, { criteria: e.target.value })}
                     placeholder="Market structure, levels, indicators, news filter…"
+                  />
+                </label>
+
+                <label className="playbook-field playbook-field--full">
+                  <span className="playbook-field-label-row">
+                    <span className="playbook-field-label">Setup notes</span>
+                    <NotesVoiceInputButton onAppend={(c) => appendPlayVoiceField(selectedPlay.id, "setupNotes", c)} />
+                  </span>
+                  <textarea
+                    className="playbook-textarea"
+                    rows={3}
+                    value={selectedPlay.setupNotes ?? ""}
+                    onChange={(e) => patchPlay(selectedPlay.id, { setupNotes: e.target.value })}
+                    placeholder="Extra context, watchlist, or reminders for this setup…"
                   />
                 </label>
 
@@ -563,6 +553,20 @@ export default function Playbook() {
                     value={selectedPlay.exit}
                     onChange={(e) => patchPlay(selectedPlay.id, { exit: e.target.value })}
                     placeholder="Targets, time stop, scale-out rules…"
+                  />
+                </label>
+
+                <label className="playbook-field playbook-field--full">
+                  <span className="playbook-field-label-row">
+                    <span className="playbook-field-label">Notes</span>
+                    <NotesVoiceInputButton onAppend={(c) => appendPlayVoiceField(selectedPlay.id, "exitNotes", c)} />
+                  </span>
+                  <textarea
+                    className="playbook-textarea"
+                    rows={3}
+                    value={selectedPlay.exitNotes ?? ""}
+                    onChange={(e) => patchPlay(selectedPlay.id, { exitNotes: e.target.value })}
+                    placeholder="Exit-specific notes, exceptions, or post-trade review…"
                   />
                 </label>
               </div>

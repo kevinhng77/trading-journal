@@ -1,5 +1,6 @@
 import { Link, NavLink } from "react-router-dom";
 import ImportTradesButton from "./ImportTradesButton";
+import ThemeSchemeControl from "./ThemeSchemeControl";
 
 function BrandMark() {
   return (
@@ -69,6 +70,7 @@ function Sidebar() {
       </nav>
 
       <div className="sidebar-footer">
+        <ThemeSchemeControl />
         <ImportTradesButton />
       </div>
     </aside>

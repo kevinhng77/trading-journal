@@ -791,19 +791,6 @@ export default function TradeDetail() {
                 />
               </svg>
             </button>
-            <StarToggle
-              starred={Boolean(tid && isTradeStarred(tid))}
-              onToggle={() => {
-                if (tid) toggleTrade(tid);
-              }}
-              className="trade-detail-chart-tv-bar-star"
-              title={
-                tid && isTradeStarred(tid)
-                  ? "Remove from starred (*)"
-                  : "Star this trade for review on the * page"
-              }
-              aria-label={tid && isTradeStarred(tid) ? "Unstar trade" : "Star trade"}
-            />
           </div>
         </div>
         <ChartIndicatorsModal

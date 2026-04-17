@@ -8,6 +8,9 @@ export const PLAYBOOK_CHANGED_EVENT = "tradingJournalPlaybookChanged";
 /** Max screenshots stored on a single play (chart sends + manual uploads share this cap). */
 export const PLAYBOOK_MAX_SCREENSHOTS_PER_PLAY = 14;
 
+/** Default Rules textarea: numbered lines users fill in (one rule per line). */
+export const PLAYBOOK_RULES_LIST_TEMPLATE = "1.\n2.\n3.";
+
 const STORAGE_KEY = PLAYBOOK_STORAGE_KEY;
 const MISSED_STORAGE_KEY = PLAYBOOK_MISSED_STORAGE_KEY;
 
@@ -31,6 +34,8 @@ function sanitizeTradeTag(v) {
  * @property {string} entry
  * @property {string} exit
  * @property {string} rPlan
+ * @property {string} setupNotes
+ * @property {string} exitNotes
  * @property {PlaybookScreenshot[]} screenshots
  */
 
@@ -46,11 +51,13 @@ export function createEmptyPlay() {
   return {
     id: newId(),
     name: "Untitled play",
-    rules: "",
+    rules: PLAYBOOK_RULES_LIST_TEMPLATE,
     criteria: "",
     entry: "",
     exit: "",
     rPlan: "",
+    setupNotes: "",
+    exitNotes: "",
     screenshots: [],
   };
 }
@@ -60,11 +67,13 @@ export function createEmptyMissedPlay() {
   return {
     id: newId(),
     name: "Untitled missed",
-    rules: "",
+    rules: PLAYBOOK_RULES_LIST_TEMPLATE,
     criteria: "",
     entry: "",
     exit: "",
     rPlan: "",
+    setupNotes: "",
+    exitNotes: "",
     screenshots: [],
   };
 }
@@ -92,14 +101,18 @@ function normalizePlay(row) {
   const shots = Array.isArray(o.screenshots)
     ? o.screenshots.map(normalizeScreenshot).filter(Boolean)
     : [];
+  const rulesRaw = str("rules");
+  const rules = rulesRaw.trim() === "" ? PLAYBOOK_RULES_LIST_TEMPLATE : rulesRaw;
   return {
     id,
     name: str("name", "Untitled play") || "Untitled play",
-    rules: str("rules"),
+    rules,
     criteria: str("criteria"),
     entry: str("entry"),
     exit: str("exit"),
     rPlan: str("rPlan"),
+    setupNotes: str("setupNotes"),
+    exitNotes: str("exitNotes"),
     screenshots: /** @type {PlaybookScreenshot[]} */ (shots),
   };
 }

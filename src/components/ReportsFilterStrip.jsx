@@ -273,25 +273,6 @@ export default function ReportsFilterStrip({
             />
           </div>
 
-          <div
-            ref={reportsDateFieldRef}
-            className="reports-filter-field reports-filter-field--stacked reports-filter-field--date"
-          >
-            <span className="reports-filter-field-label" id={dateFieldLabelId}>
-              Date
-            </span>
-            <DateRangePicker
-              className="reports-filter-drp"
-              aria-labelledby={dateFieldLabelId}
-              alignPopoverEnd
-              positionAnchorRef={reportsDateFieldRef}
-              clampRightBeforeRef={reportsStripActionsRef}
-              dateFrom={draft.dateFrom}
-              dateTo={draft.dateTo}
-              onChange={(r) => patch(r)}
-            />
-          </div>
-
           <div className="reports-filter-field reports-filter-field--stacked reports-filter-field--tags">
             <span className="reports-filter-field-label" id={tagsFieldLabelId}>
               Tags
@@ -562,19 +543,42 @@ export default function ReportsFilterStrip({
 
         <div className="reports-filter-fields-spacer" aria-hidden="true" />
 
-        {stripActions !== "none" ? (
-          <div ref={reportsStripActionsRef} className="reports-filter-strip-actions">
-            <button type="button" className="reports-action-btn reports-action-btn--clear" onClick={onClear} title="Clear filters" aria-label="Clear filters">
-              <IconTrash />
-            </button>
-            <button type="submit" className="reports-action-btn reports-action-btn--apply" title="Apply filters" aria-label="Apply filters">
-              <IconCheck />
-            </button>
-            {trailingSlot}
+        <div className="reports-filter-strip-date-actions">
+          <div className="reports-filter-fields-right">
+            <div
+              ref={reportsDateFieldRef}
+              className="reports-filter-field reports-filter-field--stacked reports-filter-field--date"
+            >
+              <span className="reports-filter-field-label" id={dateFieldLabelId}>
+                Date
+              </span>
+              <DateRangePicker
+                className="reports-filter-drp"
+                aria-labelledby={dateFieldLabelId}
+                alignPopoverEnd
+                positionAnchorRef={reportsDateFieldRef}
+                clampRightBeforeRef={reportsStripActionsRef}
+                dateFrom={draft.dateFrom}
+                dateTo={draft.dateTo}
+                onChange={(r) => patch(r)}
+              />
+            </div>
           </div>
-        ) : (
-          <div ref={reportsStripActionsRef} className="reports-filter-strip-actions reports-filter-strip-actions--placeholder" aria-hidden="true" />
-        )}
+
+          {stripActions !== "none" ? (
+            <div ref={reportsStripActionsRef} className="reports-filter-strip-actions">
+              <button type="button" className="reports-action-btn reports-action-btn--clear" onClick={onClear} title="Clear filters" aria-label="Clear filters">
+                <IconTrash />
+              </button>
+              <button type="submit" className="reports-action-btn reports-action-btn--apply" title="Apply filters" aria-label="Apply filters">
+                <IconCheck />
+              </button>
+              {trailingSlot}
+            </div>
+          ) : (
+            <div ref={reportsStripActionsRef} className="reports-filter-strip-actions reports-filter-strip-actions--placeholder" aria-hidden="true" />
+          )}
+        </div>
       </div>
       </form>
     </div>
