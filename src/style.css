@@ -4368,22 +4368,78 @@ a.journal-row-trade-link:visited {
   background: rgba(255, 255, 255, 0.1);
 }
 
-.chart-indicator-legend-popover {
+/* Centered chart legend settings (Executions, VWAP, MA lines) — portal to body */
+.chart-legend-settings-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  pointer-events: none;
+}
+
+.chart-legend-settings-backdrop {
   position: absolute;
-  top: 100%;
-  left: 0;
-  margin-top: 6px;
-  padding: 12px;
-  min-width: min(292px, calc(100vw - 24px));
-  border-radius: 10px;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.chart-legend-settings-panel {
+  position: relative;
+  z-index: 1;
+  width: min(380px, calc(100vw - 32px));
+  max-height: min(85vh, 600px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  pointer-events: auto;
+  border-radius: 12px;
   border: 1px solid var(--border);
   background: var(--bg-card);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
-  z-index: 10;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+}
+
+.chart-legend-settings-header {
+  flex-shrink: 0;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.chart-legend-settings-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
+.chart-legend-settings-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  overflow: visible;
+}
+
+.chart-legend-settings-footer {
+  flex-shrink: 0;
+  padding: 10px 16px 14px;
+  border-top: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.chart-legend-settings-footer .chart-legend-pop-close {
+  width: 100%;
 }
 
 .chart-legend-pop-section {

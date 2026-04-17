@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import CompactColorInput from "./CompactColorInput";
 
 /**
@@ -181,376 +182,435 @@ export default function ChartIndicatorLegend({
 }) {
   const [settingsId, setSettingsId] = useState(null);
   const popoverRef = useRef(null);
+  const modalRef = useRef(null);
 
   useEffect(() => {
     if (!settingsId) return;
     function onDoc(e) {
-      if (popoverRef.current && !popoverRef.current.contains(e.target)) {
-        setSettingsId(null);
-      }
+      const t = /** @type {Node | null} */ (e.target);
+      if (!t) return;
+      if (popoverRef.current?.contains(t)) return;
+      if (modalRef.current?.contains(t)) return;
+      setSettingsId(null);
     }
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [settingsId]);
 
+  useEffect(() => {
+    if (!settingsId) return;
+    function onKey(e) {
+      if (e.key === "Escape") setSettingsId(null);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [settingsId]);
+
+  useEffect(() => {
+    if (!settingsId) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [settingsId]);
+
   const showMarkersRow = fillsCount > 0 && typeof onPatchMarkers === "function";
   if (!rows.length && !showMarkersRow) return null;
 
-  const openMa = settingsId ? prefs.emaLines.find((e) => e.id === settingsId) : null;
   const vwapOpen = settingsId === "__vwap__";
   const markersOpen = settingsId === "__markers__";
+  const maSettings =
+    settingsId && settingsId !== "__markers__" && settingsId !== "__vwap__" && onPatchEma
+      ? prefs.emaLines.find((e) => e.id === settingsId)
+      : null;
 
-  return (
-    <div className="chart-indicator-legend chart-indicator-legend--rich" ref={popoverRef}>
-      {showMarkersRow ? (
-        <div className="chart-indicator-legend-row chart-indicator-legend-row--markers">
-          <span className="chart-indicator-legend-exec-icon" aria-hidden>
-            <ExecutionMarkersPreview
-              shape={prefs.markers.shape ?? "triangle"}
-              buy={prefs.markers.buy}
-              sell={prefs.markers.sell}
-            />
-          </span>
-          <span className="chart-indicator-legend-text">Executions</span>
-          <div className="chart-indicator-legend-actions">
+  let modalTitle = "Chart settings";
+  if (markersOpen) modalTitle = "Executions & shading";
+  else if (vwapOpen) modalTitle = "VWAP";
+  else if (maSettings) modalTitle = `${(maSettings.kind ?? "ema").toUpperCase()} ${maSettings.period}`;
+
+  const settingsModal =
+    settingsId && typeof document !== "undefined"
+      ? createPortal(
+          <div className="chart-legend-settings-overlay" ref={modalRef}>
             <button
               type="button"
-              className="chart-indicator-legend-gear"
-              title="Execution marker colors & size"
-              aria-label="Execution marker settings"
-              onClick={() => setSettingsId((id) => (id === "__markers__" ? null : "__markers__"))}
+              className="chart-legend-settings-backdrop"
+              aria-label="Close settings"
+              onClick={() => setSettingsId(null)}
+            />
+            <div
+              className="chart-legend-settings-panel"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="chart-legend-settings-title"
             >
-              ⚙
-            </button>
-          </div>
-          {markersOpen && onPatchMarkers ? (
-            <div className="chart-indicator-legend-popover" role="dialog" aria-label="Execution markers">
-              {typeof onPatchRoundTripShading === "function" ? (
-                <>
-                  <p className="chart-legend-pop-section">Round-trip shading</p>
-                  <label className="chart-legend-pop-check chart-legend-pop-check--block">
-                    <input
-                      type="checkbox"
-                      checked={prefs.roundTripShading?.enabled !== false}
-                      onChange={(e) => onPatchRoundTripShading({ enabled: e.target.checked })}
-                    />
-                    Show win / loss bands
-                  </label>
-                  <label className="chart-legend-pop-field">
-                    Win (green tint)
-                    <CompactColorInput
-                      value={prefs.roundTripShading?.winColor ?? "#4abe78"}
-                      onChange={(hex) => onPatchRoundTripShading({ winColor: hex })}
-                      disabled={prefs.roundTripShading?.enabled === false}
-                      aria-label="Win round-trip shade color"
-                    />
-                  </label>
-                  <label className="chart-legend-pop-field">
-                    Loss (red tint)
-                    <CompactColorInput
-                      value={prefs.roundTripShading?.lossColor ?? "#e66c6c"}
-                      onChange={(hex) => onPatchRoundTripShading({ lossColor: hex })}
-                      disabled={prefs.roundTripShading?.enabled === false}
-                      aria-label="Loss round-trip shade color"
-                    />
-                  </label>
-                  <label className="chart-legend-pop-field">
-                    Flat / breakeven
-                    <CompactColorInput
-                      value={prefs.roundTripShading?.flatColor ?? "#82a5d2"}
-                      onChange={(hex) => onPatchRoundTripShading({ flatColor: hex })}
-                      disabled={prefs.roundTripShading?.enabled === false}
-                      aria-label="Flat round-trip shade color"
-                    />
-                  </label>
-                  <label className="chart-legend-pop-field chart-legend-pop-field--grow">
-                    Band opacity
-                    <input
-                      type="range"
-                      min={0.04}
-                      max={0.22}
-                      step={0.01}
-                      value={prefs.roundTripShading?.alpha ?? 0.1}
-                      onChange={(e) => onPatchRoundTripShading({ alpha: Number(e.target.value) || 0.1 })}
-                      disabled={prefs.roundTripShading?.enabled === false}
-                      aria-valuemin={0.04}
-                      aria-valuemax={0.22}
-                      aria-valuenow={prefs.roundTripShading?.alpha ?? 0.1}
-                      aria-label="Round-trip band opacity"
-                    />
-                    <span className="chart-legend-pop-range-val">
-                      {((prefs.roundTripShading?.alpha ?? 0.1) * 100).toFixed(0)}%
-                    </span>
-                  </label>
-                </>
-              ) : null}
-
-              <p className="chart-legend-pop-section">Execution markers</p>
-              <label className="chart-legend-pop-field">
-                Shape
-                <select
-                  value={prefs.markers.shape ?? "triangle"}
-                  onChange={(e) =>
-                    onPatchMarkers({
-                      shape: /** @type {'triangle'|'circle'|'square'|'diamond'} */ (e.target.value),
-                    })
-                  }
-                  aria-label="Execution marker shape"
-                >
-                  <option value="triangle">Triangle</option>
-                  <option value="circle">Circle</option>
-                  <option value="square">Square</option>
-                  <option value="diamond">Diamond</option>
-                </select>
-              </label>
-              <p className="chart-legend-pop-section" style={{ fontSize: 9, marginTop: 4 }}>
-                Sizing by quantity
-              </p>
-              <div className="chart-legend-pop-radio-row" role="group" aria-label="How to show fill size">
-                {[
-                  { id: "color", label: "Color" },
-                  { id: "size", label: "Size" },
-                  { id: "both", label: "Both" },
-                ].map(({ id, label }) => (
-                  <button
-                    key={id}
-                    type="button"
-                    className={`chart-legend-pop-seg ${(prefs.markers.sizingMode ?? "color") === id ? "is-active" : ""}`}
-                    aria-pressed={(prefs.markers.sizingMode ?? "color") === id}
-                    onClick={() => onPatchMarkers({ sizingMode: id })}
-                  >
-                    {label}
-                  </button>
-                ))}
+              <div className="chart-legend-settings-header">
+                <h2 id="chart-legend-settings-title" className="chart-legend-settings-title">
+                  {modalTitle}
+                </h2>
               </div>
-              <label className="chart-legend-pop-field">
-                Buy (BOT)
-                <CompactColorInput
-                  value={prefs.markers.buy}
-                  onChange={(hex) => onPatchMarkers({ buy: hex })}
-                  aria-label="Buy marker color"
-                />
-              </label>
-              <label className="chart-legend-pop-field">
-                Sell (SOLD)
-                <CompactColorInput
-                  value={prefs.markers.sell}
-                  onChange={(hex) => onPatchMarkers({ sell: hex })}
-                  aria-label="Sell marker color"
-                />
-              </label>
-              <label className="chart-legend-pop-field chart-legend-pop-field--grow">
-                Size
-                <input
-                  type="range"
-                  min={5}
-                  max={28}
-                  value={prefs.markers.size}
-                  onChange={(e) => onPatchMarkers({ size: Number(e.target.value) || 12 })}
-                  aria-valuemin={5}
-                  aria-valuemax={28}
-                  aria-valuenow={prefs.markers.size}
-                  aria-label="Marker size"
-                />
-                <span className="chart-legend-pop-range-val">{prefs.markers.size}px</span>
-              </label>
-              <button type="button" className="chart-legend-pop-close" onClick={() => setSettingsId(null)}>
-                Done
+              <div className="chart-legend-settings-body">
+                {markersOpen && onPatchMarkers ? (
+                  <>
+                    {typeof onPatchRoundTripShading === "function" ? (
+                      <>
+                        <p className="chart-legend-pop-section">Round-trip shading</p>
+                        <label className="chart-legend-pop-check chart-legend-pop-check--block">
+                          <input
+                            type="checkbox"
+                            checked={prefs.roundTripShading?.enabled !== false}
+                            onChange={(e) => onPatchRoundTripShading({ enabled: e.target.checked })}
+                          />
+                          Show win / loss bands
+                        </label>
+                        <label className="chart-legend-pop-field">
+                          Win (green tint)
+                          <CompactColorInput
+                            value={prefs.roundTripShading?.winColor ?? "#4abe78"}
+                            onChange={(hex) => onPatchRoundTripShading({ winColor: hex })}
+                            disabled={prefs.roundTripShading?.enabled === false}
+                            aria-label="Win round-trip shade color"
+                          />
+                        </label>
+                        <label className="chart-legend-pop-field">
+                          Loss (red tint)
+                          <CompactColorInput
+                            value={prefs.roundTripShading?.lossColor ?? "#e66c6c"}
+                            onChange={(hex) => onPatchRoundTripShading({ lossColor: hex })}
+                            disabled={prefs.roundTripShading?.enabled === false}
+                            aria-label="Loss round-trip shade color"
+                          />
+                        </label>
+                        <label className="chart-legend-pop-field">
+                          Flat / breakeven
+                          <CompactColorInput
+                            value={prefs.roundTripShading?.flatColor ?? "#82a5d2"}
+                            onChange={(hex) => onPatchRoundTripShading({ flatColor: hex })}
+                            disabled={prefs.roundTripShading?.enabled === false}
+                            aria-label="Flat round-trip shade color"
+                          />
+                        </label>
+                        <label className="chart-legend-pop-field chart-legend-pop-field--grow">
+                          Band opacity
+                          <input
+                            type="range"
+                            min={0.04}
+                            max={0.22}
+                            step={0.01}
+                            value={prefs.roundTripShading?.alpha ?? 0.1}
+                            onChange={(e) => onPatchRoundTripShading({ alpha: Number(e.target.value) || 0.1 })}
+                            disabled={prefs.roundTripShading?.enabled === false}
+                            aria-valuemin={0.04}
+                            aria-valuemax={0.22}
+                            aria-valuenow={prefs.roundTripShading?.alpha ?? 0.1}
+                            aria-label="Round-trip band opacity"
+                          />
+                          <span className="chart-legend-pop-range-val">
+                            {((prefs.roundTripShading?.alpha ?? 0.1) * 100).toFixed(0)}%
+                          </span>
+                        </label>
+                      </>
+                    ) : null}
+
+                    <p className="chart-legend-pop-section">Execution markers</p>
+                    <label className="chart-legend-pop-field">
+                      Shape
+                      <select
+                        value={prefs.markers.shape ?? "triangle"}
+                        onChange={(e) =>
+                          onPatchMarkers({
+                            shape: /** @type {'triangle'|'circle'|'square'|'diamond'} */ (e.target.value),
+                          })
+                        }
+                        aria-label="Execution marker shape"
+                      >
+                        <option value="triangle">Triangle</option>
+                        <option value="circle">Circle</option>
+                        <option value="square">Square</option>
+                        <option value="diamond">Diamond</option>
+                      </select>
+                    </label>
+                    <p className="chart-legend-pop-section" style={{ fontSize: 9, marginTop: 4 }}>
+                      Sizing by quantity
+                    </p>
+                    <div className="chart-legend-pop-radio-row" role="group" aria-label="How to show fill size">
+                      {[
+                        { id: "color", label: "Color" },
+                        { id: "size", label: "Size" },
+                        { id: "both", label: "Both" },
+                      ].map(({ id, label }) => (
+                        <button
+                          key={id}
+                          type="button"
+                          className={`chart-legend-pop-seg ${(prefs.markers.sizingMode ?? "color") === id ? "is-active" : ""}`}
+                          aria-pressed={(prefs.markers.sizingMode ?? "color") === id}
+                          onClick={() => onPatchMarkers({ sizingMode: id })}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <label className="chart-legend-pop-field">
+                      Buy (BOT)
+                      <CompactColorInput
+                        value={prefs.markers.buy}
+                        onChange={(hex) => onPatchMarkers({ buy: hex })}
+                        aria-label="Buy marker color"
+                      />
+                    </label>
+                    <label className="chart-legend-pop-field">
+                      Sell (SOLD)
+                      <CompactColorInput
+                        value={prefs.markers.sell}
+                        onChange={(hex) => onPatchMarkers({ sell: hex })}
+                        aria-label="Sell marker color"
+                      />
+                    </label>
+                    <label className="chart-legend-pop-field chart-legend-pop-field--grow">
+                      Size
+                      <input
+                        type="range"
+                        min={5}
+                        max={28}
+                        value={prefs.markers.size}
+                        onChange={(e) => onPatchMarkers({ size: Number(e.target.value) || 12 })}
+                        aria-valuemin={5}
+                        aria-valuemax={28}
+                        aria-valuenow={prefs.markers.size}
+                        aria-label="Marker size"
+                      />
+                      <span className="chart-legend-pop-range-val">{prefs.markers.size}px</span>
+                    </label>
+                  </>
+                ) : null}
+
+                {vwapOpen && onPatchVwap ? (
+                  <>
+                    <label className="chart-legend-pop-check chart-legend-pop-check--block">
+                      <input
+                        type="checkbox"
+                        checked={prefs.vwap.enabled}
+                        onChange={(e) => {
+                          onPatchVwap({ enabled: e.target.checked });
+                          if (!e.target.checked) setSettingsId(null);
+                        }}
+                      />
+                      VWAP (session)
+                    </label>
+                    <label className="chart-legend-pop-field">
+                      Color
+                      <CompactColorInput
+                        value={prefs.vwap.color}
+                        onChange={(hex) => onPatchVwap({ color: hex })}
+                        disabled={!prefs.vwap.enabled}
+                        aria-label="VWAP color"
+                      />
+                    </label>
+                    <div className="chart-legend-pop-field chart-legend-pop-field--inline-label">
+                      <span className="chart-legend-pop-field-label">Width</span>
+                      <LineWidthPick
+                        value={prefs.vwap.width}
+                        disabled={!prefs.vwap.enabled}
+                        onChange={(w) => onPatchVwap({ width: w })}
+                      />
+                    </div>
+                    <div className="chart-legend-pop-field chart-legend-pop-field--inline-label">
+                      <span className="chart-legend-pop-field-label">Style</span>
+                      <LineStylePick
+                        value={prefs.vwap.lineStyle ?? 0}
+                        disabled={!prefs.vwap.enabled}
+                        onChange={(lineStyle) => onPatchVwap({ lineStyle })}
+                      />
+                    </div>
+                  </>
+                ) : null}
+
+                {maSettings && onPatchEma && settingsId ? (
+                  <>
+                    <label className="chart-legend-pop-field">
+                      Period
+                      <input
+                        type="number"
+                        min={1}
+                        max={500}
+                        value={maSettings.period}
+                        onChange={(e) => onPatchEma(settingsId, { period: Number(e.target.value) || 1 })}
+                      />
+                    </label>
+                    <label className="chart-legend-pop-field">
+                      Type
+                      <select
+                        value={maSettings.kind ?? "ema"}
+                        onChange={(e) =>
+                          onPatchEma(settingsId, { kind: /** @type {'ema'|'sma'} */ (e.target.value) })
+                        }
+                      >
+                        <option value="ema">EMA</option>
+                        <option value="sma">SMA</option>
+                      </select>
+                    </label>
+                    <label className="chart-legend-pop-field">
+                      Color
+                      <CompactColorInput
+                        value={maSettings.color}
+                        onChange={(hex) => onPatchEma(settingsId, { color: hex })}
+                        aria-label="Line color"
+                      />
+                    </label>
+                    <div className="chart-legend-pop-field chart-legend-pop-field--inline-label">
+                      <span className="chart-legend-pop-field-label">Width</span>
+                      <LineWidthPick
+                        value={maSettings.width}
+                        onChange={(w) => onPatchEma(settingsId, { width: w })}
+                      />
+                    </div>
+                    <div className="chart-legend-pop-field chart-legend-pop-field--inline-label">
+                      <span className="chart-legend-pop-field-label">Style</span>
+                      <LineStylePick
+                        value={maSettings.lineStyle ?? 0}
+                        onChange={(lineStyle) => onPatchEma(settingsId, { lineStyle })}
+                      />
+                    </div>
+                    <label className="chart-legend-pop-check">
+                      <input
+                        type="checkbox"
+                        checked={maSettings.enabled}
+                        onChange={(e) => {
+                          const on = e.target.checked;
+                          onPatchEma(settingsId, { enabled: on });
+                          if (!on) setSettingsId(null);
+                        }}
+                      />
+                      Visible
+                    </label>
+                    {onRemoveEma && prefs.emaLines.length > 0 ? (
+                      <button
+                        type="button"
+                        className="chart-legend-pop-remove"
+                        onClick={() => {
+                          onRemoveEma(settingsId);
+                          setSettingsId(null);
+                        }}
+                      >
+                        Remove line
+                      </button>
+                    ) : null}
+                  </>
+                ) : null}
+              </div>
+              <div className="chart-legend-settings-footer">
+                <button type="button" className="chart-legend-pop-close" onClick={() => setSettingsId(null)}>
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )
+      : null;
+
+  return (
+    <Fragment>
+      <div className="chart-indicator-legend chart-indicator-legend--rich" ref={popoverRef}>
+        {showMarkersRow ? (
+          <div className="chart-indicator-legend-row chart-indicator-legend-row--markers">
+            <span className="chart-indicator-legend-exec-icon" aria-hidden>
+              <ExecutionMarkersPreview
+                shape={prefs.markers.shape ?? "triangle"}
+                buy={prefs.markers.buy}
+                sell={prefs.markers.sell}
+              />
+            </span>
+            <span className="chart-indicator-legend-text">Executions</span>
+            <div className="chart-indicator-legend-actions">
+              <button
+                type="button"
+                className="chart-indicator-legend-gear"
+                title="Execution marker colors & size"
+                aria-label="Execution marker settings"
+                onClick={() => setSettingsId((id) => (id === "__markers__" ? null : "__markers__"))}
+              >
+                ⚙
               </button>
             </div>
-          ) : null}
-        </div>
-      ) : null}
+          </div>
+        ) : null}
 
-      {rows.map((row) => {
-        if (row.study === "ma") {
-          const ma = prefs.emaLines.find((e) => e.id === row.id);
-          if (!ma) return null;
-        }
+        {rows.map((row) => {
+          if (row.study === "ma") {
+            const ma = prefs.emaLines.find((e) => e.id === row.id);
+            if (!ma) return null;
+          }
 
-        const rowMuted =
-          (row.study === "ma" && row.enabled === false) || (row.study === "vwap" && row.enabled === false);
+          const rowMuted =
+            (row.study === "ma" && row.enabled === false) || (row.study === "vwap" && row.enabled === false);
 
-        const visible = row.enabled !== false;
+          const visible = row.enabled !== false;
 
-        return (
-          <div
-            key={row.id}
-            className={`chart-indicator-legend-row ${rowMuted ? "chart-indicator-legend-row--muted" : ""}`}
-          >
-            {row.study === "ma" && onPatchEma ? (
-              <LegendVisibilityToggle
-                visible={visible}
-                name={row.label}
-                onToggle={() => {
-                  const next = !visible;
-                  onPatchEma(row.id, { enabled: next });
-                  if (!next && settingsId === row.id) setSettingsId(null);
-                }}
-              />
-            ) : null}
-            {row.study === "vwap" && onPatchVwap ? (
-              <LegendVisibilityToggle
-                visible={visible}
-                name="VWAP"
-                onToggle={() => {
-                  const next = !prefs.vwap.enabled;
-                  onPatchVwap({ enabled: next });
-                  if (!next && settingsId === "__vwap__") setSettingsId(null);
-                }}
-              />
-            ) : null}
-            <span className="chart-indicator-legend-line" style={{ background: row.color }} aria-hidden />
-            <span className="chart-indicator-legend-text" style={{ color: row.color }}>
-              {row.label}
-            </span>
-            {row.study === "ma" && onPatchEma ? (
-              <div className="chart-indicator-legend-actions">
-                <button
-                  type="button"
-                  className="chart-indicator-legend-gear"
-                  title="Line settings"
-                  aria-label={`${row.label} settings`}
-                  onClick={() => setSettingsId((id) => (id === row.id ? null : row.id))}
-                >
-                  ⚙
-                </button>
-              </div>
-            ) : null}
-            {row.study === "vwap" && onPatchVwap ? (
-              <div className="chart-indicator-legend-actions">
-                <button
-                  type="button"
-                  className="chart-indicator-legend-gear"
-                  title="VWAP settings"
-                  aria-label="VWAP settings"
-                  onClick={() => setSettingsId((id) => (id === "__vwap__" ? null : "__vwap__"))}
-                >
-                  ⚙
-                </button>
-              </div>
-            ) : null}
-
-            {row.study === "ma" && onPatchEma && settingsId === row.id && openMa && (
-              <div className="chart-indicator-legend-popover" role="dialog" aria-label="Line settings">
-                <label className="chart-legend-pop-field">
-                  Period
-                  <input
-                    type="number"
-                    min={1}
-                    max={500}
-                    value={openMa.period}
-                    onChange={(e) => onPatchEma(row.id, { period: Number(e.target.value) || 1 })}
-                  />
-                </label>
-                <label className="chart-legend-pop-field">
-                  Type
-                  <select
-                    value={openMa.kind ?? "ema"}
-                    onChange={(e) => onPatchEma(row.id, { kind: /** @type {'ema'|'sma'} */ (e.target.value) })}
-                  >
-                    <option value="ema">EMA</option>
-                    <option value="sma">SMA</option>
-                  </select>
-                </label>
-                <label className="chart-legend-pop-field">
-                  Color
-                  <CompactColorInput
-                    value={openMa.color}
-                    onChange={(hex) => onPatchEma(row.id, { color: hex })}
-                    aria-label={`${row.label} color`}
-                  />
-                </label>
-                <div className="chart-legend-pop-field chart-legend-pop-field--inline-label">
-                  <span className="chart-legend-pop-field-label">Width</span>
-                  <LineWidthPick
-                    value={openMa.width}
-                    onChange={(w) => onPatchEma(row.id, { width: w })}
-                  />
-                </div>
-                <div className="chart-legend-pop-field chart-legend-pop-field--inline-label">
-                  <span className="chart-legend-pop-field-label">Style</span>
-                  <LineStylePick
-                    value={openMa.lineStyle ?? 0}
-                    onChange={(lineStyle) => onPatchEma(row.id, { lineStyle })}
-                  />
-                </div>
-                <label className="chart-legend-pop-check">
-                  <input
-                    type="checkbox"
-                    checked={openMa.enabled}
-                    onChange={(e) => {
-                      const on = e.target.checked;
-                      onPatchEma(row.id, { enabled: on });
-                      if (!on) setSettingsId(null);
-                    }}
-                  />
-                  Visible
-                </label>
-                {onRemoveEma && prefs.emaLines.length > 0 ? (
+          return (
+            <div
+              key={row.id}
+              className={`chart-indicator-legend-row ${rowMuted ? "chart-indicator-legend-row--muted" : ""}`}
+            >
+              {row.study === "ma" && onPatchEma ? (
+                <LegendVisibilityToggle
+                  visible={visible}
+                  name={row.label}
+                  onToggle={() => {
+                    const next = !visible;
+                    onPatchEma(row.id, { enabled: next });
+                    if (!next && settingsId === row.id) setSettingsId(null);
+                  }}
+                />
+              ) : null}
+              {row.study === "vwap" && onPatchVwap ? (
+                <LegendVisibilityToggle
+                  visible={visible}
+                  name="VWAP"
+                  onToggle={() => {
+                    const next = !prefs.vwap.enabled;
+                    onPatchVwap({ enabled: next });
+                    if (!next && settingsId === "__vwap__") setSettingsId(null);
+                  }}
+                />
+              ) : null}
+              <span className="chart-indicator-legend-line" style={{ background: row.color }} aria-hidden />
+              <span className="chart-indicator-legend-text" style={{ color: row.color }}>
+                {row.label}
+              </span>
+              {row.study === "ma" && onPatchEma ? (
+                <div className="chart-indicator-legend-actions">
                   <button
                     type="button"
-                    className="chart-legend-pop-remove"
-                    onClick={() => {
-                      onRemoveEma(row.id);
-                      setSettingsId(null);
-                    }}
+                    className="chart-indicator-legend-gear"
+                    title="Line settings"
+                    aria-label={`${row.label} settings`}
+                    onClick={() => setSettingsId((id) => (id === row.id ? null : row.id))}
                   >
-                    Remove line
+                    ⚙
                   </button>
-                ) : null}
-                <button type="button" className="chart-legend-pop-close" onClick={() => setSettingsId(null)}>
-                  Done
-                </button>
-              </div>
-            )}
-
-            {row.study === "vwap" && onPatchVwap && vwapOpen && (
-              <div className="chart-indicator-legend-popover" role="dialog" aria-label="VWAP settings">
-                <label className="chart-legend-pop-check chart-legend-pop-check--block">
-                  <input
-                    type="checkbox"
-                    checked={prefs.vwap.enabled}
-                    onChange={(e) => {
-                      onPatchVwap({ enabled: e.target.checked });
-                      if (!e.target.checked) setSettingsId(null);
-                    }}
-                  />
-                  VWAP (session)
-                </label>
-                <label className="chart-legend-pop-field">
-                  Color
-                  <CompactColorInput
-                    value={prefs.vwap.color}
-                    onChange={(hex) => onPatchVwap({ color: hex })}
-                    disabled={!prefs.vwap.enabled}
-                    aria-label="VWAP color"
-                  />
-                </label>
-                <div className="chart-legend-pop-field chart-legend-pop-field--inline-label">
-                  <span className="chart-legend-pop-field-label">Width</span>
-                  <LineWidthPick
-                    value={prefs.vwap.width}
-                    disabled={!prefs.vwap.enabled}
-                    onChange={(w) => onPatchVwap({ width: w })}
-                  />
                 </div>
-                <div className="chart-legend-pop-field chart-legend-pop-field--inline-label">
-                  <span className="chart-legend-pop-field-label">Style</span>
-                  <LineStylePick
-                    value={prefs.vwap.lineStyle ?? 0}
-                    disabled={!prefs.vwap.enabled}
-                    onChange={(lineStyle) => onPatchVwap({ lineStyle })}
-                  />
+              ) : null}
+              {row.study === "vwap" && onPatchVwap ? (
+                <div className="chart-indicator-legend-actions">
+                  <button
+                    type="button"
+                    className="chart-indicator-legend-gear"
+                    title="VWAP settings"
+                    aria-label="VWAP settings"
+                    onClick={() => setSettingsId((id) => (id === "__vwap__" ? null : "__vwap__"))}
+                  >
+                    ⚙
+                  </button>
                 </div>
-                <button type="button" className="chart-legend-pop-close" onClick={() => setSettingsId(null)}>
-                  Done
-                </button>
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+      {settingsModal}
+    </Fragment>
   );
 }
