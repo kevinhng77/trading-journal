@@ -7,6 +7,7 @@ name: Deploy GitHub Pages
 on:
   push:
     branches: [main, master]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -28,6 +29,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build:gh-pages
+        env:
+          # Vercel chart proxy origin (no trailing slash), e.g. https://your-app.vercel.app
+          VITE_CHART_API_ORIGIN: ${{ secrets.VITE_CHART_API_ORIGIN }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
