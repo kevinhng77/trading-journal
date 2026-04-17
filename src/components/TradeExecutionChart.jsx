@@ -171,7 +171,7 @@ function clampPriceToBarRange(fillPrice, bar) {
 }
 
 /**
- * 0..1 strength for sizing/color (log spread). `null` → caller uses prefs baseline / neutral tint.
+ * 0..1 strength for color only (log spread). `null` → neutral tint (no qty / no span).
  * @param {number | undefined} qty
  * @param {number} qMin
  * @param {number} qMax
@@ -186,25 +186,6 @@ function executionQuantityStrengthOrNull(qty, qMin, qMax) {
   const hi = Math.log10(qMax + 1);
   const t = (Math.log10(q + 1) - lo) / (hi - lo);
   return Math.min(1, Math.max(0, t));
-}
-
-/**
- * Map fill |quantity| to a triangle pixel size for this trade only (log spread so one huge lot
- * does not blow past the cap). Missing quantity uses the prefs baseline.
- * @param {number | undefined} qty
- * @param {number} qMin
- * @param {number} qMax
- * @param {number} markerBaseSize
- */
-function executionQuantityToMarkerPixelSize(qty, qMin, qMax, markerBaseSize) {
-  let b = Number(markerBaseSize);
-  if (!Number.isFinite(b) || b < 4) b = 12;
-  b = Math.min(22, Math.max(6, b));
-  const minS = Math.max(5, b * 0.68);
-  const maxS = Math.min(24, b * 1.42);
-  const u = executionQuantityStrengthOrNull(qty, qMin, qMax);
-  if (u === null) return b;
-  return minS + u * (maxS - minS);
 }
 
 /** @param {string} hex */
@@ -244,6 +225,7 @@ function blendRgb(a, b, t) {
 const MARKER_SIZE_BLEND_BG = { r: 20, g: 22, b: 30 };
 
 /**
+ * Bolder / deeper fill for larger qty (triangle size stays fixed in prefs).
  * @param {string} baseHex marker pref color
  * @param {number | undefined} qty
  * @param {number} qMin
@@ -253,8 +235,8 @@ function executionQuantityToMarkerFill(baseHex, qty, qMin, qMax) {
   const base = hexToRgb(baseHex);
   const u = executionQuantityStrengthOrNull(qty, qMin, qMax);
   const uBlend = u === null ? 0.5 : u;
-  const washed = blendRgb(base, MARKER_SIZE_BLEND_BG, 0.58);
-  const rich = blendRgb(base, { r: 0, g: 0, b: 0 }, 0.18);
+  const washed = blendRgb(base, MARKER_SIZE_BLEND_BG, 0.64);
+  const rich = blendRgb(base, { r: 0, g: 0, b: 0 }, 0.26);
   return rgbToHex(blendRgb(washed, rich, uBlend));
 }
 
@@ -316,14 +298,13 @@ function collectExecutionMarkers(
   const qMin = qtyList.length ? Math.min(...qtyList) : NaN;
   const qMax = qtyList.length ? Math.max(...qtyList) : NaN;
 
-  const { buy: buyHex, sell: sellHex, size: markerBaseSize } = markerPrefs;
+  const { buy: buyHex, sell: sellHex } = markerPrefs;
 
   return out.map((m) => {
     const { quantity, ...rest } = m;
     const baseHex = m.isBuy ? buyHex : sellHex;
     return {
       ...rest,
-      size: executionQuantityToMarkerPixelSize(quantity, qMin, qMax, markerBaseSize),
       fill: executionQuantityToMarkerFill(baseHex, quantity, qMin, qMax),
     };
   });
