@@ -68,13 +68,22 @@ function LockedTwin({ placeholder = "—" }) {
  * @param {{
  *   open: boolean,
  *   onClose: () => void,
+ *   onApply?: () => void,
  *   draft: import("../lib/reportFilters").ReportFilters,
  *   patch: (p: Partial<import("../lib/reportFilters").ReportFilters>) => void,
  *   triggerRef: import("react").RefObject<HTMLElement | null>,
  *   clampRightBeforeRef?: import("react").RefObject<HTMLElement | null>,
  * }} props
  */
-export default function ReportsAdvancedFiltersPopover({ open, onClose, draft, patch, triggerRef, clampRightBeforeRef }) {
+export default function ReportsAdvancedFiltersPopover({
+  open,
+  onClose,
+  onApply,
+  draft,
+  patch,
+  triggerRef,
+  clampRightBeforeRef,
+}) {
   const titleId = useId();
   const popRef = useRef(null);
   /** @type {import("react").CSSProperties | undefined} */
@@ -90,14 +99,14 @@ export default function ReportsAdvancedFiltersPopover({ open, onClose, draft, pa
     function measure() {
       const tr = triggerRef.current?.getBoundingClientRect();
       const pop = popRef.current;
-      if (!tr || !pop) return;
+      if (!tr) return;
       const vw = window.innerWidth;
       const vh = window.innerHeight;
       const clampEl = clampRightBeforeRef?.current;
       const rightLimit = clampEl ? clampEl.getBoundingClientRect().left - gap : vw - margin;
       const maxW = Math.max(280, Math.min(560, rightLimit - margin - tr.left, vw - 2 * margin));
-      const pr = pop.getBoundingClientRect();
-      const h = Math.min(pr.height || 420, vh - 2 * margin);
+      const pr = pop?.getBoundingClientRect();
+      const h = Math.min(pr?.height || 420, vh - 2 * margin);
       let top = tr.bottom + gap;
       if (top + h > vh - margin) {
         top = Math.max(margin, vh - margin - h);
@@ -108,7 +117,7 @@ export default function ReportsAdvancedFiltersPopover({ open, onClose, draft, pa
         position: "fixed",
         left,
         top,
-        zIndex: 220,
+        zIndex: 6500,
         width: maxW,
         maxHeight: `min(72vh, ${Math.round(vh - top - margin)}px)`,
         boxSizing: "border-box",
@@ -405,10 +414,24 @@ export default function ReportsAdvancedFiltersPopover({ open, onClose, draft, pa
         <button type="button" className="reports-adv-btn-secondary" onClick={clearAdvanced}>
           Clear advanced
         </button>
-        <Link to="/reports/advanced" className="reports-adv-link" onClick={onClose}>
+        <Link
+          to="/reports/advanced"
+          className="reports-adv-link"
+          onClick={() => {
+            onApply?.();
+            onClose();
+          }}
+        >
           Scatter / correlation tab →
         </Link>
-        <button type="button" className="reports-adv-btn-primary" onClick={onClose}>
+        <button
+          type="button"
+          className="reports-adv-btn-primary"
+          onClick={() => {
+            onApply?.();
+            onClose();
+          }}
+        >
           Done
         </button>
       </div>

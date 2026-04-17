@@ -77,7 +77,6 @@ function IconFunnel() {
  * @param {string} [props.symbolPlaceholder]
  * @param {import("react").ReactNode} [props.trailingSlot]
  * @param {"default" | "none"} [props.stripActions] When `"none"`, hide Apply/Clear and treat filter changes as immediate (no submit row).
- * @param {boolean} [props.advancedReportsLink] When true, show Advanced next to the date field (Reports layout only).
  */
 export default function ReportsFilterStrip({
   draft,
@@ -90,7 +89,6 @@ export default function ReportsFilterStrip({
   symbolPlaceholder = "Symbol",
   trailingSlot = null,
   stripActions = "default",
-  advancedReportsLink = false,
 }) {
   const [tagSearch, setTagSearch] = useState("");
   const [tagsPopOpen, setTagsPopOpen] = useState(false);
@@ -589,33 +587,32 @@ export default function ReportsFilterStrip({
             </div>
           </div>
 
-          {advancedReportsLink ? (
-            <div className="reports-filter-field reports-filter-field--stacked reports-filter-field--advanced-nav">
-              <span className="reports-filter-field-label reports-filter-field-label--phantom" aria-hidden>
-                &nbsp;
-              </span>
-              <button
-                type="button"
-                ref={advFilterBtnRef}
-                className={`reports-filter-advanced-btn${advFilterOpen ? " is-open" : ""}`}
-                aria-expanded={advFilterOpen}
-                aria-haspopup="dialog"
-                title="Extra filters: day, time, P&L, size, and more"
-                onClick={() => setAdvFilterOpen((o) => !o)}
-              >
-                <IconFunnel />
-                <span>Advanced</span>
-              </button>
-              <ReportsAdvancedFiltersPopover
-                open={advFilterOpen}
-                onClose={() => setAdvFilterOpen(false)}
-                draft={draft}
-                patch={patch}
-                triggerRef={advFilterBtnRef}
-                clampRightBeforeRef={reportsStripActionsRef}
-              />
-            </div>
-          ) : null}
+          <div className="reports-filter-field reports-filter-field--stacked reports-filter-field--advanced-nav">
+            <span className="reports-filter-field-label reports-filter-field-label--phantom" aria-hidden>
+              &nbsp;
+            </span>
+            <button
+              type="button"
+              ref={advFilterBtnRef}
+              className={`reports-filter-advanced-btn${advFilterOpen ? " is-open" : ""}`}
+              aria-expanded={advFilterOpen}
+              aria-haspopup="dialog"
+              title="Extra filters: day, time, P&L, size, and more"
+              onClick={() => setAdvFilterOpen((o) => !o)}
+            >
+              <IconFunnel />
+              <span>Advanced</span>
+            </button>
+            <ReportsAdvancedFiltersPopover
+              open={advFilterOpen}
+              onClose={() => setAdvFilterOpen(false)}
+              onApply={stripActions !== "none" ? onApply : undefined}
+              draft={draft}
+              patch={patch}
+              triggerRef={advFilterBtnRef}
+              clampRightBeforeRef={reportsStripActionsRef}
+            />
+          </div>
 
           {stripActions !== "none" ? (
             <div ref={reportsStripActionsRef} className="reports-filter-strip-actions">

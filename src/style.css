@@ -1506,7 +1506,8 @@ body {
 
 .reports-filter-fields-right {
   flex: 0 0 auto;
-  min-width: 0;
+  /* Do not use min-width:0 here — it lets flexbox crush the date column below the Setup width. */
+  min-width: min-content;
 }
 
 /* Date picker + clear/apply: one cluster so Journal can align column 2 with the right rail. */
@@ -1517,7 +1518,7 @@ body {
   align-items: flex-end;
   gap: 10px;
   flex: 0 0 auto;
-  min-width: 0;
+  min-width: min-content;
 }
 
 .reports-filter-field--stacked {
@@ -1527,6 +1528,12 @@ body {
   align-items: stretch;
   flex: 0 1 auto;
   min-width: 0;
+}
+
+/* Date uses --stacked too; keep its floor width so flex does not collapse it past Setup. */
+.reports-filter-field--stacked.reports-filter-field--date {
+  min-width: 260px;
+  flex-shrink: 0;
 }
 
 .reports-filter-field--stacked > .reports-filter-field-label {
@@ -1558,16 +1565,33 @@ body {
   flex: 0 0 auto;
 }
 
+/* Same basis as Setup (260px); min-width stops flex from shrinking the trigger narrower than Setup. */
 .reports-filter-field--date {
-  flex: 0 1 260px;
-  min-width: 160px;
+  flex: 0 0 260px;
+  min-width: 260px;
   max-width: min(360px, 48vw);
+}
+
+/* Compare cards are narrow: let the date field shrink inside the panel when needed. */
+.reports-compare-group-panel .reports-filter-strip-date-actions .reports-filter-field--date {
+  flex: 1 1 200px;
+  min-width: min(100%, 160px);
+  max-width: 100%;
+}
+
+.reports-filter-field--date .drp-wrap {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .reports-filter-field--date .reports-filter-drp {
   display: flex;
   align-items: center;
+  flex: 1 1 auto;
   width: 100%;
+  min-width: 0;
 }
 
 .reports-filter-field--date .drp-trigger {
@@ -1607,6 +1631,7 @@ body {
 
 .reports-filter-field--advanced-nav {
   flex: 0 0 auto;
+  flex-shrink: 0;
 }
 
 .reports-filter-field-label--phantom {
@@ -4031,19 +4056,40 @@ button.metric-hint-icon:focus-visible {
   border-color: rgba(148, 163, 184, 0.3);
 }
 
+/* No layout box — avoids an extra flex wrapper squeezing the strip vs Reports (direct child of .reports-page). */
 .trades-filter-strip {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 16px;
-  /* Stack above the trades table so the tags popover is not covered (later siblings paint on top). */
-  position: relative;
-  z-index: 50;
+  display: contents;
 }
 
-.trades-filter-strip > .reports-filter-strip {
+.trades-page > .reports-filter-strip {
+  margin-bottom: 16px;
+}
+
+/* Trades: full-width bottom rail for Date + Advanced + actions (same control set as Reports). */
+.trades-page .reports-filter-fields {
+  flex-wrap: wrap;
+}
+
+.trades-page .reports-filter-fields-spacer {
+  display: none;
+}
+
+.trades-page .reports-filter-strip-date-actions {
   flex: 1 1 100%;
+  width: 100%;
+  max-width: 100%;
+  justify-content: flex-end;
+  align-items: flex-end;
+  flex-wrap: nowrap;
+  gap: 10px;
+  min-width: min-content;
+}
+
+@media (max-width: 920px) {
+  .trades-page .reports-filter-strip-date-actions,
+  .journal-page .reports-filter-strip-date-actions {
+    flex-wrap: wrap;
+  }
 }
 
 .trades-filter-input {
@@ -4377,12 +4423,31 @@ button.metric-hint-icon:focus-visible {
 }
 
 .journal-filter-strip {
-  margin-bottom: 20px;
-  align-items: flex-end;
+  display: contents;
 }
 
-.journal-filter-strip > .reports-filter-strip {
+.journal-main > .reports-filter-strip {
+  margin-bottom: 20px;
+}
+
+/* Journal: same full-width date rail as Trades / Reports. */
+.journal-page .reports-filter-fields {
+  flex-wrap: wrap;
+}
+
+.journal-page .reports-filter-fields-spacer {
+  display: none;
+}
+
+.journal-page .reports-filter-strip-date-actions {
   flex: 1 1 100%;
+  width: 100%;
+  max-width: 100%;
+  justify-content: flex-end;
+  align-items: flex-end;
+  flex-wrap: nowrap;
+  gap: 10px;
+  min-width: min-content;
 }
 
 .journal-tags-cell {
@@ -7917,6 +7982,36 @@ a.journal-row-trade-link:visited {
   max-width: 100%;
 }
 
+/* Later global .reports-filter-drp uses flex:0 0 auto — re-stretch the picker inside the date column. */
+.reports-filter-strip .reports-filter-field--date .drp-wrap.reports-filter-drp {
+  display: flex;
+  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Main content scrolls horizontally when the strip is too wide; move the date rail to its own row on common laptop widths. */
+@media (max-width: 1320px) and (min-width: 921px) {
+  .reports-filter-fields {
+    flex-wrap: wrap;
+  }
+
+  .reports-filter-fields-spacer {
+    display: none;
+  }
+
+  .reports-filter-strip-date-actions {
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+}
+
 @media (max-width: 920px) {
   .reports-filter-strip {
     flex-wrap: wrap;
@@ -7964,6 +8059,12 @@ a.journal-row-trade-link:visited {
   .reports-filter-field--setups {
     flex: 1 1 auto;
     min-width: 140px;
+    max-width: 100%;
+  }
+
+  .reports-filter-strip-date-actions .reports-filter-field--date {
+    flex: 1 1 auto;
+    min-width: 0;
     max-width: 100%;
   }
 

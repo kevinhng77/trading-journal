@@ -83,7 +83,6 @@ export default function ReportsLayout() {
         allTags={allTags}
         allSetups={allSetups}
         durationOptions={REPORTS_DURATION_OPTIONS}
-        advancedReportsLink
       />
 
       <div className="reports-primary-tabs">
