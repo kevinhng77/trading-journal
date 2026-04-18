@@ -60,13 +60,6 @@ function Sidebar() {
         </NavLink>
 
         <NavLink
-          to="/balance-table"
-          className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-        >
-          Balance table
-        </NavLink>
-
-        <NavLink
           to="/star"
           className={({ isActive }) => `nav-link nav-link--star ${isActive ? "active" : ""}`}
           title="Starred days and trades for review"

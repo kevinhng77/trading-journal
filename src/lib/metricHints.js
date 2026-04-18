@@ -75,22 +75,6 @@ export const COMPARE_STAT_HINTS = {
   "Avg MAE": "Mean stored maximum adverse excursion (dollars) when MAE exists on trades.",
 };
 
-/** Monthly table: stable column ids for Reports → Table. */
-export const REPORTS_TABLE_COLUMN_HINTS = {
-  colMonth: "Calendar month in the selected year.",
-  colStart: "Account balance at the start of the month — entered by you; stored only in this browser.",
-  colEnd: "Account balance at month end — entered by you; used with Start for balance % change.",
-  colPnlTrades:
-    "Sum of imported trade net P&L for trades whose date falls in that month (after Reports filters).",
-  colDeltaBalances:
-    "End balance minus start balance when both are filled — not the same as trade P&L if you deposit or withdraw.",
-  colPctBalances: "Percentage return from start to end balance: (End − Start) ÷ Start.",
-  colPctTradesStart:
-    "Trade P&L for the month as a percent of starting balance — compares closed-trade result to account size.",
-  colWireOut: "Withdrawals you log for the month (positive number = cash taken out).",
-  colYearTotal: "Sums P&L (trades) and wire-out across months; balance columns are not rolled up here.",
-};
-
 /** Trade detail snapshot: stable keys for <SnapshotDt hintKey="…" />. */
 export const TRADE_SNAPSHOT_HINTS = {
   sharesTraded: "Total volume on the trade row (shares or contracts).",
