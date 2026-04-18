@@ -1,13 +1,13 @@
 import { stableTradeId } from "./tradeLookup";
 import { tradeSignedAmountForAggregation } from "../lib/tradeExecutionMetrics";
 import { sumSchwabLineConsiderationFromFills } from "../lib/schwabConsiderationPnl.js";
+import { ensureTradesMigratedForAccounts, getActiveAccountId, tradesStorageKey } from "./tradingAccounts";
 
-const STORAGE_KEY = "tradingJournalTrades";
 export const TRADES_UPDATED_EVENT = "tj-trades-updated";
 
 /** BOT/SOLD cash-grid fills: recompute stored `pnl` so bad merges / string amounts cannot drift (e.g. −$859). */
 function isSchwabStyleCashFills(trade) {
-  if (trade?.source === "thinkorswim") return true;
+  if (trade?.source === "thinkorswim" || trade?.source === "das") return true;
   const fills = trade?.fills;
   if (!Array.isArray(fills) || fills.length === 0) return false;
   return fills.some((f) => /^(BOT|SOLD)\s/i.test(String(f?.description ?? "")));
@@ -26,7 +26,9 @@ function normalizeTradePnlFromFills(trade) {
 
 export function loadTrades() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    ensureTradesMigratedForAccounts();
+    const key = tradesStorageKey(getActiveAccountId());
+    const raw = localStorage.getItem(key);
     const arr = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(arr)) return [];
     return arr.map(normalizeTradePnlFromFills);
@@ -37,7 +39,8 @@ export function loadTrades() {
 
 export function saveTrades(trades) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(trades));
+    const key = tradesStorageKey(getActiveAccountId());
+    localStorage.setItem(key, JSON.stringify(trades));
   } catch (e) {
     if (e && e.name === "QuotaExceededError") {
       throw new Error(

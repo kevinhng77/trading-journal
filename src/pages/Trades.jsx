@@ -32,6 +32,8 @@ import { prefetchTradeExecutionChart } from "../lib/tradeChartPrefetch";
 import StarToggle from "../components/StarToggle";
 import { useStarred } from "../hooks/useStarred";
 import { readAllTradeNotes, TRADE_NOTES_CHANGED_EVENT } from "../storage/tradeNotes";
+import { ACCOUNT_CHANGED_EVENT } from "../storage/tradingAccounts";
+import { useActiveAccountId } from "../hooks/useActiveAccountId";
 
 const TRADES_PAGE_SIZE = 20;
 
@@ -145,6 +147,7 @@ function TradesSortHeader({ label, sortKey, sort, onSort, title }) {
 function Trades() {
   const trades = useLiveTrades();
   const location = useLocation();
+  const activeAccountId = useActiveAccountId();
   const { isTradeStarred, toggleTrade } = useStarred();
   const [filterDraft, setFilterDraft] = useState(() => loadPersistedReportFilters());
   const [appliedFilters, setAppliedFilters] = useState(() => loadPersistedReportFilters());
@@ -161,13 +164,15 @@ function Trades() {
       setTradeNotesRev((n) => n + 1);
     }
     window.addEventListener(TRADE_NOTES_CHANGED_EVENT, bump);
+    window.addEventListener(ACCOUNT_CHANGED_EVENT, bump);
     window.addEventListener("focus", bump);
     function onStorage(/** @type {StorageEvent} */ e) {
-      if (e.key === "tradingJournalTradeNotes") bump();
+      if (e.key && e.key.startsWith("tradingJournalTradeNotes")) bump();
     }
     window.addEventListener("storage", onStorage);
     return () => {
       window.removeEventListener(TRADE_NOTES_CHANGED_EVENT, bump);
+      window.removeEventListener(ACCOUNT_CHANGED_EVENT, bump);
       window.removeEventListener("focus", bump);
       window.removeEventListener("storage", onStorage);
     };
@@ -202,7 +207,7 @@ function Trades() {
     [trades, playbookPlayNames],
   );
 
-  const tradeNotesById = useMemo(() => readAllTradeNotes(), [trades, location.key, tradeNotesRev]);
+  const tradeNotesById = useMemo(() => readAllTradeNotes(), [trades, location.key, tradeNotesRev, activeAccountId]);
 
   const filteredTrades = useMemo(() => {
     const rows = filterTradesForReport(trades, appliedFilters);

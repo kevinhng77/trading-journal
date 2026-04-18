@@ -1,7 +1,13 @@
 import { fillWallTimeToUnixSeconds } from "../api/alpacaBars";
 import { loadFillTimeZone } from "./fillTimePrefs";
+import { getActiveAccountId } from "./tradingAccounts";
 
-const PREFIX = "tradingJournalTradeChartRiskLines:";
+const LEGACY_PREFIX = "tradingJournalTradeChartRiskLines:";
+const PREFIX_BASE = "tradingJournalTradeChartRiskLines";
+
+function storageKey(tradeId) {
+  return `${PREFIX_BASE}:${getActiveAccountId()}:${tradeId}`;
+}
 
 /**
  * @param {unknown} t
@@ -32,7 +38,11 @@ export function isRiskSegmentRow(v) {
 export function loadTradeChartRiskLinesRaw(tradeId) {
   if (!tradeId) return [];
   try {
-    const raw = localStorage.getItem(PREFIX + tradeId);
+    let raw = localStorage.getItem(storageKey(tradeId));
+    if (!raw && getActiveAccountId() === "schwab") {
+      raw = localStorage.getItem(LEGACY_PREFIX + tradeId);
+      if (raw) localStorage.setItem(storageKey(tradeId), raw);
+    }
     if (!raw) return [];
     const p = JSON.parse(raw);
     return Array.isArray(p) ? p : [];
@@ -95,11 +105,12 @@ export function saveTradeChartRiskLines(tradeId, lines) {
   if (!tradeId) return;
   try {
     const clean = lines.filter(isRiskSegmentRow);
+    const key = storageKey(tradeId);
     if (!clean.length) {
-      localStorage.removeItem(PREFIX + tradeId);
+      localStorage.removeItem(key);
       return;
     }
-    localStorage.setItem(PREFIX + tradeId, JSON.stringify(clean));
+    localStorage.setItem(key, JSON.stringify(clean));
   } catch {
     /* ignore quota / private mode */
   }

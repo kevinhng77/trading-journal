@@ -1,11 +1,30 @@
-const KEY = "tradingJournalTradeNotes";
+import { getActiveAccountId } from "./tradingAccounts";
+
+const LEGACY_KEY = "tradingJournalTradeNotes";
+
+/** @param {string} accountId */
+function notesStorageKey(accountId) {
+  return `${LEGACY_KEY}:${accountId}`;
+}
+
+function migrateLegacyTradeNotesOnce() {
+  if (typeof localStorage === "undefined") return;
+  const legacy = localStorage.getItem(LEGACY_KEY);
+  if (!legacy) return;
+  const schwabK = notesStorageKey("schwab");
+  if (localStorage.getItem(schwabK) == null) {
+    localStorage.setItem(schwabK, legacy);
+  }
+  localStorage.removeItem(LEGACY_KEY);
+}
 
 /** Same-tab listeners (e.g. Trades list) can refresh note previews when a note is saved. */
 export const TRADE_NOTES_CHANGED_EVENT = "tradingJournalTradeNotesChanged";
 
 function readAll() {
+  migrateLegacyTradeNotesOnce();
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(notesStorageKey(getActiveAccountId()));
     const o = raw ? JSON.parse(raw) : {};
     return typeof o === "object" && o != null ? o : {};
   } catch {
@@ -28,8 +47,8 @@ export function saveTradeNote(tradeId, text) {
   const all = readAll();
   if (text.trim()) all[tradeId] = text;
   else delete all[tradeId];
-  localStorage.setItem(KEY, JSON.stringify(all));
   try {
+    localStorage.setItem(notesStorageKey(getActiveAccountId()), JSON.stringify(all));
     window.dispatchEvent(new CustomEvent(TRADE_NOTES_CHANGED_EVENT));
   } catch {
     /* ignore */

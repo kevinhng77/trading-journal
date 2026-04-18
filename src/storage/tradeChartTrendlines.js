@@ -1,4 +1,11 @@
-const PREFIX = "tradingJournalTradeChartTrendlines:";
+import { getActiveAccountId } from "./tradingAccounts";
+
+const LEGACY_PREFIX = "tradingJournalTradeChartTrendlines:";
+const PREFIX_BASE = "tradingJournalTradeChartTrendlines";
+
+function storageKey(tradeId) {
+  return `${PREFIX_BASE}:${getActiveAccountId()}:${tradeId}`;
+}
 
 /** @typedef {number | string} ChartTime */
 
@@ -54,7 +61,11 @@ function normalizeMarkerRow(v) {
 export function loadTradeChartTrendlines(tradeId) {
   if (!tradeId) return [];
   try {
-    const raw = localStorage.getItem(PREFIX + tradeId);
+    let raw = localStorage.getItem(storageKey(tradeId));
+    if (!raw && getActiveAccountId() === "schwab") {
+      raw = localStorage.getItem(LEGACY_PREFIX + tradeId);
+      if (raw) localStorage.setItem(storageKey(tradeId), raw);
+    }
     if (!raw) return [];
     const p = JSON.parse(raw);
     if (!Array.isArray(p)) return [];
@@ -71,11 +82,12 @@ export function loadTradeChartTrendlines(tradeId) {
 export function saveTradeChartTrendlines(tradeId, markers) {
   if (!tradeId) return;
   try {
+    const key = storageKey(tradeId);
     if (!markers.length) {
-      localStorage.removeItem(PREFIX + tradeId);
+      localStorage.removeItem(key);
       return;
     }
-    localStorage.setItem(PREFIX + tradeId, JSON.stringify(markers));
+    localStorage.setItem(key, JSON.stringify(markers));
   } catch {
     /* ignore */
   }

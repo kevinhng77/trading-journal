@@ -6,6 +6,7 @@ import {
   toggleStarredDay,
   toggleStarredTrade,
 } from "../storage/starredItems";
+import { ACCOUNT_CHANGED_EVENT } from "../storage/tradingAccounts";
 
 /** Live starred days + trade ids from localStorage; updates on {@link STARS_CHANGED_EVENT}. */
 export function useStarred() {
@@ -19,7 +20,11 @@ export function useStarred() {
 
   useEffect(() => {
     window.addEventListener(STARS_CHANGED_EVENT, refresh);
-    return () => window.removeEventListener(STARS_CHANGED_EVENT, refresh);
+    window.addEventListener(ACCOUNT_CHANGED_EVENT, refresh);
+    return () => {
+      window.removeEventListener(STARS_CHANGED_EVENT, refresh);
+      window.removeEventListener(ACCOUNT_CHANGED_EVENT, refresh);
+    };
   }, [refresh]);
 
   const flipDay = useCallback((date) => {

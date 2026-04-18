@@ -1,4 +1,11 @@
-const PREFIX = "tradingJournalTradeAnnotationNotes:";
+import { getActiveAccountId } from "./tradingAccounts";
+
+const PREFIX_BASE = "tradingJournalTradeAnnotationNotes";
+const LEGACY_PREFIX = "tradingJournalTradeAnnotationNotes:";
+
+function keyFor(tradeId) {
+  return `${PREFIX_BASE}:${getActiveAccountId()}:${tradeId}`;
+}
 
 /**
  * @param {unknown} v
@@ -15,7 +22,11 @@ function isNoteRow(v) {
 export function loadTradeAnnotationNotes(tradeId) {
   if (!tradeId) return [];
   try {
-    const raw = localStorage.getItem(PREFIX + tradeId);
+    let raw = localStorage.getItem(keyFor(tradeId));
+    if (!raw && getActiveAccountId() === "schwab") {
+      raw = localStorage.getItem(LEGACY_PREFIX + tradeId);
+      if (raw) localStorage.setItem(keyFor(tradeId), raw);
+    }
     if (!raw) return [];
     const p = JSON.parse(raw);
     if (!Array.isArray(p)) return [];
@@ -32,11 +43,12 @@ export function loadTradeAnnotationNotes(tradeId) {
 export function saveTradeAnnotationNotes(tradeId, rows) {
   if (!tradeId) return;
   try {
+    const key = keyFor(tradeId);
     if (!rows.length) {
-      localStorage.removeItem(PREFIX + tradeId);
+      localStorage.removeItem(key);
       return;
     }
-    localStorage.setItem(PREFIX + tradeId, JSON.stringify(rows));
+    localStorage.setItem(key, JSON.stringify(rows));
   } catch {
     /* ignore */
   }

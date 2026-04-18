@@ -1,5 +1,15 @@
-const DAYS_KEY = "tradingJournalStarredDates";
-const TRADES_KEY = "tradingJournalStarredTradeIds";
+import { getActiveAccountId } from "./tradingAccounts";
+
+const LEGACY_DAYS_KEY = "tradingJournalStarredDates";
+const LEGACY_TRADES_KEY = "tradingJournalStarredTradeIds";
+
+function daysKey() {
+  return `${LEGACY_DAYS_KEY}:${getActiveAccountId()}`;
+}
+
+function tradesKey() {
+  return `${LEGACY_TRADES_KEY}:${getActiveAccountId()}`;
+}
 
 export const STARS_CHANGED_EVENT = "tradingJournalStarsChanged";
 
@@ -11,10 +21,33 @@ function asStringArray(v) {
   return v.filter((x) => typeof x === "string" && x.length > 0);
 }
 
+function migrateLegacyStarredDaysOnce() {
+  if (typeof localStorage === "undefined") return;
+  const legacy = localStorage.getItem(LEGACY_DAYS_KEY);
+  if (!legacy) return;
+  const schwabK = `${LEGACY_DAYS_KEY}:schwab`;
+  if (localStorage.getItem(schwabK) == null) {
+    localStorage.setItem(schwabK, legacy);
+  }
+  localStorage.removeItem(LEGACY_DAYS_KEY);
+}
+
+function migrateLegacyStarredTradesOnce() {
+  if (typeof localStorage === "undefined") return;
+  const legacy = localStorage.getItem(LEGACY_TRADES_KEY);
+  if (!legacy) return;
+  const schwabK = `${LEGACY_TRADES_KEY}:schwab`;
+  if (localStorage.getItem(schwabK) == null) {
+    localStorage.setItem(schwabK, legacy);
+  }
+  localStorage.removeItem(LEGACY_TRADES_KEY);
+}
+
 /** @returns {Set<string>} */
 export function loadStarredDays() {
+  migrateLegacyStarredDaysOnce();
   try {
-    const raw = localStorage.getItem(DAYS_KEY);
+    const raw = localStorage.getItem(daysKey());
     const a = asStringArray(raw ? JSON.parse(raw) : []);
     return new Set(a.filter((d) => DATE_RE.test(d)));
   } catch {
@@ -24,8 +57,9 @@ export function loadStarredDays() {
 
 /** @returns {Set<string>} */
 export function loadStarredTradeIds() {
+  migrateLegacyStarredTradesOnce();
   try {
-    const raw = localStorage.getItem(TRADES_KEY);
+    const raw = localStorage.getItem(tradesKey());
     return new Set(asStringArray(raw ? JSON.parse(raw) : []));
   } catch {
     return new Set();
@@ -35,15 +69,15 @@ export function loadStarredTradeIds() {
 /** @param {Set<string>} set */
 function saveDaysSet(set) {
   const arr = [...set].filter((d) => DATE_RE.test(d)).sort();
-  if (!arr.length) localStorage.removeItem(DAYS_KEY);
-  else localStorage.setItem(DAYS_KEY, JSON.stringify(arr));
+  if (!arr.length) localStorage.removeItem(daysKey());
+  else localStorage.setItem(daysKey(), JSON.stringify(arr));
 }
 
 /** @param {Set<string>} set */
 function saveTradesSet(set) {
   const arr = [...set].sort();
-  if (!arr.length) localStorage.removeItem(TRADES_KEY);
-  else localStorage.setItem(TRADES_KEY, JSON.stringify(arr));
+  if (!arr.length) localStorage.removeItem(tradesKey());
+  else localStorage.setItem(tradesKey(), JSON.stringify(arr));
 }
 
 function bump() {

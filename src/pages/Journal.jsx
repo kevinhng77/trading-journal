@@ -36,13 +36,19 @@ import NotesVoiceInputButton from "../components/NotesVoiceInputButton";
 import StarToggle from "../components/StarToggle";
 import { useStarred } from "../hooks/useStarred";
 import { readAllTradeNotes, TRADE_NOTES_CHANGED_EVENT } from "../storage/tradeNotes";
+import {
+  ACCOUNT_CHANGED_EVENT,
+  getActiveAccountId,
+  journalDayNotesStorageKey,
+  migrateJournalDayNotesFromLegacy,
+} from "../storage/tradingAccounts";
+import { useActiveAccountId } from "../hooks/useActiveAccountId";
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-const JOURNAL_NOTES_KEY = "tradingJournalDayNotes";
-
 function loadJournalNotesMap() {
+  migrateJournalDayNotesFromLegacy();
   try {
-    const raw = localStorage.getItem(JOURNAL_NOTES_KEY);
+    const raw = localStorage.getItem(journalDayNotesStorageKey(getActiveAccountId()));
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
@@ -51,7 +57,7 @@ function loadJournalNotesMap() {
 
 function saveJournalNotesMap(map) {
   try {
-    localStorage.setItem(JOURNAL_NOTES_KEY, JSON.stringify(map));
+    localStorage.setItem(journalDayNotesStorageKey(getActiveAccountId()), JSON.stringify(map));
   } catch {
     /* ignore */
   }
@@ -73,6 +79,7 @@ function Journal() {
   const [searchParams] = useSearchParams();
   const focusDateRaw = searchParams.get("date");
   const focusDate = focusDateRaw && DATE_RE.test(focusDateRaw) ? focusDateRaw : null;
+  const activeAccountId = useActiveAccountId();
 
   const trades = useLiveTrades();
   const { isDayStarred, toggleDay, isTradeStarred, toggleTrade } = useStarred();
@@ -126,14 +133,20 @@ function Journal() {
     function bump() {
       setTradeNotesRev((n) => n + 1);
     }
+    function onAccount() {
+      setNotesByDate(loadJournalNotesMap());
+      bump();
+    }
     window.addEventListener(TRADE_NOTES_CHANGED_EVENT, bump);
+    window.addEventListener(ACCOUNT_CHANGED_EVENT, onAccount);
     window.addEventListener("focus", bump);
     function onStorage(/** @type {StorageEvent} */ e) {
-      if (e.key === "tradingJournalTradeNotes") bump();
+      if (e.key && e.key.startsWith("tradingJournalTradeNotes")) bump();
     }
     window.addEventListener("storage", onStorage);
     return () => {
       window.removeEventListener(TRADE_NOTES_CHANGED_EVENT, bump);
+      window.removeEventListener(ACCOUNT_CHANGED_EVENT, onAccount);
       window.removeEventListener("focus", bump);
       window.removeEventListener("storage", onStorage);
     };
@@ -141,7 +154,7 @@ function Journal() {
 
   const tradeNotesById = useMemo(
     () => readAllTradeNotes(),
-    [trades, searchParams.toString(), tradeNotesRev],
+    [trades, searchParams.toString(), tradeNotesRev, activeAccountId],
   );
 
   const days = focusDate
