@@ -65,7 +65,7 @@ export default function StarReview() {
         <div>
           <h1>Starred</h1>
           <p className="star-review-intro">
-            Journal days and trades you marked with ★. Use this view for quick review. Stars are stored per account
+            Journal days and trades you marked with a star. Use this view for quick review. Stars are stored per account
             bucket; the menu below matches the sidebar account when you switch accounts.
           </p>
         </div>

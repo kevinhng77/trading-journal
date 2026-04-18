@@ -519,6 +519,19 @@ export default function Playbook() {
                 </label>
               </div>
 
+              <div className="playbook-notes-block">
+                <label className="playbook-field playbook-field--full">
+                  <span className="playbook-field-label">Notes</span>
+                  <textarea
+                    className="playbook-textarea"
+                    rows={4}
+                    value={selectedPlay.exitNotes ?? ""}
+                    onChange={(e) => patchPlay(selectedPlay.id, { exitNotes: e.target.value })}
+                    placeholder="General notes, review, reminders…"
+                  />
+                </label>
+              </div>
+
               <div className="playbook-shots">
                 <div className="playbook-shots-head">
                   <h3 className="playbook-section-title">Screenshots</h3>
@@ -594,19 +607,6 @@ export default function Playbook() {
                 ) : (
                   <p className="playbook-shots-empty">Thumbnails appear here after you add images.</p>
                 )}
-              </div>
-
-              <div className="playbook-notes-block">
-                <label className="playbook-field playbook-field--full">
-                  <span className="playbook-field-label">Notes</span>
-                  <textarea
-                    className="playbook-textarea"
-                    rows={4}
-                    value={selectedPlay.exitNotes ?? ""}
-                    onChange={(e) => patchPlay(selectedPlay.id, { exitNotes: e.target.value })}
-                    placeholder="General notes, review, reminders…"
-                  />
-                </label>
               </div>
             </div>
           )}

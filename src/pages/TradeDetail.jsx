@@ -30,11 +30,6 @@ import { tradeFeesPaid, tradeGrossPnl, tradeNetPnl } from "../lib/tradeExecution
 import { roundTripLegSummariesFromFills } from "../lib/fillRoundTrips";
 import { formatChartIntervalLabel } from "../lib/chartIntervals";
 import { formatPlaybookTradeTag } from "../lib/formatPlaybookTradeTag";
-import {
-  loadTradeChartRiskLinesRaw,
-  migrateRiskLineRows,
-  saveTradeChartRiskLines,
-} from "../storage/tradeChartRiskLines";
 import MetricHintIcon from "../components/MetricHintIcon";
 import { TRADE_SNAPSHOT_HINTS } from "../lib/metricHints";
 import StarToggle from "../components/StarToggle";
@@ -109,8 +104,6 @@ export default function TradeDetail() {
   const [playbookSendOpen, setPlaybookSendOpen] = useState(false);
   const [chartToolbarMsg, setChartToolbarMsg] = useState(/** @type {string | null} */ (null));
   const [shareBusy, setShareBusy] = useState(false);
-  const [riskLineMarkMode, setRiskLineMarkMode] = useState(false);
-  const [riskLines, setRiskLines] = useState(() => []);
   const chartWrapRef = useRef(null);
   const tradeShareBundleRef = useRef(/** @type {HTMLDivElement | null} */ (null));
   const tradeSharePanelsRef = useRef(/** @type {HTMLDivElement | null} */ (null));
@@ -130,46 +123,9 @@ export default function TradeDetail() {
   useEffect(() => {
     const raf = requestAnimationFrame(() => {
       setRoundTripsExpanded(false);
-      if (!tid) {
-        setRiskLines([]);
-        setRiskLineMarkMode(false);
-        return;
-      }
-      setRiskLines(migrateRiskLineRows(loadTradeChartRiskLinesRaw(tid), trade));
-      setRiskLineMarkMode(false);
     });
     return () => cancelAnimationFrame(raf);
   }, [tid, trade]);
-
-  useEffect(() => {
-    if (!riskLineMarkMode) return;
-    function onKey(/** @type {KeyboardEvent} */ e) {
-      if (e.key === "Escape") {
-        setRiskLineMarkMode(false);
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [riskLineMarkMode]);
-
-  const addRiskLineSegment = useCallback((seg) => {
-    if (!tid || !seg || !Number.isFinite(seg.price) || seg.t1 == null || seg.t2 == null) return;
-    const id =
-      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-        ? crypto.randomUUID()
-        : `rl-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-    setRiskLines((prev) => {
-      const next = [...prev, { id, t1: seg.t1, t2: seg.t2, price: seg.price }];
-      saveTradeChartRiskLines(tid, next);
-      return next;
-    });
-  }, [tid]);
-
-  const clearRiskLines = useCallback(() => {
-    if (!tid) return;
-    setRiskLines([]);
-    saveTradeChartRiskLines(tid, []);
-  }, [tid]);
 
   async function copyChartScreenshotToClipboard() {
     const el = getChartCaptureEl();
@@ -547,48 +503,6 @@ export default function TradeDetail() {
             >
               <span className="trade-detail-chart-symbol-name">{trade.symbol} - Charts</span>
             </div>
-            <div className="trade-detail-chart-tools-left" role="toolbar" aria-label="Chart markup">
-              <button
-                type="button"
-                className={`chart-tv-toolbar-btn chart-tv-toolbar-btn--icon-only${riskLineMarkMode ? " is-active" : ""}`}
-                onClick={() => {
-                  setRiskLineMarkMode((v) => !v);
-                }}
-                aria-pressed={riskLineMarkMode}
-                aria-label={riskLineMarkMode ? "Stop drawing risk segments" : "Draw risk segments on chart"}
-                title={
-                  riskLineMarkMode
-                    ? "Drag on the chart: press, drag horizontally, release. Y snaps to a clean price level; no axis label. Esc or click again to stop."
-                    : "Horizontal risk segment (TradingView-style): turn on, press on the chart, drag to the end time, release. Saved per trade."
-                }
-              >
-                <svg
-                  className="chart-tv-toolbar-catalog-icon"
-                  viewBox="0 0 24 24"
-                  width="20"
-                  height="20"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  aria-hidden
-                >
-                  <path d="M4 12h16" opacity="0.95" />
-                  <path d="M7 8v8M12 7v10M17 9v6" opacity="0.4" />
-                </svg>
-              </button>
-              {riskLines.length > 0 ? (
-                <button
-                  type="button"
-                  className="trade-detail-chart-risk-clear"
-                  onClick={clearRiskLines}
-                  title="Remove all horizontal risk segments for this trade"
-                  aria-label="Clear risk segments"
-                >
-                  Clear lines
-                </button>
-              ) : null}
-            </div>
             {chartToolbarMsg ? (
               <p className="trade-detail-chart-toolbar-msg" role="status" aria-live="polite">
                 {chartToolbarMsg}
@@ -669,9 +583,6 @@ export default function TradeDetail() {
               onPatchMarkers={patchMarkers}
               onPatchRoundTripShading={patchRoundTripShading}
               onRemoveEmaLine={removeEmaLine}
-              riskLines={riskLines}
-              onAddRiskLine={addRiskLineSegment}
-              riskLineMarkMode={riskLineMarkMode}
               onOpenIndicatorsCatalog={() => setIndicatorsCatalogOpen(true)}
             />
           </Suspense>

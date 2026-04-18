@@ -546,14 +546,6 @@ a.import-btn.import-btn--nav {
   box-sizing: border-box;
 }
 
-.import-trades-page-lead {
-  margin: 8px 0 0;
-  max-width: 640px;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.5;
-}
-
 .import-trades-page-card {
   margin-top: 18px;
   padding: 18px 20px 20px;
@@ -638,21 +630,6 @@ a.import-btn.import-btn--nav {
 .import-trades-page-upload-btn:disabled {
   opacity: 0.65;
   cursor: wait;
-}
-
-.import-trades-page-footer-links {
-  margin-top: 22px;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.import-trades-page-footer-links a {
-  color: var(--accent-green);
-  text-decoration: none;
-}
-
-.import-trades-page-footer-links a:hover {
-  text-decoration: underline;
 }
 
 .import-settings-btn {
@@ -5699,15 +5676,9 @@ a.journal-row-trade-link:visited {
 }
 
 .star-toggle-btn:hover {
-  color: #fde68a;
-  border-color: rgba(251, 191, 36, 0.45);
-  background: rgba(40, 34, 18, 0.55);
-}
-
-.star-toggle-btn.star-toggle-btn--on {
-  color: #fbbf24;
-  border-color: rgba(251, 191, 36, 0.55);
-  background: rgba(55, 42, 12, 0.45);
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.5);
+  background: rgba(36, 42, 56, 0.75);
 }
 
 .star-toggle-glyph {
