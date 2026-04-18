@@ -82,10 +82,19 @@ export default function TradeDetail() {
     [trades, tradeIdParam],
   );
 
+  const [roundTripsExpanded, setRoundTripsExpanded] = useState(false);
+
   const roundTripLegs = useMemo(
     () => (trade ? roundTripLegSummariesFromFills(trade.fills) : []),
     [trade],
   );
+
+  const ROUND_TRIPS_COLLAPSE_AT = 8;
+  const roundTripLegsVisible = useMemo(() => {
+    if (roundTripLegs.length <= ROUND_TRIPS_COLLAPSE_AT || roundTripsExpanded) return roundTripLegs;
+    return roundTripLegs.slice(0, ROUND_TRIPS_COLLAPSE_AT);
+  }, [roundTripLegs, roundTripsExpanded]);
+
   const feesPaid = useMemo(() => (trade ? tradeFeesPaid(trade) : 0), [trade]);
   const grossPnl = useMemo(() => (trade ? tradeGrossPnl(trade) : 0), [trade]);
   const netPnl = useMemo(() => (trade ? tradeNetPnl(trade) : 0), [trade]);
@@ -126,6 +135,7 @@ export default function TradeDetail() {
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => {
+      setRoundTripsExpanded(false);
       if (!tid) {
         setRiskLines([]);
         setRiskLineMarkMode(false);
@@ -456,8 +466,8 @@ export default function TradeDetail() {
           </div>
         </header>
         <div className="trade-detail-header-tags">
-          <TradeTagsEditor tradeId={tid} tags={trade.tags} suggestionTags={allTagSuggestions} />
           <TradeSetupsEditor tradeId={tid} setups={trade.setups} suggestionSetups={allSetupSuggestions} />
+          <TradeTagsEditor tradeId={tid} tags={trade.tags} suggestionTags={allTagSuggestions} />
         </div>
       </div>
 
@@ -486,46 +496,60 @@ export default function TradeDetail() {
             </div>
           </dl>
           {roundTripLegs.length > 0 ? (
-            <div className="trade-detail-roundtrips" aria-label="Round trips from executions">
-              {roundTripLegs.map((leg) => (
-                <div key={leg.legIndex} className="trade-detail-roundtrip-card">
-                  <div className="trade-detail-roundtrip-head">
-                    <span className="trade-detail-roundtrip-title">Trade {leg.legIndex + 1}</span>
-                    {leg.isOpen ? (
-                      <span className="trade-detail-roundtrip-badge">Open</span>
-                    ) : null}
+            <>
+              <div className="trade-detail-roundtrips" aria-label="Round trips from executions">
+                {roundTripLegsVisible.map((leg) => (
+                  <div key={leg.legIndex} className="trade-detail-roundtrip-card">
+                    <div className="trade-detail-roundtrip-head">
+                      <span className="trade-detail-roundtrip-title">Trade {leg.legIndex + 1}</span>
+                      {leg.isOpen ? (
+                        <span className="trade-detail-roundtrip-badge">Open</span>
+                      ) : null}
+                    </div>
+                    <div className="trade-detail-roundtrip-body">
+                      <span className="trade-detail-roundtrip-kv">
+                        <span className="trade-detail-roundtrip-k">Avg entry</span>
+                        <span className="trade-detail-roundtrip-v">
+                          {leg.avgEntry != null && Number.isFinite(leg.avgEntry)
+                            ? `$${leg.avgEntry.toFixed(leg.avgEntry >= 100 ? 2 : 4)}`
+                            : "—"}
+                        </span>
+                      </span>
+                      <span className="trade-detail-roundtrip-kv">
+                        <span className="trade-detail-roundtrip-k">Avg exit</span>
+                        <span className="trade-detail-roundtrip-v">
+                          {leg.avgExit != null && Number.isFinite(leg.avgExit)
+                            ? `$${leg.avgExit.toFixed(leg.avgExit >= 100 ? 2 : 4)}`
+                            : "—"}
+                        </span>
+                      </span>
+                      <span className="trade-detail-roundtrip-kv">
+                        <span className="trade-detail-roundtrip-k">P&amp;L</span>
+                        <span className={`trade-detail-roundtrip-v ${leg.pnl != null ? pnlClass(leg.pnl) : "trades-cell-muted"}`}>
+                          {leg.pnl != null && Number.isFinite(leg.pnl) ? formatMoney(leg.pnl) : "—"}
+                        </span>
+                      </span>
+                      <span className="trade-detail-roundtrip-kv">
+                        <span className="trade-detail-roundtrip-k">Share size</span>
+                        <span className="trade-detail-roundtrip-v">{leg.shareSize > 0 ? leg.shareSize : "—"}</span>
+                      </span>
+                    </div>
                   </div>
-                  <div className="trade-detail-roundtrip-body">
-                    <span className="trade-detail-roundtrip-kv">
-                      <span className="trade-detail-roundtrip-k">Avg entry</span>
-                      <span className="trade-detail-roundtrip-v">
-                        {leg.avgEntry != null && Number.isFinite(leg.avgEntry)
-                          ? `$${leg.avgEntry.toFixed(leg.avgEntry >= 100 ? 2 : 4)}`
-                          : "—"}
-                      </span>
-                    </span>
-                    <span className="trade-detail-roundtrip-kv">
-                      <span className="trade-detail-roundtrip-k">Avg exit</span>
-                      <span className="trade-detail-roundtrip-v">
-                        {leg.avgExit != null && Number.isFinite(leg.avgExit)
-                          ? `$${leg.avgExit.toFixed(leg.avgExit >= 100 ? 2 : 4)}`
-                          : "—"}
-                      </span>
-                    </span>
-                    <span className="trade-detail-roundtrip-kv">
-                      <span className="trade-detail-roundtrip-k">P&amp;L</span>
-                      <span className={`trade-detail-roundtrip-v ${leg.pnl != null ? pnlClass(leg.pnl) : "trades-cell-muted"}`}>
-                        {leg.pnl != null && Number.isFinite(leg.pnl) ? formatMoney(leg.pnl) : "—"}
-                      </span>
-                    </span>
-                    <span className="trade-detail-roundtrip-kv">
-                      <span className="trade-detail-roundtrip-k">Share size</span>
-                      <span className="trade-detail-roundtrip-v">{leg.shareSize > 0 ? leg.shareSize : "—"}</span>
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+              {roundTripLegs.length > ROUND_TRIPS_COLLAPSE_AT ? (
+                <button
+                  type="button"
+                  className="trade-detail-roundtrips-toggle"
+                  onClick={() => setRoundTripsExpanded((v) => !v)}
+                  aria-expanded={roundTripsExpanded}
+                >
+                  {roundTripsExpanded
+                    ? `Show only first ${ROUND_TRIPS_COLLAPSE_AT} round trips`
+                    : `Show ${roundTripLegs.length - ROUND_TRIPS_COLLAPSE_AT} more round trips`}
+                </button>
+              ) : null}
+            </>
           ) : fills.length > 0 ? (
             <p className="trade-detail-roundtrips-empty trades-cell-muted">
               No BOT/SOLD legs detected in fills to list round trips.

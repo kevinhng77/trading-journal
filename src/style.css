@@ -381,21 +381,21 @@ body {
   height: 100%;
   min-height: 48px;
   border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  background: rgba(18, 22, 30, 0.65);
-  color: rgba(203, 213, 225, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.38);
+  background: rgba(72, 84, 108, 0.35);
+  color: rgba(226, 232, 240, 0.95);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  box-shadow: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .sidebar-more-menu-btn:hover {
-  border-color: rgba(148, 163, 184, 0.38);
-  color: #f1f5f9;
-  background: rgba(30, 36, 48, 0.85);
+  border-color: rgba(186, 198, 218, 0.5);
+  color: #fff;
+  background: rgba(88, 100, 128, 0.48);
 }
 
 .sidebar-more-menu-kebab {
@@ -403,22 +403,93 @@ body {
   opacity: 0.88;
 }
 
-/* Base menu shell (shared with .import-trades-settings-pop). Portal variant: fixed, viewport-centered. */
-.sidebar-more-menu-pop {
-  min-width: 220px;
+/* Sidebar kebab: anchored popover (position set in JS). */
+.sidebar-settings-popover {
+  position: fixed;
+  z-index: 300;
+  min-width: 248px;
+  max-width: min(320px, calc(100vw - 20px));
+  box-sizing: border-box;
+  padding: 6px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: linear-gradient(180deg, rgba(56, 66, 88, 0.97) 0%, rgba(44, 52, 70, 0.98) 100%);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+}
+
+.sidebar-settings-popover__item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  margin: 0;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: #f1f5f9;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
   box-sizing: border-box;
 }
 
-.sidebar-more-menu-pop--portal {
-  position: fixed;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 300;
-  max-width: min(320px, calc(100vw - 32px));
-  max-height: min(320px, calc(100vh - 48px));
-  overflow-y: auto;
-  width: max-content;
+.sidebar-settings-popover__item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.sidebar-settings-popover__icon {
+  flex-shrink: 0;
+  opacity: 0.88;
+  color: rgba(186, 198, 218, 0.95);
+}
+
+.sidebar-settings-popover__label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.sidebar-settings-popover__theme {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  margin: 2px 0;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.sidebar-settings-popover__theme-left {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.sidebar-settings-popover__theme .sidebar-settings-popover__label {
+  flex: 0 1 auto;
+}
+
+.sidebar-settings-popover__theme-control.theme-scheme-control {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.sidebar-settings-popover__theme-control .theme-scheme-select {
+  min-width: 128px;
+  max-width: 150px;
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 8px;
 }
 
 .import-trades-actions {
@@ -610,6 +681,83 @@ body {
 .settings-standalone-inner {
   max-width: 520px;
   margin: 0 auto;
+}
+
+.settings-standalone-inner--wide {
+  max-width: 1040px;
+}
+
+.settings-standalone-two-col {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: 24px 28px;
+  margin-top: 22px;
+  align-items: start;
+}
+
+.settings-standalone-two-col .settings-standalone-card {
+  margin-top: 0;
+}
+
+@media (max-width: 880px) {
+  .settings-standalone-two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+.settings-standalone-col {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.settings-standalone-col--accounts .settings-standalone-card {
+  margin-top: 0;
+}
+
+.settings-standalone-col--accounts .settings-account-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 880px) {
+  .settings-standalone-col--accounts .settings-account-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+.settings-kv-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0;
+}
+
+.settings-kv-table th,
+.settings-kv-table td {
+  padding: 10px 12px 10px 0;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.settings-kv-table tr:last-child th,
+.settings-kv-table tr:last-child td {
+  border-bottom: none;
+}
+
+.settings-kv-table th {
+  width: 38%;
+  max-width: 200px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.settings-kv-table td {
+  font-size: 14px;
+  color: var(--text);
 }
 
 .settings-standalone-back {
@@ -5045,6 +5193,18 @@ a.journal-row-trade-link:visited {
   margin-top: 8px;
   max-width: 100%;
   min-width: 0;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.trade-detail-header-tags .trade-tags-editor,
+.trade-detail-header-tags .trade-setups-editor {
+  margin-top: 0;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .trade-setups-editor {
@@ -5485,7 +5645,7 @@ a.journal-row-trade-link:visited {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 22px;
-  align-items: start;
+  align-items: stretch;
 }
 
 @media (max-width: 960px) {
@@ -5506,10 +5666,8 @@ a.journal-row-trade-link:visited {
   flex-direction: column;
   min-width: 0;
   min-height: 360px;
-}
-
-.trade-detail-stats {
-  min-height: 0;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .trade-detail-stats .trade-detail-section-title,
@@ -5591,6 +5749,7 @@ a.journal-row-trade-link:visited {
   margin-top: 14px;
   min-height: 0;
   align-content: start;
+  flex: 1 1 auto;
 }
 
 .trade-detail-roundtrip-card {
@@ -5672,6 +5831,28 @@ a.journal-row-trade-link:visited {
   margin: 14px 0 0;
   font-size: 13px;
   line-height: 1.4;
+  flex: 1 1 auto;
+}
+
+.trade-detail-roundtrips-toggle {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent-green) 42%, transparent);
+  background: color-mix(in srgb, var(--accent-green) 10%, transparent);
+  color: var(--accent-green);
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: center;
+}
+
+.trade-detail-roundtrips-toggle:hover {
+  background: color-mix(in srgb, var(--accent-green) 18%, transparent);
+  color: color-mix(in srgb, var(--accent-green) 90%, #fff);
 }
 
 .trade-detail-notes-input {
