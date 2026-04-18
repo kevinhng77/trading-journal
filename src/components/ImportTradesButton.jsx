@@ -15,12 +15,15 @@ export default function ImportTradesButton() {
     try {
       const text = await file.text();
       const groupingMode = loadImportGroupingMode();
-      const { trades, errors } = parseThinkorswimAccountCsv(text, { groupingMode });
+      const { trades, errors } = parseThinkorswimAccountCsv(text, {
+        groupingMode,
+        fillsSource: "cashTrdOnly",
+      });
       if (trades.length === 0) {
         window.alert(
           errors.length
             ? `No trades found. First issues:\n${errors.slice(0, 5).join("\n")}`
-            : "No Schwab / Thinkorswim stock fills found. Use an Account Statement CSV (Cash Balance TRD rows and/or Account Trade History).",
+            : "No Schwab / Thinkorswim stock fills found. Use an Account Statement CSV with Cash Balance TRD rows (or Account Trade History if there are no TRD lines).",
         );
         return;
       }

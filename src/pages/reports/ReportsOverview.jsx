@@ -16,6 +16,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { groupTradesByDate } from "../../storage/storage";
+import { tradeSignedAmountForAggregation } from "../../lib/tradeExecutionMetrics";
 import { tradesInLastDays, buildDailySeriesForRange } from "../../lib/dashboardStats";
 
 import { CHART_GREEN, CHART_RED } from "../../lib/chartPalette";
@@ -60,7 +61,7 @@ export default function ReportsOverview() {
     if (!g?.rows?.length) {
       return { ...row, winPct: 0, hasTrades: false };
     }
-    const wins = g.rows.filter((t) => Number(t.pnl) > 0).length;
+    const wins = g.rows.filter((t) => tradeSignedAmountForAggregation(t) > 0).length;
     return {
       ...row,
       winPct: (wins / g.rows.length) * 100,

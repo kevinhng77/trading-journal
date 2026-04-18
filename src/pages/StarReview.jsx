@@ -4,7 +4,7 @@ import { useLiveTrades } from "../hooks/useLiveTrades";
 import { useStarred } from "../hooks/useStarred";
 import { stableTradeId } from "../storage/tradeLookup";
 import { formatDisplayDate, formatMoney, pnlClass } from "../storage/storage";
-import { tradeNetPnl } from "../lib/tradeExecutionMetrics";
+import { tradeSignedAmountForAggregation } from "../lib/tradeExecutionMetrics";
 import { toggleStarredTrade } from "../storage/starredItems";
 
 export default function StarReview() {
@@ -74,7 +74,7 @@ export default function StarReview() {
                 {sortedStarTradeIds.map((id) => {
                   const t = tradeById.get(id);
                   if (t) {
-                    const pnl = tradeNetPnl(t);
+                    const pnl = tradeSignedAmountForAggregation(t);
                     return (
                       <li key={id} className="star-review-trade-row">
                         <Link className="star-review-link" to={`/trades/${encodeURIComponent(id)}`}>

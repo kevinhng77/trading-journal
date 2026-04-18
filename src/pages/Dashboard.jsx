@@ -16,6 +16,7 @@ import {
   aggregateByVolumeBucket,
   aggregateByMonth,
   aggregateByTag,
+  dashboardWeekAnchorDate,
 } from "../lib/dashboardStats";
 import { CHART_GREEN, CHART_RED } from "../lib/chartPalette";
 import { DashboardBento } from "./DashboardBento";
@@ -37,7 +38,8 @@ function Dashboard() {
 
   const allTrades = useLiveTrades();
   const groupedAll = useMemo(() => groupTradesByDate(allTrades), [allTrades]);
-  const weekDates = getWeekDatesMondayStart(new Date());
+  const weekAnchor = useMemo(() => dashboardWeekAnchorDate(allTrades), [allTrades]);
+  const weekDates = getWeekDatesMondayStart(weekAnchor);
   const a = new Date(`${weekDates[0]}T12:00:00`);
   const b = new Date(`${weekDates[6]}T12:00:00`);
   const weekLabel = `${a.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${b.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;

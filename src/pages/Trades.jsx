@@ -27,7 +27,7 @@ import { usePlaybookPlayNames } from "../hooks/usePlaybookPlayNames";
 import { mergeTradesByStableIds, splitTradeIntoRoundTripsByStableId } from "../lib/tradeMerge";
 import ReportsFilterStrip from "../components/ReportsFilterStrip";
 import { REPORT_DURATION_OPTIONS } from "../lib/tradeDuration";
-import { tradeNetPnl } from "../lib/tradeExecutionMetrics";
+import { tradeSignedAmountForAggregation } from "../lib/tradeExecutionMetrics";
 import { prefetchTradeExecutionChart } from "../lib/tradeChartPrefetch";
 import StarToggle from "../components/StarToggle";
 import { useStarred } from "../hooks/useStarred";
@@ -68,7 +68,7 @@ function compareTradesForSort(a, b, key, dir, notesById) {
       cmp = (Number(a.executions) || 0) - (Number(b.executions) || 0);
       break;
     case "pnl":
-      cmp = tradeNetPnl(a) - tradeNetPnl(b);
+      cmp = tradeSignedAmountForAggregation(a) - tradeSignedAmountForAggregation(b);
       break;
     case "tags": {
       const ta = getTradeTags(a)
@@ -388,7 +388,7 @@ function Trades() {
             sortKey="pnl"
             sort={sort}
             onSort={setSortByKey}
-            title="Sort by net P&amp;L (import; fees when provided)"
+            title="Sort by P&amp;L (Schwab AMOUNT sum per trade; row fees in fill detail)"
           />
           <TradesSortHeader label="Notes" sortKey="notes" sort={sort} onSort={setSortByKey} title="Sort by trade note text" />
           <TradesSortHeader label="Tags" sortKey="tags" sort={sort} onSort={setSortByKey} title="Sort by tags" />
@@ -411,7 +411,7 @@ function Trades() {
             const tagsLabel = tags.length ? tags.join(", ") : "—";
             const setups = getTradeSetups(trade);
             const setupsLabel = setups.length ? setups.join(", ") : "—";
-            const displayPnl = tradeNetPnl(trade);
+            const displayPnl = tradeSignedAmountForAggregation(trade);
             const noteRaw = String(tradeNotesById[rowId] ?? "").trim();
             const notePreview = noteRaw || "—";
             const rowTone = (pageOffset + idx) % 2;

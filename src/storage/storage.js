@@ -1,4 +1,5 @@
 import { stableTradeId } from "./tradeLookup";
+import { tradeSignedAmountForAggregation } from "../lib/tradeExecutionMetrics";
 
 const STORAGE_KEY = "tradingJournalTrades";
 export const TRADES_UPDATED_EVENT = "tj-trades-updated";
@@ -91,7 +92,7 @@ export function groupTradesByDate(trades) {
       };
     }
 
-    map[date].pnl += Number(trade.pnl || 0);
+    map[date].pnl += tradeSignedAmountForAggregation(trade);
     map[date].trades += 1;
     map[date].volume += Number(trade.volume || 0);
     map[date].rows.push(trade);

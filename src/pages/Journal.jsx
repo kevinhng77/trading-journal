@@ -25,7 +25,10 @@ import {
 import { usePlaybookPlayNames } from "../hooks/usePlaybookPlayNames";
 import ReportsFilterStrip from "../components/ReportsFilterStrip";
 import { REPORTS_DURATION_OPTIONS } from "../lib/tradeDuration";
-import { aggregateDayExecutionMetrics } from "../lib/tradeExecutionMetrics";
+import {
+  aggregateDayExecutionMetrics,
+  tradeSignedAmountForAggregation,
+} from "../lib/tradeExecutionMetrics";
 import DayPnLSparkline from "../components/DayPnLSparkline";
 import { prefetchTradeExecutionChart } from "../lib/tradeChartPrefetch";
 import { appendSpacedChunk } from "../lib/appendDictationChunk";
@@ -62,7 +65,7 @@ function dayImportsFeeColumns(rows) {
 
 function winPctForDay(rows) {
   if (!rows.length) return null;
-  const wins = rows.filter((t) => Number(t.pnl) > 0).length;
+  const wins = rows.filter((t) => tradeSignedAmountForAggregation(t) > 0).length;
   return Math.round((wins / rows.length) * 1000) / 10;
 }
 
@@ -303,7 +306,10 @@ function Journal() {
                               )}
                             </span>
                           </div>
-                          <div className="journal-stat" title="Sum of stored closed P&amp;L per trade (same as table total)">
+                          <div
+                            className="journal-stat"
+                            title="Sum of each trade’s P&amp;L (Schwab AMOUNT sums; same as Trades list and day header)"
+                          >
                             <span className="journal-stat-label">Net P&amp;L</span>
                             <span className={`journal-stat-value ${pnlClass(dm.netPnl)}`}>{formatMoney(dm.netPnl)}</span>
                           </div>
@@ -361,6 +367,7 @@ function Journal() {
                     ) : (
                       day.rows.map((trade, idx) => {
                         const rowKey = stableTradeId(trade);
+                        const rowAmt = tradeSignedAmountForAggregation(trade);
                         const tags = getTradeTags(trade);
                         const tagsLabel = tags.length ? tags.join(", ") : "—";
                         const setups = getTradeSetups(trade);
@@ -383,7 +390,7 @@ function Journal() {
                               <div className="trades-symbol">{trade.symbol}</div>
                               <div>{trade.volume}</div>
                               <div>{trade.executions}</div>
-                              <div className={pnlClass(trade.pnl)}>{formatMoney(trade.pnl)}</div>
+                              <div className={pnlClass(rowAmt)}>{formatMoney(rowAmt)}</div>
                               <div
                                 className={`trades-notes-cell${noteRaw ? "" : " trades-cell-muted"}`}
                                 title={noteRaw || undefined}

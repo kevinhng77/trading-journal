@@ -51,6 +51,7 @@ import {
   kellyFraction,
   systemQualityNumber,
   kRatioFromDailyPnL,
+  tradeSignedAmountForAggregation,
 } from "../../lib/tradeExecutionMetrics";
 import { CHART_GREEN, CHART_RED } from "../../lib/chartPalette";
 import MetricHintIcon from "../../components/MetricHintIcon";
@@ -307,7 +308,7 @@ export default function ReportsDetailed() {
   const totalVol = useMemo(() => scoped.reduce((s, t) => s + (Number(t.volume) || 0), 0), [scoped]);
   const avgDailyVol = distinctDays ? totalVol / distinctDays : 0;
   const avgPerShare =
-    totalVol > 0 ? scoped.reduce((s, t) => s + (Number(t.pnl) || 0), 0) / totalVol : 0;
+    totalVol > 0 ? scoped.reduce((s, t) => s + tradeSignedAmountForAggregation(t), 0) / totalVol : 0;
 
   const wdMon = useMemo(() => byWeekdayMonFirst(stats.byWeekday), [stats.byWeekday]);
   const byHour = useMemo(() => aggregateByHour(scoped), [scoped]);

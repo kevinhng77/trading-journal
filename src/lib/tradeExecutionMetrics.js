@@ -53,8 +53,49 @@ export function tradeGrossPnl(trade) {
   return Math.round(tradeAmountSum(trade) * 100) / 100;
 }
 
-/** Stored closed P&amp;L (net of fees in import). */
+/**
+ * Cash P&amp;L including per-row misc and commissions: sum of fill **`netCash`** when fills carry it;
+ * otherwise falls back to stored **`trade.pnl`**.
+ * @param {object} trade
+ */
 export function tradeNetPnl(trade) {
+  const fills = trade?.fills ?? [];
+  let sum = 0;
+  let n = 0;
+  for (const f of fills) {
+    if (f?.netCash == null || !Number.isFinite(Number(f.netCash))) continue;
+    sum += Number(f.netCash);
+    n += 1;
+  }
+  if (n > 0) return Math.round(sum * 100) / 100;
+  return Math.round((Number(trade?.pnl) || 0) * 100) / 100;
+}
+
+/**
+ * One trade’s contribution to day / symbol totals: sum fill **`AMOUNT`** when present (Schwab cash grid),
+ * else **`netCash`**, else stored **`pnl`**. Matches statement **Profits and Losses** / spreadsheet
+ * `day_pnl[date] += AMOUNT` behavior.
+ * @param {object} trade
+ * @returns {number}
+ */
+export function tradeSignedAmountForAggregation(trade) {
+  const fills = trade?.fills;
+  if (Array.isArray(fills) && fills.length > 0) {
+    let sum = 0;
+    let any = false;
+    for (const f of fills) {
+      if (f == null) continue;
+      const raw =
+        f.amount != null && Number.isFinite(Number(f.amount)) ? f.amount : f.netCash;
+      if (raw == null) continue;
+      const v = Number(raw);
+      if (Number.isFinite(v)) {
+        any = true;
+        sum += v;
+      }
+    }
+    if (any) return Math.round(sum * 100) / 100;
+  }
   return Math.round((Number(trade?.pnl) || 0) * 100) / 100;
 }
 
@@ -129,7 +170,7 @@ export function computeFillReplayStats(trade) {
     maxAbs = Math.max(maxAbs, Math.abs(pos));
   }
 
-  const net = tradeNetPnl(trade);
+  const net = tradeSignedAmountForAggregation(trade);
   const mfe = sorted.length >= 2 ? Math.round(maxFav * 100) / 100 : null;
   const mae = sorted.length >= 2 ? Math.round(maxAdv * 100) / 100 : null;
   const eff =
@@ -167,7 +208,7 @@ export function aggregateDayExecutionMetrics(rows) {
   for (const t of rows) {
     fees += tradeFeesPaid(t);
     gross += tradeGrossPnl(t);
-    net += tradeNetPnl(t);
+    net += tradeSignedAmountForAggregation(t);
     const r = computeFillReplayStats(t);
     if (r.mfeDollars != null) mfes.push(r.mfeDollars);
     if (r.maeDollars != null) maes.push(r.maeDollars);
@@ -200,7 +241,7 @@ export function aggregateFilteredTradesMetrics(trades) {
     commSigned += tradeCommissionsSigned(t);
     miscSigned += tradeMiscFeesSigned(t);
     gross += tradeGrossPnl(t);
-    net += tradeNetPnl(t);
+    net += tradeSignedAmountForAggregation(t);
     const r = computeFillReplayStats(t);
     if (r.mfeDollars != null) mfes.push(r.mfeDollars);
     if (r.maeDollars != null) maes.push(r.maeDollars);
@@ -264,7 +305,7 @@ export function kellyFraction(p, avgWin, avgLoss) {
 export function systemQualityNumber(trades, stdDev) {
   const n = trades?.length ?? 0;
   if (n < 2 || !stdDev || stdDev < 1e-9) return null;
-  const mean = trades.reduce((s, t) => s + (Number(t.pnl) || 0), 0) / n;
+  const mean = trades.reduce((s, t) => s + tradeSignedAmountForAggregation(t), 0) / n;
   return (Math.sqrt(n) * mean) / stdDev;
 }
 
@@ -277,7 +318,7 @@ export function kRatioFromDailyPnL(trades) {
   for (const t of trades ?? []) {
     const d = t.date;
     if (!d) continue;
-    byDay[d] = (byDay[d] || 0) + (Number(t.pnl) || 0);
+    byDay[d] = (byDay[d] || 0) + tradeSignedAmountForAggregation(t);
   }
   const vals = Object.values(byDay);
   if (vals.length < 2) return null;

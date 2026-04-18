@@ -1,9 +1,17 @@
 /**
- * Parse Thinkorswim / Schwab account statement CSV.
- * - Cash Balance: TYPE=TRD rows (cash amounts, commissions).
- * - Account Trade History: full-period stock/ETF fills with Net Price (Schwab omits many months
- *   from the short Cash TRD block; this section carries Jan–Mar, etc.).
- * Rows are deduped when the same execution appears in both sections.
+ * Schwab / Thinkorswim **Account Statement** CSV import.
+ *
+ * **Trade P&amp;L** (stored on each merged/split trade) is the sum of **`AMOUNT`** on those rows so it
+ * matches Schwab / TOS **Profits and Losses** and symbol P/L grids. **Misc + commissions** stay on each
+ * fill; **`netCash`** (AMOUNT + misc + comm) remains for true cash impact and the trade detail “net incl.
+ * row fees” line.
+ *
+ * **Detection order**
+ * 1. Lines after a **Cash Balance**–style header until **Futures / Forex Statements** (normal export).
+ * 2. If that yields **no** TRD rows, a **full-file scan** (same column shape) so spreadsheet saves still work.
+ *
+ * **`fillsSource: "cashTrdPlusAth"`** (optional): add **Account Trade History** fills not deduped to a TRD line.
+ * Default is **cash TRD only** — no silent ATH fallback when there are zero TRD rows.
  */
 
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
@@ -97,18 +105,20 @@ export function parseTradeDescription(descRaw) {
 
 function isCashBalanceHeader(line) {
   const t = line.trim();
+  const u = t.toUpperCase();
+  /** Schwab export is uppercased; Excel re-exports often change case and still skip the title row. */
   return (
-    t.startsWith("DATE,TIME,TYPE") &&
-    t.includes("DESCRIPTION") &&
-    t.includes("BALANCE") &&
-    t.includes("REF")
+    u.startsWith("DATE,TIME,TYPE") &&
+    u.includes("DESCRIPTION") &&
+    u.includes("BALANCE") &&
+    u.includes("REF")
   );
 }
 
 /** Equity cash section ends; later CSV may still contain Account Trade History — do not stop the whole file. */
 function isCashSectionHardStop(line) {
-  const t = line.trim();
-  return t.startsWith("Futures Statements") || t.startsWith("Forex Statements");
+  const t = line.trim().toUpperCase();
+  return t.startsWith("FUTURES STATEMENTS") || t.startsWith("FOREX STATEMENTS");
 }
 
 /**
@@ -297,14 +307,19 @@ function parseAccountTradeHistoryFills(lines) {
  * @param {string} date
  * @param {string} symbol
  * @param {string} tradeId
+ * @param {{ preferCashTrdNetForPnl?: boolean }} [opts]
  */
-function buildTradeFromFills(group, date, symbol, tradeId) {
+function buildTradeFromFills(group, date, symbol, tradeId, opts = {}) {
   const sorted = [...group].sort((a, b) => a.time.localeCompare(b.time));
   let volume = 0;
   let pnl = 0;
+  /** Cash TRD rows carry `ref`; ATH synthetic fills use `ref: ""`. Prefer TRD rows for P/L when both appear. */
+  const preferTrd = opts.preferCashTrdNetForPnl === true;
+  const hasTrd = preferTrd && sorted.some((g) => String(g.ref ?? "").trim() !== "");
   for (const g of sorted) {
     volume += g.quantity;
-    pnl += g.netCash;
+    if (hasTrd && String(g.ref ?? "").trim() === "") continue;
+    pnl += g.amount;
   }
   pnl = Math.round(pnl * 100) / 100;
   const executions = sorted.length;
@@ -345,7 +360,7 @@ function sortTradesDesc(a, b) {
  */
 export function groupFillsIntoTrades(fills, mode) {
   if (mode === "split") {
-    const trades = fills.map((f) => buildTradeFromFills([f], f.date, f.symbol, f.id));
+    const trades = fills.map((f) => buildTradeFromFills([f], f.date, f.symbol, f.id, {}));
     trades.sort(sortTradesDesc);
     return trades;
   }
@@ -360,7 +375,9 @@ export function groupFillsIntoTrades(fills, mode) {
     const trades = [];
     for (const [key, group] of byKey) {
       const [date, symbol] = key.split("|");
-      trades.push(buildTradeFromFills(group, date, symbol, `agg-${date}-${symbol}`));
+      trades.push(
+        buildTradeFromFills(group, date, symbol, `agg-${date}-${symbol}`, { preferCashTrdNetForPnl: true }),
+      );
     }
     trades.sort(sortTradesDesc);
     return trades;
@@ -389,13 +406,17 @@ export function groupFillsIntoTrades(fills, mode) {
       pos += f.side === "BOT" ? f.quantity : -f.quantity;
       if (pos === 0) {
         seq += 1;
-        trades.push(buildTradeFromFills(cur, date, symbol, `tos-${date}-${symbol}-r${seq}`));
+        trades.push(
+          buildTradeFromFills(cur, date, symbol, `tos-${date}-${symbol}-r${seq}`, { preferCashTrdNetForPnl: true }),
+        );
         cur = [];
       }
     }
     if (cur.length) {
       seq += 1;
-      trades.push(buildTradeFromFills(cur, date, symbol, `tos-${date}-${symbol}-r${seq}`));
+      trades.push(
+        buildTradeFromFills(cur, date, symbol, `tos-${date}-${symbol}-r${seq}`, { preferCashTrdNetForPnl: true }),
+      );
     }
   }
   trades.sort(sortTradesDesc);
@@ -403,16 +424,73 @@ export function groupFillsIntoTrades(fills, mode) {
 }
 
 /**
- * @param {string} text - full CSV file text
- * @param {{ groupingMode?: "merge" | "split" | "normal" }} [options]
- * @returns {{ trades: object[], fillsSkipped: number, errors: string[] }}
+ * One CSV row: Schwab-style cash grid (`DATE, TIME, TYPE=TRD, … DESCRIPTION, AMOUNT`).
+ * @param {string[]} fields
+ * @param {number} li 0-based line index (for errors / stable ids)
+ * @param {string[]} errors
+ * @param {object[]} fills
+ * @param {string} idPrefix
+ * @returns {boolean}
  */
-export function parseThinkorswimAccountCsv(text, options = {}) {
-  const groupingMode = options.groupingMode ?? "merge";
-  const lines = text.split(/\r?\n/);
-  let inCash = false;
+function tryAppendTrdFillFromRow(fields, li, errors, fills, idPrefix) {
+  if (fields.length < 8) return false;
+
+  const dateRaw = stripCell(String(fields[0] ?? ""))
+    .trim()
+    .replace(/^\uFEFF/, "");
+  if (!/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(dateRaw)) return false;
+
+  if (stripCell(fields[2]).toUpperCase() !== "TRD") return false;
+
+  const time = stripCell(fields[1]);
+  const ref = stripCell(fields[3]);
+  const desc = fields[4] ?? "";
+  const misc = parseMoneyCell(fields[5]);
+  const comm = parseMoneyCell(fields[6]);
+  const amount = parseMoneyCell(fields[7]);
+
+  const parsed = parseTradeDescription(desc);
+  if (!parsed) {
+    errors.push(`Line ${li + 1}: TRD row, could not parse BOT/SOLD description`);
+    return false;
+  }
+
+  const sessionDate = tradeSessionDateIsoFromTos(dateRaw, time);
+  if (!sessionDate) {
+    errors.push(`Line ${li + 1}: TRD row, bad session date`);
+    return false;
+  }
+
+  const netCash = amount + misc + comm;
+  const refKey = ref || `scan-${li + 1}`;
+  const fillId = `${idPrefix}-${refKey}-${sessionDate}-${time}-${parsed.symbol}-${parsed.qty}-${parsed.side}`;
+
+  fills.push({
+    id: fillId,
+    date: sessionDate,
+    time,
+    ref: ref || "",
+    symbol: parsed.symbol,
+    side: parsed.side,
+    quantity: parsed.qty,
+    price: parsed.price,
+    amount,
+    misc,
+    comm,
+    netCash,
+    description: stripCell(desc),
+  });
+  return true;
+}
+
+/**
+ * Collect TRD fills: bounded Cash grid first, then full-file scan if empty.
+ * @param {string[]} lines
+ * @param {string[]} errors
+ */
+function collectTrdFillsFromCsvLines(lines, errors) {
   const fills = [];
-  const errors = [];
+  let inCash = false;
 
   for (let li = 0; li < lines.length; li++) {
     const line = lines[li];
@@ -430,88 +508,88 @@ export function parseThinkorswimAccountCsv(text, options = {}) {
       inCash = false;
       continue;
     }
-    if (isCashSectionTotalRow(fields)) {
-      continue;
-    }
+    if (isCashSectionTotalRow(fields)) continue;
 
-    if (fields.length < 8) continue;
-
-    const dateRaw = String(fields[0] ?? "")
-      .trim()
-      .replace(/^\uFEFF/, "");
-    if (!/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(dateRaw)) {
-      continue;
-    }
-
-    const type = stripCell(fields[2]);
-    if (type !== "TRD") continue;
-
-    const time = stripCell(fields[1]);
-    const ref = stripCell(fields[3]);
-    const desc = fields[4] ?? "";
-    const misc = parseMoneyCell(fields[5]);
-    const comm = parseMoneyCell(fields[6]);
-    const amount = parseMoneyCell(fields[7]);
-
-    const parsed = parseTradeDescription(desc);
-    if (!parsed) {
-      errors.push(`Line ${li + 1}: could not parse description`);
-      continue;
-    }
-
-    const sessionDate = tradeSessionDateIsoFromTos(dateRaw, time);
-    if (!sessionDate) {
-      errors.push(`Line ${li + 1}: bad date`);
-      continue;
-    }
-
-    const netCash = amount + misc + comm;
-    const fillId = `tos-${ref}-${sessionDate}-${time}-${parsed.symbol}-${parsed.qty}-${parsed.side}`;
-
-    fills.push({
-      id: fillId,
-      date: sessionDate,
-      time,
-      ref,
-      symbol: parsed.symbol,
-      side: parsed.side,
-      quantity: parsed.qty,
-      price: parsed.price,
-      amount,
-      misc,
-      comm,
-      netCash,
-      description: stripCell(desc),
-    });
+    tryAppendTrdFillFromRow(fields, li, errors, fills, "tos");
   }
 
-  const trdKeys = new Set(fills.map((f) => fillExecutionDedupKey(f)));
-  const athFills = parseAccountTradeHistoryFills(lines);
-  for (const f of athFills) {
-    const k = fillExecutionDedupKey(f);
-    if (trdKeys.has(k)) continue;
-    fills.push(f);
-    trdKeys.add(k);
+  if (fills.length === 0) {
+    for (let li = 0; li < lines.length; li++) {
+      const line = lines[li];
+      if (!line.trim()) continue;
+      tryAppendTrdFillFromRow(parseCsvLine(line), li, errors, fills, "tos-scan");
+    }
+    if (fills.length > 0) {
+      errors.push(
+        "TRD BOT/SOLD rows found via full-file scan (no standard Cash Balance window, or all TRD fell outside it).",
+      );
+    }
+  }
+
+  return fills;
+}
+
+/** Volume-weighted average BOT and SOLD prices from fills (merged / multi-leg trades). */
+export function attachAvgBuySellPricesFromFills(trade) {
+  const fills = trade?.fills;
+  if (!Array.isArray(fills) || fills.length === 0) return;
+  let botQty = 0;
+  let botSum = 0;
+  let soldQty = 0;
+  let soldSum = 0;
+  for (const f of fills) {
+    const q = Math.abs(Number(f.quantity));
+    const p = Number(f.price);
+    if (!Number.isFinite(q) || !Number.isFinite(p) || q <= 0) continue;
+    const side = String(f.side ?? "").toUpperCase();
+    if (side === "BOT") {
+      botQty += q;
+      botSum += q * p;
+    } else if (side === "SOLD") {
+      soldQty += q;
+      soldSum += q * p;
+    }
+  }
+  if (botQty > 0) trade.avgBuyPrice = Math.round((botSum / botQty) * 1e6) / 1e6;
+  if (soldQty > 0) trade.avgSellPrice = Math.round((soldSum / soldQty) * 1e6) / 1e6;
+}
+
+/**
+ * @param {string} text - full CSV file text
+ * @param {{
+ *   groupingMode?: "merge" | "split" | "normal",
+ *   fillsSource?: "cashTrdOnly" | "cashTrdPlusAth",
+ * }} [options]
+ * @returns {{ trades: object[], fillsSkipped: number, errors: string[] }}
+ */
+export function parseThinkorswimAccountCsv(text, options = {}) {
+  const groupingMode = options.groupingMode ?? "merge";
+  /** @type {"cashTrdOnly" | "cashTrdPlusAth"} */
+  const fillsSource = options.fillsSource ?? "cashTrdOnly";
+  const lines = text.split(/\r?\n/);
+  const errors = [];
+  const fills = collectTrdFillsFromCsvLines(lines, errors);
+  const trdFillCount = fills.length;
+
+  if (fillsSource === "cashTrdPlusAth") {
+    const trdKeys = new Set(fills.map((f) => fillExecutionDedupKey(f)));
+    const athFills = parseAccountTradeHistoryFills(lines);
+    for (const f of athFills) {
+      const k = fillExecutionDedupKey(f);
+      if (trdKeys.has(k)) continue;
+      fills.push(f);
+      trdKeys.add(k);
+    }
+  } else if (fills.length === 0) {
+    errors.push(
+      'No TRD (BOT/SOLD) cash rows found. Use an Account Statement CSV with those lines, or import with fillsSource: "cashTrdPlusAth" to add Account Trade History.',
+    );
   }
 
   const trades = groupFillsIntoTrades(fills, groupingMode);
-
-  /* Merge-mode P/L from summed fills can diverge from Schwab ATH vs cash; align to statement P/L Day. */
-  if (groupingMode === "merge" && fills.length) {
-    const pnlDayBySymbol = parseProfitsAndLossesPnlDayBySymbol(lines);
-    if (pnlDayBySymbol.size) {
-      let maxFillDate = fills[0].date;
-      for (const f of fills) {
-        if (f.date > maxFillDate) maxFillDate = f.date;
-      }
-      for (const t of trades) {
-        if (t.date !== maxFillDate) continue;
-        const sym = String(t.symbol).toUpperCase();
-        if (!pnlDayBySymbol.has(sym)) continue;
-        t.pnl = pnlDayBySymbol.get(sym);
-        t.pnlSource = "statement-p-l-day";
-      }
-    }
+  for (const t of trades) {
+    attachAvgBuySellPricesFromFills(t);
+    if (trdFillCount > 0) t.pnlSource = "cash-trd-bot-sold";
   }
 
   return { trades, fillsSkipped: 0, errors };

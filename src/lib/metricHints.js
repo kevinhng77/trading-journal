@@ -94,8 +94,9 @@ export const REPORTS_TABLE_COLUMN_HINTS = {
 /** Trade detail snapshot: stable keys for <SnapshotDt hintKey="…" />. */
 export const TRADE_SNAPSHOT_HINTS = {
   sharesTraded: "Total volume on the trade row (shares or contracts).",
-  closedPnlNet: "Net profit or loss for the round trip after fees as stored on the trade.",
-  grossPnl: "Market P&L from fill amounts when the import has amount columns; otherwise matches net.",
+  closedPnlNet:
+    "Cash impact from fills: sum of each line’s net cash (AMOUNT + misc + commissions) when fills include netCash; otherwise stored P/L.",
+  grossPnl: "Sum of fill AMOUNT values when the import has amount columns; otherwise stored P/L.",
   commissionsFees: "Total paid commissions and misc fees from fill rows when your broker file includes those columns.",
   fillCount: "Number of execution lines attached to this trade.",
   bestExitPnl:

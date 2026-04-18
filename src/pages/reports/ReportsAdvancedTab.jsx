@@ -8,7 +8,7 @@ import {
   computeFillReplayStats,
   tradeFeesPaid,
   tradeGrossPnl,
-  tradeNetPnl,
+  tradeSignedAmountForAggregation,
 } from "../../lib/tradeExecutionMetrics";
 import { CHART_GREEN, CHART_RED } from "../../lib/chartPalette";
 import MetricHintIcon from "../../components/MetricHintIcon";
@@ -47,7 +47,7 @@ function axisValue(trade, key, index) {
     case "tradeIndex":
       return index + 1;
     case "netPnl":
-      return tradeNetPnl(trade);
+      return tradeSignedAmountForAggregation(trade);
     case "grossPnl":
       return tradeGrossPnl(trade);
     case "volume":
@@ -259,7 +259,7 @@ export default function ReportsAdvancedTab() {
       const x = axisValue(t, xKey, i);
       const y = axisValue(t, yKey, i);
       if (x == null || y == null || !Number.isFinite(x) || !Number.isFinite(y)) return null;
-      const net = tradeNetPnl(t);
+      const net = tradeSignedAmountForAggregation(t);
       const fill = net >= 0 ? CHART_GREEN : CHART_RED;
       return {
         x,

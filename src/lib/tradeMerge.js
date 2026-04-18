@@ -1,7 +1,7 @@
 import { groupFillsIntoTrades } from "../import/thinkorswimCsv.js";
 import { stableTradeId } from "../storage/tradeLookup";
 import { getTradeTags, getTradeSetups, normalizeTagList } from "./tradeTags";
-import { tradeNetPnl } from "./tradeExecutionMetrics";
+import { tradeSignedAmountForAggregation } from "./tradeExecutionMetrics";
 
 /**
  * Parser-style fill row for {@link groupFillsIntoTrades} from a stored trade fill.
@@ -70,7 +70,7 @@ export function mergeTradesByStableIds(stableIds, allTrades) {
   let pnlSum = 0;
   for (const t of picked) {
     volume += Number(t.volume) || 0;
-    pnlSum += tradeNetPnl(t);
+    pnlSum += tradeSignedAmountForAggregation(t);
   }
 
   const tags = normalizeTagList(picked.flatMap((t) => getTradeTags(t)));

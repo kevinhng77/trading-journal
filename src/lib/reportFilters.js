@@ -1,7 +1,7 @@
 import { getTradeTags, getTradeSetups } from "./tradeTags";
 import { inferOpeningSide } from "./tradeSide";
 import { tradeMatchesDurationBucket } from "./tradeDuration";
-import { tradeGrossPnl, tradeNetPnl } from "./tradeExecutionMetrics";
+import { tradeGrossPnl, tradeSignedAmountForAggregation } from "./tradeExecutionMetrics";
 
 export const DEFAULT_REPORT_FILTERS = {
   symbol: "",
@@ -237,7 +237,7 @@ export function filterTradesForReport(trades, filters) {
   const nMax = parseOptionalNumber(f.advNetPnlMax);
   if (nMin != null || nMax != null) {
     out = out.filter((t) => {
-      const n = tradeNetPnl(t);
+      const n = tradeSignedAmountForAggregation(t);
       if (nMin != null && n + 1e-9 < nMin) return false;
       if (nMax != null && n - 1e-9 > nMax) return false;
       return true;
@@ -281,11 +281,11 @@ export function filterTradesForReport(trades, filters) {
 
   const tr = String(f.advTradeResult ?? "all");
   if (tr === "win") {
-    out = out.filter((t) => tradeNetPnl(t) > 0);
+    out = out.filter((t) => tradeSignedAmountForAggregation(t) > 0);
   } else if (tr === "loss") {
-    out = out.filter((t) => tradeNetPnl(t) < 0);
+    out = out.filter((t) => tradeSignedAmountForAggregation(t) < 0);
   } else if (tr === "be") {
-    out = out.filter((t) => tradeNetPnl(t) === 0);
+    out = out.filter((t) => tradeSignedAmountForAggregation(t) === 0);
   }
 
   return out;

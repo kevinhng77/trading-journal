@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { tradeSignedAmountForAggregation } from "../lib/tradeExecutionMetrics";
 
 /**
  * Tiny cumulative P&L polyline for a list of trades (same day).
@@ -7,11 +8,12 @@ import { useMemo } from "react";
 export default function DayPnlSparkline({ rows }) {
   const pathD = useMemo(() => {
     const sorted = [...(rows ?? [])].sort((a, b) => String(a.time ?? "").localeCompare(String(b.time ?? "")));
-    let c = 0;
-    const pts = sorted.map((r) => {
-      c += Number(r.pnl) || 0;
-      return c;
-    });
+    const pts = [];
+    let run = 0;
+    for (const r of sorted) {
+      run += tradeSignedAmountForAggregation(r);
+      pts.push(run);
+    }
     if (pts.length < 2) return null;
     const w = 140;
     const h = 52;

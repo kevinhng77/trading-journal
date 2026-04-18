@@ -1,7 +1,7 @@
 import { groupTradesByDate } from "../storage/storage";
 import { stableTradeId } from "../storage/tradeLookup";
 import { getTradeTags, getTradeSetups } from "./tradeTags";
-import { computeFillReplayStats } from "./tradeExecutionMetrics";
+import { computeFillReplayStats, tradeSignedAmountForAggregation } from "./tradeExecutionMetrics";
 import {
   getTradeDurationSeconds,
   tradeMatchesDurationBucket,
@@ -45,22 +45,82 @@ export function getDayAggregate(grouped, dateStr) {
   );
 }
 
+const TRADE_DATE_ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Latest `trade.date` in the list (lexicographic = chronological for ISO dates).
+ * Ignores dates more than `maxFutureDaysFromToday` after local today so bad imports do not blow up ranges.
+ * @param {object[]} trades
+ * @param {{ maxFutureDaysFromToday?: number }} [opts]
+ * @returns {string | null}
+ */
+export function latestTradeCalendarDate(trades, opts = {}) {
+  const capDaysRaw = opts.maxFutureDaysFromToday ?? 400;
+  const capDays = Number.isFinite(capDaysRaw) && capDaysRaw > 0 ? capDaysRaw : 400;
+  const cap = new Date();
+  cap.setHours(0, 0, 0, 0);
+  cap.setDate(cap.getDate() + capDays);
+  const capIso = localISODate(cap);
+  let best = null;
+  for (const t of trades ?? []) {
+    const d = String(t?.date ?? "").trim();
+    if (!TRADE_DATE_ISO_RE.test(d)) continue;
+    if (d > capIso) continue;
+    if (!best || d > best) best = d;
+  }
+  return best;
+}
+
+/**
+ * Anchor for the dashboard “This week” strip: today, or the latest trade day if it is still in the future
+ * (e.g. Schwab statement “through” date imported before that calendar day).
+ * @param {object[]} trades
+ */
+export function dashboardWeekAnchorDate(trades) {
+  const latestIso = latestTradeCalendarDate(trades);
+  if (!latestIso) return new Date();
+  const lt = new Date(`${latestIso}T12:00:00`);
+  const now = new Date();
+  if (Number.isNaN(lt.getTime())) return now;
+  return lt > now ? lt : now;
+}
+
 export function tradesInLastDays(trades, numDays) {
-  const end = new Date();
-  end.setHours(23, 59, 59, 999);
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+  let end = todayEnd;
+  const latestIso = latestTradeCalendarDate(trades);
+  if (latestIso) {
+    const lt = new Date(`${latestIso}T12:00:00`);
+    if (!Number.isNaN(lt.getTime())) {
+      const ltEnd = new Date(lt);
+      ltEnd.setHours(23, 59, 59, 999);
+      if (ltEnd > end) end = ltEnd;
+    }
+  }
   const start = new Date(end);
   start.setHours(0, 0, 0, 0);
   start.setDate(start.getDate() - (numDays - 1));
   return trades.filter((t) => {
     if (!t.date) return false;
     const td = new Date(`${t.date}T12:00:00`);
+    if (Number.isNaN(td.getTime())) return false;
     return td >= start && td <= end;
   });
 }
 
 export function buildDailySeriesForRange(trades, numDays) {
-  const end = new Date();
+  let end = new Date();
   end.setHours(0, 0, 0, 0);
+  const latestIso = latestTradeCalendarDate(trades);
+  if (latestIso) {
+    const lt = new Date(`${latestIso}T12:00:00`);
+    if (!Number.isNaN(lt.getTime())) {
+      const ltDay = new Date(lt);
+      ltDay.setHours(0, 0, 0, 0);
+      if (ltDay > end) end = ltDay;
+    }
+  }
   const grouped = groupTradesByDate(trades);
   const series = [];
   for (let i = numDays - 1; i >= 0; i--) {
@@ -141,7 +201,7 @@ export function buildDailySeriesForDateSpan(trades, startISO, endISO) {
 
 /** Sum of trade P&L for filtered sets. */
 export function sumTradePnl(trades) {
-  return trades.reduce((s, t) => s + Number(t.pnl || 0), 0);
+  return trades.reduce((s, t) => s + tradeSignedAmountForAggregation(t), 0);
 }
 
 export function computeDashboardStats(trades) {
@@ -153,7 +213,7 @@ export function computeDashboardStats(trades) {
   const lossHolds = [];
 
   trades.forEach((t) => {
-    const p = Number(t.pnl);
+    const p = tradeSignedAmountForAggregation(t);
     const hm = t.holdMinutes != null && t.holdMinutes !== "" ? Number(t.holdMinutes) : null;
     if (p > 0) {
       wins.push(p);
@@ -363,7 +423,7 @@ export function computeProfitFactor(trades) {
   let grossWin = 0;
   let grossLoss = 0;
   for (const t of trades) {
-    const p = Number(t.pnl);
+    const p = tradeSignedAmountForAggregation(t);
     if (p > 0) grossWin += p;
     else if (p < 0) grossLoss += -p;
   }
@@ -403,7 +463,7 @@ export function maxConsecutiveStreaks(trades) {
   let curW = 0;
   let curL = 0;
   for (const t of sorted) {
-    const p = Number(t.pnl);
+    const p = tradeSignedAmountForAggregation(t);
     if (p > 0) {
       curW += 1;
       curL = 0;
@@ -450,7 +510,7 @@ export function aggregateByPriceBucket(trades) {
   for (const t of trades) {
     const px = tradeAvgFillPrice(t);
     if (px == null || Number.isNaN(px)) continue;
-    const p = Number(t.pnl) || 0;
+    const p = tradeSignedAmountForAggregation(t);
     const idx = PRICE_BUCKETS.findIndex((b) => px >= b.min && px < b.max);
     if (idx < 0) continue;
     buckets[idx].pnl += p;
@@ -465,7 +525,7 @@ export function aggregateByHour(trades) {
   for (const t of trades) {
     const m = String(t.time || "").match(/^(\d{1,2})/);
     const h = m ? Math.min(23, Math.max(0, parseInt(m[1], 10))) : 12;
-    const p = Number(t.pnl) || 0;
+    const p = tradeSignedAmountForAggregation(t);
     hours[h].pnl += p;
     hours[h].trades += 1;
   }
@@ -480,7 +540,7 @@ export function aggregateByMonth(trades) {
     const key = d.length >= 7 ? d.slice(0, 7) : "";
     if (!key) continue;
     const cur = map.get(key) || { pnl: 0, trades: 0 };
-    cur.pnl += Number(t.pnl) || 0;
+    cur.pnl += tradeSignedAmountForAggregation(t);
     cur.trades += 1;
     map.set(key, cur);
   }
@@ -506,7 +566,7 @@ export function aggregateByVolumeBucket(trades) {
   const buckets = VOL_BUCKETS.map((b) => ({ name: b.key, pnl: 0, trades: 0 }));
   for (const t of trades) {
     const v = Number(t.volume) || 0;
-    const p = Number(t.pnl) || 0;
+    const p = tradeSignedAmountForAggregation(t);
     const idx = VOL_BUCKETS.findIndex((b) => {
       if (v < b.min) return false;
       if (b.max === Infinity) return true;
@@ -527,12 +587,12 @@ export function byWeekdayMonFirst(byWeekday) {
 
 /** Trades with |P&amp;L| below threshold (flat / scratch). */
 export function scratchTradeCount(trades, eps = 0.01) {
-  return trades.filter((t) => Math.abs(Number(t.pnl) || 0) < eps).length;
+  return trades.filter((t) => Math.abs(tradeSignedAmountForAggregation(t)) < eps).length;
 }
 
 /** Sample standard deviation of per-trade P&amp;L. */
 export function computeTradePnlStdDev(trades) {
-  const vals = trades.map((t) => Number(t.pnl) || 0);
+  const vals = trades.map((t) => tradeSignedAmountForAggregation(t));
   if (vals.length < 2) return 0;
   const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
   const v = vals.reduce((s, x) => s + (x - mean) ** 2, 0) / (vals.length - 1);
@@ -549,7 +609,7 @@ export function aggregateByReportDurationBuckets(trades) {
   const noTime = { name: "(no session time)", key: "_na", trades: 0, pnl: 0 };
   let na = false;
   for (const t of trades) {
-    const p = Number(t.pnl) || 0;
+    const p = tradeSignedAmountForAggregation(t);
     const sec = getTradeDurationSeconds(t);
     if (sec == null) {
       noTime.trades += 1;
@@ -588,7 +648,7 @@ export function aggregateIntradayMultiday(trades) {
   const intra = { name: "Intraday", trades: 0, pnl: 0 };
   const multi = { name: "Multiday", trades: 0, pnl: 0 };
   for (const t of trades) {
-    const p = Number(t.pnl) || 0;
+    const p = tradeSignedAmountForAggregation(t);
     if (tradeIsMultiday(t)) {
       multi.trades += 1;
       multi.pnl += p;
@@ -617,7 +677,7 @@ export function aggregateByHoldMinuteBuckets(trades) {
   let naPnl = 0;
   for (const t of trades) {
     const sec = getTradeDurationSeconds(t);
-    const p = Number(t.pnl) || 0;
+    const p = tradeSignedAmountForAggregation(t);
     if (sec == null) {
       naN += 1;
       naPnl += p;
@@ -660,7 +720,7 @@ function aggregateByTradeLabels(trades, getLabels, emptyBucketName, maxRows = 14
     cur.tradeIds.add(tradeId);
   }
   for (const t of trades) {
-    const p = Number(t.pnl) || 0;
+    const p = tradeSignedAmountForAggregation(t);
     const tradeId = String(stableTradeId(t));
     const labels = getLabels(t);
     if (!labels.length) {
@@ -707,7 +767,7 @@ function buildLabelPnLVolumeRows(trades, getLabels, emptyLabel) {
     cur.volume += vol;
   }
   for (const t of trades) {
-    const p = Number(t.pnl) || 0;
+    const p = tradeSignedAmountForAggregation(t);
     const vol = Number(t.volume) || 0;
     const tradeId = String(stableTradeId(t));
     const labels = getLabels(t);
@@ -742,7 +802,7 @@ function buildLabelCombinationRows(trades, getLabels) {
     const labels = getLabels(t);
     if (labels.length < 2) continue;
     const key = [...labels].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" })).join(" · ");
-    const p = Number(t.pnl) || 0;
+    const p = tradeSignedAmountForAggregation(t);
     const vol = Number(t.volume) || 0;
     const tradeId = String(stableTradeId(t));
     let cur = map.get(key);
@@ -793,7 +853,7 @@ function buildLabelDetailedRows(trades, getLabels, emptyLabel) {
     let wins = 0;
     let losses = 0;
     for (const t of list) {
-      const p = Number(t.pnl) || 0;
+      const p = tradeSignedAmountForAggregation(t);
       if (p > 0) wins += 1;
       else if (p < 0) losses += 1;
     }
@@ -817,7 +877,7 @@ function buildLabelDetailedRows(trades, getLabels, emptyLabel) {
     }
     const avgPosMfe = mfeN ? mfeSum / mfeN : null;
     const avgPosMae = maeN ? maeSum / maeN : null;
-    const pnl = list.reduce((s, t) => s + (Number(t.pnl) || 0), 0);
+    const pnl = list.reduce((s, t) => s + tradeSignedAmountForAggregation(t), 0);
     const volume = list.reduce((s, t) => s + (Number(t.volume) || 0), 0);
     rows.push({
       name,
@@ -875,7 +935,7 @@ export function aggregateByDetailedPriceBucket(trades) {
   for (const t of trades) {
     const px = tradeAvgFillPrice(t);
     if (px == null || Number.isNaN(px)) continue;
-    const p = Number(t.pnl) || 0;
+    const p = tradeSignedAmountForAggregation(t);
     const idx = REPORT_DETAIL_PRICE_BUCKETS.findIndex((b) => px >= b.min && px < b.max);
     if (idx < 0) continue;
     rows[idx].pnl += p;
@@ -905,7 +965,7 @@ export function aggregateByShareVolumeBucket(trades) {
   for (const t of trades) {
     const v = Math.abs(Number(t.volume)) || 0;
     if (v <= 0) continue;
-    const p = Number(t.pnl) || 0;
+    const p = tradeSignedAmountForAggregation(t);
     const idx = SHARE_VOLUME_DETAIL_BUCKETS.findIndex((b) => v >= b.min && v <= b.max);
     if (idx < 0) continue;
     rows[idx].pnl += p;
@@ -920,7 +980,7 @@ export function aggregateBySymbolPnL(trades) {
   for (const t of trades) {
     const sym = String(t.symbol ?? "").trim() || "(no symbol)";
     const cur = map.get(sym) || { pnl: 0, trades: 0 };
-    cur.pnl += Number(t.pnl) || 0;
+    cur.pnl += tradeSignedAmountForAggregation(t);
     cur.trades += 1;
     map.set(sym, cur);
   }
@@ -961,7 +1021,7 @@ export function aggregateByCalendarDayTone(trades) {
   for (const t of trades) {
     if (!t.date) continue;
     const i = idxForDate(t.date);
-    const p = Number(t.pnl) || 0;
+    const p = tradeSignedAmountForAggregation(t);
     buckets[i].trades += 1;
     buckets[i].pnl += p;
   }
@@ -989,7 +1049,7 @@ export function aggregateByNotionalBucket(trades) {
   for (const t of trades) {
     const n = tradeNotionalUsd(t);
     if (n == null || n <= 0) continue;
-    const p = Number(t.pnl) || 0;
+    const p = tradeSignedAmountForAggregation(t);
     const idx = NOTIONAL_DETAIL_BUCKETS.findIndex((b) =>
       b.max === Infinity ? n >= b.min : n >= b.min && n < b.max,
     );
@@ -1012,7 +1072,7 @@ export function aggregateByFillCountBucket(trades) {
   const rows = defs.map((b) => ({ name: b.name, pnl: 0, trades: 0 }));
   const noFills = { name: "(no fills)", pnl: 0, trades: 0 };
   for (const t of trades) {
-    const p = Number(t.pnl) || 0;
+    const p = tradeSignedAmountForAggregation(t);
     const n = (t.fills ?? []).length;
     if (n === 0) {
       noFills.trades += 1;
@@ -1051,7 +1111,7 @@ export function aggregateByAvgFillQtyBucket(trades) {
   const rows = AVG_FILL_QTY_BUCKETS.map((b) => ({ name: b.name, pnl: 0, trades: 0 }));
   const na = { name: "(no fills)", pnl: 0, trades: 0 };
   for (const t of trades) {
-    const p = Number(t.pnl) || 0;
+    const p = tradeSignedAmountForAggregation(t);
     const avgQ = tradeAvgAbsFillQty(t);
     if (avgQ == null) {
       na.trades += 1;
@@ -1075,7 +1135,7 @@ export function grossWinLossTotals(trades) {
   let wins = 0;
   let losses = 0;
   for (const t of trades) {
-    const p = Number(t.pnl) || 0;
+    const p = tradeSignedAmountForAggregation(t);
     if (p > 0) wins += p;
     else if (p < 0) losses += p;
   }

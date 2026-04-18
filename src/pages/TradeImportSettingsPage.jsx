@@ -12,9 +12,12 @@ export default function TradeImportSettingsPage() {
         <p className="settings-standalone-kicker">Settings</p>
         <h1 className="settings-standalone-title">Trade import</h1>
         <p className="settings-standalone-lead">
-          These options apply when you import a Schwab / Thinkorswim account statement CSV from the sidebar. Cash TRD
-          lines include fees in P&amp;L; fills taken only from Account Trade History omit fee columns in the CSV, so
-          those legs can be slightly optimistic versus your statement.
+          Imports read <strong>TRD</strong> rows with <strong>BOT</strong> / <strong>SOLD</strong> descriptions only:
+          stored trade P&amp;L sums the <strong>AMOUNT</strong> column (Schwab / TOS symbol grids); misc and commission
+          stay on each fill for fees and for cash-impact on the trade page. The parser uses the Cash Balance
+          section when present, otherwise scans the whole file for the same column shape. If nothing matches, you need
+          a statement that includes those TRD lines (Account Trade History alone is not used unless you switch the
+          parser to <code>cashTrdPlusAth</code> in code).
         </p>
 
         <section className="settings-standalone-card" aria-labelledby="fill-times-heading">
