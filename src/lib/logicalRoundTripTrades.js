@@ -37,18 +37,20 @@ export function collectGroupingFillsFromTrades(trades) {
 }
 
 /**
- * Stored trades whose fills are a superset of this logical leg (same fills all came from those rows).
+ * Stored rows that contributed fills to this logical trade (each stored trade’s fill ids ⊆ logical fills).
  * @param {object} logical
  * @param {object[]} storedList
  */
 function contributorTradesForLogical(logical, storedList) {
+  const sym = String(logical.symbol ?? "").trim().toUpperCase();
   const lFillIds = new Set((logical.fills ?? []).map((f) => String(f.id ?? "")).filter(Boolean));
   if (lFillIds.size === 0) return [];
   return storedList.filter((t) => {
+    if (String(t.symbol ?? "").trim().toUpperCase() !== sym) return false;
     const tIds = (t.fills ?? []).map((f) => String(f.id ?? "")).filter(Boolean);
     if (tIds.length === 0) return false;
     const tSet = new Set(tIds);
-    return [...lFillIds].every((id) => tSet.has(id));
+    return tIds.every((id) => lFillIds.has(id));
   });
 }
 
@@ -130,11 +132,19 @@ export function prepareTradesForReportView(rawTrades) {
   const fills = collectGroupingFillsFromTrades(rawTrades);
   if (!fills.length) return rawTrades;
   const logical = fifoLogicalTradesFromStored(rawTrades);
-  const consumed = new Set();
+  /** Every fill id that appears on some FIFO logical row (raw rows whose fills are ⊆ this set are dropped). */
+  const coveredFillIds = new Set();
   for (const L of logical) {
-    for (const id of L._storageStableIds ?? []) consumed.add(id);
+    for (const f of L.fills ?? []) {
+      const id = String(f.id ?? "").trim();
+      if (id) coveredFillIds.add(id);
+    }
   }
-  const extras = rawTrades.filter((t) => !consumed.has(stableTradeId(t)));
+  const extras = rawTrades.filter((t) => {
+    const tIds = (t.fills ?? []).map((f) => String(f.id ?? "").trim()).filter(Boolean);
+    if (tIds.length === 0) return true;
+    return !tIds.every((id) => coveredFillIds.has(id));
+  });
   return [...logical, ...extras];
 }
 

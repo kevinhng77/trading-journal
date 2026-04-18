@@ -4561,13 +4561,17 @@ button.metric-hint-icon:focus-visible {
 
 .reports-cal-td-day {
   padding: 4px;
-  vertical-align: top;
+  vertical-align: stretch;
+  height: 1px; /* allow row cells to stretch to tallest column (week column) */
 }
 
 .reports-cal-day-card {
   position: relative;
-  display: block;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
   min-height: 112px;
+  height: 100%;
   padding: 10px 10px 8px;
   border-radius: 12px;
   text-decoration: none;
@@ -4626,12 +4630,21 @@ button.metric-hint-icon:focus-visible {
 
 .reports-cal-week-cell {
   padding: 4px;
-  vertical-align: middle;
+  vertical-align: stretch;
+  height: 1px;
   border-left: 1px solid var(--border);
 }
 
 .reports-cal-week-inner {
-  border-radius: 10px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 112px;
+  height: 100%;
+  border-radius: 12px;
   padding: 10px 8px;
   text-align: center;
   background: var(--bg-card-inner);

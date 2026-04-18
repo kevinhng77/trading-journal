@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { Link, useOutletContext, useSearchParams } from "react-router-dom";
 import { groupTradesByDate, formatMoney, pnlClass } from "../../storage/storage";
 import { useRawAndReportTrades } from "../../hooks/useReportViewTrades";
@@ -197,26 +197,24 @@ export default function ReportsCalendar() {
 
   const lastExpandedMonthKey = useRef(/** @type {string | null} */ (null));
 
-  useEffect(() => {
-    const scrollMonthIntoView = (key) => {
-      const el = document.getElementById(`reports-month-${key}`);
-      if (!el) return;
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          el.scrollIntoView({ behavior: "smooth", block: "start" });
-        });
-      });
-    };
+  useLayoutEffect(() => {
+    const elFor = (key) => document.getElementById(`reports-month-${key}`);
 
     if (openKey) {
       lastExpandedMonthKey.current = openKey;
-      scrollMonthIntoView(openKey);
+      requestAnimationFrame(() => {
+        elFor(openKey)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
       return;
     }
 
     const was = lastExpandedMonthKey.current;
     lastExpandedMonthKey.current = null;
-    if (was) scrollMonthIntoView(was);
+    if (!was) return;
+    /** After collapse, keep the month card in view without jumping (avoid `block: "start"` overscroll). */
+    requestAnimationFrame(() => {
+      elFor(was)?.scrollIntoView({ behavior: "instant", block: "nearest", inline: "nearest" });
+    });
   }, [openKey]);
 
   const months = Array.from({ length: 12 }, (_, m) => {
