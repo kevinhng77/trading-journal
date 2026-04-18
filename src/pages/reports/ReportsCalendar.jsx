@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Link, useOutletContext, useSearchParams } from "react-router-dom";
 import { groupTradesByDate, formatMoney, pnlClass } from "../../storage/storage";
 import { useLiveTrades } from "../../hooks/useLiveTrades";
@@ -11,6 +11,18 @@ function parseYear(searchParams) {
   const y = Number(searchParams.get("year"));
   if (Number.isFinite(y) && y >= 1970 && y <= 2100) return y;
   return new Date().getFullYear();
+}
+
+/** `expand` query value: same key as month cards, `YYYY-M` with M = 0–11. Must match `selectedYear`. */
+function expandedMonthKeyFromSearch(searchParams, selectedYear) {
+  const raw = searchParams.get("expand");
+  if (!raw) return null;
+  const m = /^(\d{4})-(\d{1,2})$/.exec(String(raw).trim());
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  if (y !== selectedYear || mo < 0 || mo > 11) return null;
+  return `${y}-${mo}`;
 }
 
 function JournalGlyph({ className }) {
@@ -133,29 +145,54 @@ export default function ReportsCalendar() {
   const selectedYear = parseYear(searchParams);
 
   function setYear(y) {
-    setSearchParams({ year: String(y) });
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("year", String(y));
+        const ex = next.get("expand");
+        if (ex) {
+          const parsed = /^(\d{4})-\d{1,2}$/.exec(String(ex).trim());
+          if (parsed && Number(parsed[1]) !== y) next.delete("expand");
+        }
+        return next;
+      },
+      { replace: true },
+    );
   }
 
   function resetYearToCurrent() {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.delete("year");
+      next.delete("expand");
       return next;
     });
   }
 
   const calendarYear = new Date().getFullYear();
   const yearFromUrl = searchParams.get("year");
-  const canResetYear = Boolean(yearFromUrl) || selectedYear !== calendarYear;
+  const expandInUrl = Boolean(searchParams.get("expand"));
+  const canResetYear =
+    Boolean(yearFromUrl) || expandInUrl || selectedYear !== calendarYear;
 
   const yearChoices = [selectedYear - 2, selectedYear - 1, selectedYear];
 
   const filtered = filterTradesForReport(trades, applied);
   const grouped = groupTradesByDate(filtered);
-  const [openKey, setOpenKey] = useState(null);
+  const openKey = expandedMonthKeyFromSearch(searchParams, selectedYear);
 
   function toggleMonth(key) {
-    setOpenKey((prev) => (prev === key ? null : key));
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        const selY = parseYear(next);
+        const cur = expandedMonthKeyFromSearch(next, selY);
+        if (cur === key) next.delete("expand");
+        else next.set("expand", key);
+        return next;
+      },
+      { replace: true },
+    );
   }
 
   useEffect(() => {
