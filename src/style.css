@@ -201,8 +201,40 @@ body {
   gap: 8px;
 }
 
-.sidebar-footer > .theme-scheme-control {
-  display: none !important;
+.sidebar-settings-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(30, 36, 48, 0.95);
+  color: #cbd5e1;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.sidebar-settings-link:hover {
+  border-color: color-mix(in srgb, var(--accent-green) 45%, transparent);
+  color: #f1f5f9;
+  background: rgba(38, 46, 62, 0.98);
+}
+
+.sidebar-settings-link.active {
+  border-color: color-mix(in srgb, var(--accent-green) 40%, transparent);
+  color: #fff;
+  background: color-mix(in srgb, var(--accent-green) 12%, transparent);
+}
+
+.sidebar-settings-link-icon {
+  display: flex;
+  flex-shrink: 0;
+  opacity: 0.92;
 }
 
 .import-trades-actions {
@@ -211,6 +243,18 @@ body {
   align-items: stretch;
   gap: 8px;
   width: 100%;
+}
+
+.import-trades-actions--with-menu {
+  position: relative;
+}
+
+.import-source-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 40;
 }
 
 .import-trades-actions .import-btn {
