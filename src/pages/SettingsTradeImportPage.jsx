@@ -9,7 +9,7 @@ export default function SettingsTradeImportPage() {
       <p className="settings-layout-panel-lead">
         Fill timestamps, time zone handling, and how rows merge when you re-import CSVs. Open{" "}
         <Link className="settings-standalone-subpage-link" to="/import-trades">
-          Trade Settings (CSV import) →
+          Import trades (CSV) →
         </Link>
       </p>
 

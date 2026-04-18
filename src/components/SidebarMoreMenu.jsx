@@ -105,13 +105,13 @@ export default function SidebarMoreMenu() {
         aria-label="Quick menu"
       >
         <NavLink
-          to="/import-trades"
+          to="/settings/general"
           className="sidebar-settings-popover__item"
           role="menuitem"
           onClick={() => setOpen(false)}
         >
           <IconGear className="sidebar-settings-popover__icon" />
-          <span className="sidebar-settings-popover__label">Trade Settings</span>
+          <span className="sidebar-settings-popover__label">Settings</span>
         </NavLink>
         <div className="sidebar-settings-popover__theme" role="group" aria-label="Color theme">
           <span className="sidebar-settings-popover__theme-left">
@@ -128,7 +128,7 @@ export default function SidebarMoreMenu() {
       <button
         type="button"
         className="sidebar-more-menu-btn"
-        aria-label="Settings and import"
+        aria-label="Open account menu"
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((v) => !v)}
