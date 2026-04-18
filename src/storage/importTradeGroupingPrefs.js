@@ -11,7 +11,7 @@ export const IMPORT_GROUPING_OPTIONS = [
     id: "normal",
     title: "Normal",
     description:
-      "Group fills into trades by net position: a new trade starts when you are flat, and closes when shares return to flat. Open size at end of day stays in one trade.",
+      "Round-trip by net position per symbol across session dates: opens and closes merge into one trade dated on the flat day (e.g. multi-day swings). Still-open size stays on the last day with activity. Use this for Schwab / TOS CSV swings.",
   },
   {
     id: "merge",

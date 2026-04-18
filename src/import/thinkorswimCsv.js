@@ -6,6 +6,10 @@
  * fill; **`netCash`** (AMOUNT + misc + comm) remains for true cash impact and the trade detail “net incl.
  * row fees” line.
  *
+ * **Normal grouping** walks each symbol’s fills in chronological order (all session dates in the file) and
+ * merges a round trip into **one** journal trade dated on the **flat** day (closing session), including multi-day
+ * swings. **Merge** mode still aggregates by symbol **per session day** only.
+ *
  * **Detection order**
  * 1. Lines after a **Cash Balance**–style header until **Futures / Forex Statements** (normal export).
  * 2. If that yields **no** TRD rows, a **full-file scan** (same column shape) so spreadsheet saves still work.
@@ -311,7 +315,7 @@ function parseAccountTradeHistoryFills(lines) {
  * @param {{ preferCashTrdNetForPnl?: boolean }} [opts]
  */
 function buildTradeFromFills(group, date, symbol, tradeId, opts = {}) {
-  const sorted = [...group].sort((a, b) => a.time.localeCompare(b.time));
+  const sorted = [...group].sort(compareFillsChrono);
   let volume = 0;
   let pnl = 0;
   /** Cash TRD rows carry `ref`; ATH synthetic fills use `ref: ""`. Prefer TRD rows for P/L when both appear. */
@@ -353,6 +357,27 @@ function sortTradesDesc(a, b) {
   return c !== 0 ? c : a.symbol.localeCompare(b.symbol);
 }
 
+/** Chronological order for fills that may span multiple session dates. */
+function compareFillsChrono(a, b) {
+  const da = String(a.date ?? "");
+  const db = String(b.date ?? "");
+  const c = da.localeCompare(db);
+  if (c !== 0) return c;
+  return String(a.time ?? "").localeCompare(String(b.time ?? ""));
+}
+
+/** Deterministic trade id from fill ids so re-import updates the same row. */
+function stableRoundTripTradeId(symbol, fillsChrono) {
+  const keys = fillsChrono.map((f) => String(f.id ?? "")).sort();
+  let h = 2166136261 >>> 0;
+  const s = keys.join("\x1e");
+  for (let i = 0; i < s.length; i += 1) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return `tos-rt-${symbol}-${h.toString(16).padStart(8, "0")}`;
+}
+
 /**
  * @param {object[]} fills - parsed TRD fill rows (`date`, `symbol`, `time`, `side`, `quantity`, …)
  * @param {"merge" | "split" | "normal"} mode
@@ -383,18 +408,21 @@ export function groupFillsIntoTrades(fills, mode) {
     return trades;
   }
 
-  /* normal — round-trip by net position (BOT adds qty, SOLD subtracts) */
-  const byKey = new Map();
+  /*
+   * normal — round-trip by net position across all session dates per symbol.
+   * BOT adds shares, SOLD subtracts; when flat, one trade is emitted dated on the **closing** fill’s session
+   * (last chronological fill in that round trip). Still-open tails use the last activity date.
+   */
+  const bySymbol = new Map();
   for (const f of fills) {
-    const key = `${f.date}|${f.symbol}`;
-    if (!byKey.has(key)) byKey.set(key, []);
-    byKey.get(key).push(f);
+    const symbol = String(f.symbol ?? "").toUpperCase();
+    if (!symbol) continue;
+    if (!bySymbol.has(symbol)) bySymbol.set(symbol, []);
+    bySymbol.get(symbol).push(f);
   }
   const trades = [];
-  let seq = 0;
-  for (const [key, group] of byKey) {
-    const [date, symbol] = key.split("|");
-    group.sort((a, b) => a.time.localeCompare(b.time));
+  for (const [symbol, group] of bySymbol) {
+    group.sort(compareFillsChrono);
     let cur = [];
     let pos = 0;
     for (const f of group) {
@@ -405,17 +433,19 @@ export function groupFillsIntoTrades(fills, mode) {
       }
       pos += f.side === "BOT" ? f.quantity : -f.quantity;
       if (pos === 0) {
-        seq += 1;
+        const closeDate = cur[cur.length - 1].date;
+        const tradeId = stableRoundTripTradeId(symbol, cur);
         trades.push(
-          buildTradeFromFills(cur, date, symbol, `tos-${date}-${symbol}-r${seq}`, { preferCashTrdNetForPnl: true }),
+          buildTradeFromFills(cur, closeDate, symbol, tradeId, { preferCashTrdNetForPnl: true }),
         );
         cur = [];
       }
     }
     if (cur.length) {
-      seq += 1;
+      const lastDate = cur[cur.length - 1].date;
+      const tradeId = stableRoundTripTradeId(symbol, cur);
       trades.push(
-        buildTradeFromFills(cur, date, symbol, `tos-${date}-${symbol}-r${seq}`, { preferCashTrdNetForPnl: true }),
+        buildTradeFromFills(cur, lastDate, symbol, tradeId, { preferCashTrdNetForPnl: true }),
       );
     }
   }
