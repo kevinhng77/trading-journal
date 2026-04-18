@@ -181,13 +181,25 @@ export default function ReportsCalendar() {
   const grouped = groupTradesByDate(filtered);
   const openKey = expandedMonthKeyFromSearch(searchParams, selectedYear);
 
+  /** `window.scrollY` captured when user opens a month (before layout grows). */
+  const scrollYBeforeExpandRef = useRef(/** @type {number | null} */ (null));
+  /** True only when collapse came from the month Open/Active button (not e.g. year change clearing `expand`). */
+  const restoreScrollAfterCollapseRef = useRef(false);
+
   function toggleMonth(key) {
+    const cur = expandedMonthKeyFromSearch(searchParams, selectedYear);
+    if (cur === key) {
+      restoreScrollAfterCollapseRef.current = true;
+    } else {
+      scrollYBeforeExpandRef.current = window.scrollY;
+      restoreScrollAfterCollapseRef.current = false;
+    }
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
         const selY = parseYear(next);
-        const cur = expandedMonthKeyFromSearch(next, selY);
-        if (cur === key) next.delete("expand");
+        const curFromPrev = expandedMonthKeyFromSearch(next, selY);
+        if (curFromPrev === key) next.delete("expand");
         else next.set("expand", key);
         return next;
       },
@@ -195,26 +207,24 @@ export default function ReportsCalendar() {
     );
   }
 
-  const lastExpandedMonthKey = useRef(/** @type {string | null} */ (null));
-
   useLayoutEffect(() => {
-    const elFor = (key) => document.getElementById(`reports-month-${key}`);
-
     if (openKey) {
-      lastExpandedMonthKey.current = openKey;
       requestAnimationFrame(() => {
-        elFor(openKey)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        document.getElementById(`reports-month-${openKey}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
       return;
     }
 
-    const was = lastExpandedMonthKey.current;
-    lastExpandedMonthKey.current = null;
-    if (!was) return;
-    /** After collapse, keep the month card in view without jumping (avoid `block: "start"` overscroll). */
-    requestAnimationFrame(() => {
-      elFor(was)?.scrollIntoView({ behavior: "instant", block: "nearest", inline: "nearest" });
-    });
+    if (restoreScrollAfterCollapseRef.current) {
+      restoreScrollAfterCollapseRef.current = false;
+      const y = scrollYBeforeExpandRef.current;
+      scrollYBeforeExpandRef.current = null;
+      if (y != null && Number.isFinite(y)) {
+        window.scrollTo({ top: y, left: 0, behavior: "instant" });
+      }
+    } else {
+      scrollYBeforeExpandRef.current = null;
+    }
   }, [openKey]);
 
   const months = Array.from({ length: 12 }, (_, m) => {

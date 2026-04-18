@@ -139,7 +139,6 @@ function Journal() {
     }
     window.addEventListener(TRADE_NOTES_CHANGED_EVENT, bump);
     window.addEventListener(ACCOUNT_CHANGED_EVENT, onAccount);
-    window.addEventListener("focus", bump);
     function onStorage(/** @type {StorageEvent} */ e) {
       if (e.key && e.key.startsWith("tradingJournalTradeNotes")) bump();
     }
@@ -147,7 +146,6 @@ function Journal() {
     return () => {
       window.removeEventListener(TRADE_NOTES_CHANGED_EVENT, bump);
       window.removeEventListener(ACCOUNT_CHANGED_EVENT, onAccount);
-      window.removeEventListener("focus", bump);
       window.removeEventListener("storage", onStorage);
     };
   }, []);

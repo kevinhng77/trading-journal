@@ -1,13 +1,10 @@
-import { useMemo } from "react";
-import { prepareTradesForReportView } from "../lib/logicalRoundTripTrades.js";
 import { useLiveTrades } from "./useLiveTrades";
 
 /**
- * Raw stored trades plus FIFO regrouping across session days for calendar, journal, reports, and
- * merged trade detail. The Trades table should use {@link useLiveTrades} only so row ids match storage.
+ * Calendar, journal, reports, and trade detail use each stored trade row as imported (TRD session
+ * `date` + `pnl`). The Trades table uses {@link useLiveTrades} only so row ids match storage.
  */
 export function useRawAndReportTrades() {
   const rawTrades = useLiveTrades();
-  const reportTrades = useMemo(() => prepareTradesForReportView(rawTrades), [rawTrades]);
-  return { rawTrades, reportTrades };
+  return { rawTrades, reportTrades: rawTrades };
 }

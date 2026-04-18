@@ -19,7 +19,6 @@ import {
   saveChartIndicatorPrefs,
 } from "../storage/chartIndicatorPrefs";
 import { useRawAndReportTrades } from "../hooks/useReportViewTrades";
-import { logicalTradeForStoredTrade } from "../lib/logicalRoundTripTrades";
 import ChartIndicatorsModal from "../components/ChartIndicatorsModal";
 const TradeExecutionChart = lazy(() => import("../components/TradeExecutionChart.jsx"));
 import TradeNotesEditor from "../components/TradeNotesEditor";
@@ -80,34 +79,12 @@ function formatSessionIso(iso) {
 export default function TradeDetail() {
   const { tradeId: tradeIdParam } = useParams();
   const navigate = useNavigate();
-  const { rawTrades, reportTrades } = useRawAndReportTrades();
+  const { rawTrades } = useRawAndReportTrades();
 
-  const rawTrade = useMemo(
-    () => findTradeByParam(rawTrades, tradeIdParam ?? ""),
+  const trade = useMemo(
+    () => findTradeByParam(rawTrades, tradeIdParam ?? "") ?? null,
     [rawTrades, tradeIdParam],
   );
-
-  const viewTrade = useMemo(
-    () => findTradeByParam(reportTrades, tradeIdParam ?? ""),
-    [reportTrades, tradeIdParam],
-  );
-
-  const spanning = useMemo(
-    () => (rawTrade ? logicalTradeForStoredTrade(rawTrades, rawTrade) : null),
-    [rawTrades, rawTrade],
-  );
-
-  const trade = useMemo(() => {
-    if (viewTrade) return viewTrade;
-    if (
-      spanning &&
-      rawTrade &&
-      (spanning.fills?.length ?? 0) > (rawTrade.fills?.length ?? 0)
-    ) {
-      return spanning;
-    }
-    return rawTrade ?? null;
-  }, [viewTrade, spanning, rawTrade]);
 
   const [roundTripsExpanded, setRoundTripsExpanded] = useState(false);
 
@@ -266,8 +243,8 @@ export default function TradeDetail() {
   }, []);
 
   const { prev, next } = useMemo(
-    () => (tidNav ? neighborTradeIds(reportTrades, tidNav) : { prev: null, next: null }),
-    [reportTrades, tidNav],
+    () => (tidNav ? neighborTradeIds(rawTrades, tidNav) : { prev: null, next: null }),
+    [rawTrades, tidNav],
   );
 
   const allTagSuggestions = useMemo(() => collectAllTagsFromTrades(rawTrades), [rawTrades]);

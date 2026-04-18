@@ -49,7 +49,6 @@ function contributorTradesForLogical(logical, storedList) {
     if (String(t.symbol ?? "").trim().toUpperCase() !== sym) return false;
     const tIds = (t.fills ?? []).map((f) => String(f.id ?? "")).filter(Boolean);
     if (tIds.length === 0) return false;
-    const tSet = new Set(tIds);
     return tIds.every((id) => lFillIds.has(id));
   });
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { visiblePageNumbers } from "../lib/pagination";
 import { Link, useLocation } from "react-router-dom";
 import {
@@ -158,6 +158,7 @@ function Trades() {
   /** @type {["" | "merge" | "splitTrades" | "delete", import("react").Dispatch<import("react").SetStateAction<"" | "merge" | "splitTrades" | "delete">>]} */
   const [bulkAction, setBulkAction] = useState("");
   const [tradeNotesRev, setTradeNotesRev] = useState(0);
+  const chartWarmRef = useRef(false);
 
   useEffect(() => {
     function bump() {
@@ -165,7 +166,6 @@ function Trades() {
     }
     window.addEventListener(TRADE_NOTES_CHANGED_EVENT, bump);
     window.addEventListener(ACCOUNT_CHANGED_EVENT, bump);
-    window.addEventListener("focus", bump);
     function onStorage(/** @type {StorageEvent} */ e) {
       if (e.key && e.key.startsWith("tradingJournalTradeNotes")) bump();
     }
@@ -173,9 +173,14 @@ function Trades() {
     return () => {
       window.removeEventListener(TRADE_NOTES_CHANGED_EVENT, bump);
       window.removeEventListener(ACCOUNT_CHANGED_EVENT, bump);
-      window.removeEventListener("focus", bump);
       window.removeEventListener("storage", onStorage);
     };
+  }, []);
+
+  const warmTradeChartOnce = useCallback(() => {
+    if (chartWarmRef.current) return;
+    chartWarmRef.current = true;
+    void prefetchTradeExecutionChart();
   }, []);
 
   useEffect(() => {
@@ -332,7 +337,7 @@ function Trades() {
         symbolPlaceholder="Symbol"
       />
 
-      <div className="card table-card trades-table-card">
+      <div className="card table-card trades-table-card" onPointerEnter={warmTradeChartOnce}>
         {selected.size > 0 ? (
           <div className="trades-bulk-bar" role="region" aria-label="Bulk actions for selected trades">
             <div className="trades-bulk-bar-row">
@@ -429,9 +434,6 @@ function Trades() {
                   className="trades-row-trade-link"
                   to={`/trades/${encodeURIComponent(rowId)}`}
                   aria-label={`Open trade ${trade.symbol} ${trade.date}`}
-                  onPointerEnter={() => {
-                    void prefetchTradeExecutionChart();
-                  }}
                 >
                   <div>{formatTradeTableDate(trade.date)}</div>
                   <div className="trades-symbol">{trade.symbol}</div>
