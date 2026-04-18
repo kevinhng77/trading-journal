@@ -31,9 +31,10 @@ function pctFromTradesOnStart(start, tradePnl) {
   return (tradePnl / start) * 100;
 }
 
-export default function ReportsTable() {
+/** @param {{ appliedReportFilters?: object }} [props] */
+export default function ReportsTable(props = {}) {
   const ctx = useOutletContext() ?? {};
-  const applied = ctx.appliedReportFilters ?? DEFAULT_REPORT_FILTERS;
+  const applied = props.appliedReportFilters ?? ctx.appliedReportFilters ?? DEFAULT_REPORT_FILTERS;
   const trades = useLiveTrades();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedYear = parseYear(searchParams);
@@ -138,7 +139,7 @@ export default function ReportsTable() {
 
       <p className="reports-table-hint">
         Start, end, and wire-out are saved in this browser only. <strong>P&amp;L (trades)</strong> uses your imported
-        trades and the same filters as the rest of Reports (the strip above).
+        trades and the filters from the strip above (shared with Reports).
       </p>
 
       <div className="card reports-table-card">

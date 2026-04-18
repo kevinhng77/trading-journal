@@ -1,11 +1,11 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import ShellLayout from "./components/ShellLayout";
 import Dashboard from "./pages/Dashboard";
 import ReportsLayout from "./pages/reports/ReportsLayout";
 import ReportsOverview from "./pages/reports/ReportsOverview";
 import ReportsDetailed from "./pages/reports/ReportsDetailed";
 import ReportsCalendar from "./pages/reports/ReportsCalendar";
-import ReportsTable from "./pages/reports/ReportsTable";
+import BalanceTablePage from "./pages/BalanceTablePage";
 import ReportsWinLossDays from "./pages/reports/ReportsWinLossDays";
 import ReportsDrawdown from "./pages/reports/ReportsDrawdown";
 import ReportsCompare from "./pages/reports/ReportsCompare";
@@ -19,6 +19,11 @@ import Playbook from "./pages/Playbook";
 import TradeImportSettingsPage from "./pages/TradeImportSettingsPage";
 import SettingsPage from "./pages/SettingsPage";
 
+function LegacyReportsTableRedirect() {
+  const { search } = useLocation();
+  return <Navigate to={`/balance-table${search}`} replace />;
+}
+
 function App() {
   return (
     <Routes>
@@ -26,10 +31,10 @@ function App() {
       <Route path="/settings" element={<SettingsPage />} />
       <Route element={<ShellLayout />}>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/reports/table" element={<LegacyReportsTableRedirect />} />
         <Route path="/reports" element={<ReportsLayout />}>
           <Route index element={<ReportsOverview />} />
           <Route path="detailed" element={<ReportsDetailed />} />
-          <Route path="table" element={<ReportsTable />} />
           <Route path="calendar" element={<ReportsCalendar />} />
           <Route path="win-loss-days" element={<ReportsWinLossDays />} />
           <Route path="drawdown" element={<ReportsDrawdown />} />
@@ -42,6 +47,7 @@ function App() {
         <Route path="/journal" element={<Journal />} />
         <Route path="/star" element={<StarReview />} />
         <Route path="/playbook" element={<Playbook />} />
+        <Route path="/balance-table" element={<BalanceTablePage />} />
       </Route>
     </Routes>
   );

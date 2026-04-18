@@ -1,19 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { NavLink, Outlet, useSearchParams } from "react-router-dom";
-import { useLiveTrades } from "../../hooks/useLiveTrades";
-import { buildSetupFilterSuggestions, collectAllTagsFromTrades } from "../../lib/tradeTags";
-import { usePlaybookPlayNames } from "../../hooks/usePlaybookPlayNames";
-import { DEFAULT_REPORT_FILTERS } from "../../lib/reportFilters";
-import { REPORT_FILTERS_DATES_EVENT } from "../../lib/reportFilterEvents";
-import ReportsFilterStrip from "../../components/ReportsFilterStrip";
-import { REPORTS_DURATION_OPTIONS } from "../../lib/tradeDuration";
+import { useSearchParams } from "react-router-dom";
+import { useLiveTrades } from "../hooks/useLiveTrades";
+import { buildSetupFilterSuggestions, collectAllTagsFromTrades } from "../lib/tradeTags";
+import { usePlaybookPlayNames } from "../hooks/usePlaybookPlayNames";
+import { DEFAULT_REPORT_FILTERS } from "../lib/reportFilters";
+import { REPORT_FILTERS_DATES_EVENT } from "../lib/reportFilterEvents";
+import ReportsFilterStrip from "../components/ReportsFilterStrip";
+import { REPORTS_DURATION_OPTIONS } from "../lib/tradeDuration";
 import {
   clearPersistedReportFilters,
   loadPersistedReportFilters,
   savePersistedReportFilters,
-} from "../../storage/reportFiltersPersist";
+} from "../storage/reportFiltersPersist";
+import ReportsTable from "./reports/ReportsTable";
 
-export default function ReportsLayout() {
+export default function BalanceTablePage() {
   const trades = useLiveTrades();
   const allTags = useMemo(() => collectAllTagsFromTrades(trades), [trades]);
   const playbookPlayNames = usePlaybookPlayNames();
@@ -39,9 +40,9 @@ export default function ReportsLayout() {
     savePersistedReportFilters(next);
     setSearchParams(
       (prev) => {
-        const next = new URLSearchParams(prev);
-        next.delete("tag");
-        return next;
+        const nextParams = new URLSearchParams(prev);
+        nextParams.delete("tag");
+        return nextParams;
       },
       { replace: true },
     );
@@ -72,7 +73,7 @@ export default function ReportsLayout() {
   return (
     <div className="page-wrap reports-page">
       <div className="page-header reports-page-header">
-        <h1>Reports</h1>
+        <h1>Balance table</h1>
       </div>
 
       <ReportsFilterStrip
@@ -85,52 +86,7 @@ export default function ReportsLayout() {
         durationOptions={REPORTS_DURATION_OPTIONS}
       />
 
-      <div className="reports-primary-tabs">
-        <NavLink to="/reports" end className={({ isActive }) => `reports-primary-tab ${isActive ? "active" : ""}`}>
-          Overview
-        </NavLink>
-        <NavLink
-          to="/reports/detailed"
-          className={({ isActive }) => `reports-primary-tab ${isActive ? "active" : ""}`}
-        >
-          Detailed
-        </NavLink>
-        <NavLink
-          to="/reports/win-loss-days"
-          className={({ isActive }) => `reports-primary-tab ${isActive ? "active" : ""}`}
-        >
-          Win vs Loss Days
-        </NavLink>
-        <NavLink
-          to="/reports/drawdown"
-          className={({ isActive }) => `reports-primary-tab ${isActive ? "active" : ""}`}
-        >
-          Drawdown
-        </NavLink>
-        <NavLink to="/reports/compare" className={({ isActive }) => `reports-primary-tab ${isActive ? "active" : ""}`}>
-          Compare
-        </NavLink>
-        <NavLink
-          to="/reports/tag-breakdown"
-          className={({ isActive }) => `reports-primary-tab ${isActive ? "active" : ""}`}
-        >
-          Tag Breakdown
-        </NavLink>
-        <NavLink
-          to="/reports/advanced"
-          className={({ isActive }) => `reports-primary-tab ${isActive ? "active" : ""}`}
-        >
-          Advanced
-        </NavLink>
-      </div>
-
-      <Outlet
-        context={{
-          appliedReportFilters,
-          allTags,
-          allSetups,
-        }}
-      />
+      <ReportsTable appliedReportFilters={appliedReportFilters} />
     </div>
   );
 }

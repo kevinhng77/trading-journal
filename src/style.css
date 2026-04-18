@@ -5156,7 +5156,7 @@ a.journal-row-trade-link:visited {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 22px;
-  align-items: stretch;
+  align-items: start;
 }
 
 @media (max-width: 960px) {
@@ -5179,6 +5179,10 @@ a.journal-row-trade-link:visited {
   min-height: 360px;
 }
 
+.trade-detail-stats {
+  min-height: 0;
+}
+
 .trade-detail-stats .trade-detail-section-title,
 .trade-detail-notes-panel .trade-detail-section-title {
   flex-shrink: 0;
@@ -5186,7 +5190,7 @@ a.journal-row-trade-link:visited {
 }
 
 .trade-detail-stats .trade-detail-stat-grid {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
 }
 
@@ -5252,18 +5256,22 @@ a.journal-row-trade-link:visited {
 }
 
 .trade-detail-roundtrips {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
   gap: 10px;
   margin-top: 14px;
   min-height: 0;
+  align-content: start;
 }
 
 .trade-detail-roundtrip-card {
-  padding: 14px 16px;
+  padding: 12px 14px;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(0, 0, 0, 0.22);
+  min-width: 0;
+  container-type: inline-size;
+  container-name: trade-roundtrip;
 }
 
 .trade-detail-roundtrip-head {
@@ -5297,6 +5305,12 @@ a.journal-row-trade-link:visited {
   gap: 10px 14px;
   font-size: 13px;
   line-height: 1.35;
+}
+
+@container trade-roundtrip (max-width: 210px) {
+  .trade-detail-roundtrip-body {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 520px) {
