@@ -27,12 +27,8 @@ import {
   captureDomElementAsPngBlob,
   stackPngBlobsVertical,
 } from "../lib/chartImageCapture";
-import {
-  computeFillReplayStats,
-  tradeFeesPaid,
-  tradeGrossPnl,
-  tradeNetPnl,
-} from "../lib/tradeExecutionMetrics";
+import { tradeFeesPaid, tradeGrossPnl, tradeNetPnl } from "../lib/tradeExecutionMetrics";
+import { roundTripLegSummariesFromFills } from "../lib/fillRoundTrips";
 import { formatChartIntervalLabel } from "../lib/chartIntervals";
 import { formatPlaybookTradeTag } from "../lib/formatPlaybookTradeTag";
 import { loadTradeAnnotationNotes, saveTradeAnnotationNotes } from "../storage/tradeAnnotationNotes";
@@ -42,13 +38,10 @@ import {
   saveTradeChartRiskLines,
 } from "../storage/tradeChartRiskLines";
 import { loadTradeChartTrendlines, saveTradeChartTrendlines } from "../storage/tradeChartTrendlines";
-import { visiblePageNumbers } from "../lib/pagination";
 import MetricHintIcon from "../components/MetricHintIcon";
 import { TRADE_SNAPSHOT_HINTS } from "../lib/metricHints";
 import StarToggle from "../components/StarToggle";
 import { useStarred } from "../hooks/useStarred";
-
-const EXECUTIONS_PAGE_SIZE = 15;
 
 /** @param {{ hintKey: string, children: import("react").ReactNode }} props */
 function SnapshotDt({ hintKey, children }) {
@@ -60,90 +53,6 @@ function SnapshotDt({ hintKey, children }) {
         {hint ? <MetricHintIcon text={hint} /> : null}
       </span>
     </dt>
-  );
-}
-
-/** Paginated executions table; remount with key when trade changes to reset page. */
-function TradeExecutionsTable({ fills }) {
-  const [page, setPage] = useState(1);
-  const totalPages = Math.max(1, Math.ceil(fills.length / EXECUTIONS_PAGE_SIZE));
-  const pageClamped = Math.min(page, totalPages);
-  const offset = (pageClamped - 1) * EXECUTIONS_PAGE_SIZE;
-  const slice = useMemo(
-    () => fills.slice(offset, offset + EXECUTIONS_PAGE_SIZE),
-    [fills, offset],
-  );
-  const pageItems = useMemo(
-    () => visiblePageNumbers(totalPages, pageClamped),
-    [totalPages, pageClamped],
-  );
-
-  return (
-    <>
-      <div className="table-card inner-table">
-        <div className="table-header trade-detail-fill-grid">
-          <div>Time</div>
-          <div>Side</div>
-          <div>Qty</div>
-          <div>Price</div>
-        </div>
-        {slice.map((f) => (
-          <div
-            key={f.id != null && String(f.id) !== "" ? String(f.id) : `${f.time}|${f.side}|${f.quantity}|${f.price}`}
-            className="table-row trade-detail-fill-grid"
-          >
-            <div className="journal-time-cell">{f.time}</div>
-            <div>{f.side}</div>
-            <div>{f.quantity}</div>
-            <div>{f.price}</div>
-          </div>
-        ))}
-      </div>
-      {fills.length > EXECUTIONS_PAGE_SIZE && (
-        <nav className="trade-detail-fills-pagination" aria-label="Executions pages">
-          <button
-            type="button"
-            className="trade-detail-fills-page-btn trade-detail-fills-page-btn--nav"
-            disabled={pageClamped <= 1}
-            onClick={() => setPage(pageClamped - 1)}
-            aria-label="Previous page"
-          >
-            ‹
-          </button>
-          {pageItems.map((item, i) =>
-            item === "ellipsis" ? (
-              <span key={`e-${i}`} className="trade-detail-fills-page-ellipsis" aria-hidden>
-                …
-              </span>
-            ) : (
-              <button
-                key={item}
-                type="button"
-                className={
-                  item === pageClamped
-                    ? "trade-detail-fills-page-btn trade-detail-fills-page-btn--active"
-                    : "trade-detail-fills-page-btn"
-                }
-                onClick={() => setPage(item)}
-                aria-label={`Page ${item}`}
-                aria-current={item === pageClamped ? "page" : undefined}
-              >
-                {item}
-              </button>
-            ),
-          )}
-          <button
-            type="button"
-            className="trade-detail-fills-page-btn trade-detail-fills-page-btn--nav"
-            disabled={pageClamped >= totalPages}
-            onClick={() => setPage(pageClamped + 1)}
-            aria-label="Next page"
-          >
-            ›
-          </button>
-        </nav>
-      )}
-    </>
   );
 }
 
@@ -173,7 +82,10 @@ export default function TradeDetail() {
     [trades, tradeIdParam],
   );
 
-  const replay = useMemo(() => (trade ? computeFillReplayStats(trade) : null), [trade]);
+  const roundTripLegs = useMemo(
+    () => (trade ? roundTripLegSummariesFromFills(trade.fills) : []),
+    [trade],
+  );
   const feesPaid = useMemo(() => (trade ? tradeFeesPaid(trade) : 0), [trade]);
   const grossPnl = useMemo(() => (trade ? tradeGrossPnl(trade) : 0), [trade]);
   const netPnl = useMemo(() => (trade ? tradeNetPnl(trade) : 0), [trade]);
@@ -455,13 +367,6 @@ export default function TradeDetail() {
   }
 
   const fills = trade.fills ?? [];
-  const pxMfeMae =
-    replay &&
-    replay.maxAbsShares > 0 &&
-    replay.mfeDollars != null &&
-    replay.maeDollars != null
-      ? `${(replay.mfeDollars / replay.maxAbsShares).toFixed(4)} / ${(-replay.maeDollars / replay.maxAbsShares).toFixed(4)}`
-      : "—";
 
   return (
     <div className="page-wrap trade-detail-page">
@@ -579,39 +484,53 @@ export default function TradeDetail() {
                 {hasFeeCols ? formatMoney(-feesPaid) : "—"}
               </dd>
             </div>
-            <div className="trade-detail-stat-cell">
-              <SnapshotDt hintKey="fillCount">Fill count</SnapshotDt>
-              <dd>{trade.executions}</dd>
-            </div>
-            <div className="trade-detail-stat-cell">
-              <SnapshotDt hintKey="bestExitPnl">Best exit P&amp;L</SnapshotDt>
-              <dd className={replay?.bestExitDollars != null ? pnlClass(replay.bestExitDollars) : "trades-cell-muted"}>
-                {replay?.bestExitDollars != null ? formatMoney(replay.bestExitDollars) : "—"}
-              </dd>
-            </div>
-            <div className="trade-detail-stat-cell">
-              <SnapshotDt hintKey="positionMfe">Position MFE</SnapshotDt>
-              <dd className={replay?.mfeDollars != null ? "green" : "trades-cell-muted"}>
-                {replay?.mfeDollars != null ? formatMoney(replay.mfeDollars) : "—"}
-              </dd>
-            </div>
-            <div className="trade-detail-stat-cell">
-              <SnapshotDt hintKey="positionMae">Position MAE</SnapshotDt>
-              <dd className={replay?.maeDollars != null ? "red" : "trades-cell-muted"}>
-                {replay?.maeDollars != null ? formatMoney(-replay.maeDollars) : "—"}
-              </dd>
-            </div>
-            <div className="trade-detail-stat-cell">
-              <SnapshotDt hintKey="priceMfeMae">Price MFE / MAE</SnapshotDt>
-              <dd className={pxMfeMae === "—" ? "trades-cell-muted" : ""}>{pxMfeMae}</dd>
-            </div>
-            <div className="trade-detail-stat-cell">
-              <SnapshotDt hintKey="exitEfficiency">Exit efficiency</SnapshotDt>
-              <dd className="trades-cell-muted">
-                {replay?.exitEfficiency != null ? `${(replay.exitEfficiency * 100).toFixed(0)}%` : "—"}
-              </dd>
-            </div>
           </dl>
+          {roundTripLegs.length > 0 ? (
+            <div className="trade-detail-roundtrips" aria-label="Round trips from executions">
+              {roundTripLegs.map((leg) => (
+                <div key={leg.legIndex} className="trade-detail-roundtrip-card">
+                  <div className="trade-detail-roundtrip-head">
+                    <span className="trade-detail-roundtrip-title">Trade {leg.legIndex + 1}</span>
+                    {leg.isOpen ? (
+                      <span className="trade-detail-roundtrip-badge">Open</span>
+                    ) : null}
+                  </div>
+                  <div className="trade-detail-roundtrip-body">
+                    <span className="trade-detail-roundtrip-kv">
+                      <span className="trade-detail-roundtrip-k">Avg entry</span>
+                      <span className="trade-detail-roundtrip-v">
+                        {leg.avgEntry != null && Number.isFinite(leg.avgEntry)
+                          ? `$${leg.avgEntry.toFixed(leg.avgEntry >= 100 ? 2 : 4)}`
+                          : "—"}
+                      </span>
+                    </span>
+                    <span className="trade-detail-roundtrip-kv">
+                      <span className="trade-detail-roundtrip-k">Avg exit</span>
+                      <span className="trade-detail-roundtrip-v">
+                        {leg.avgExit != null && Number.isFinite(leg.avgExit)
+                          ? `$${leg.avgExit.toFixed(leg.avgExit >= 100 ? 2 : 4)}`
+                          : "—"}
+                      </span>
+                    </span>
+                    <span className="trade-detail-roundtrip-kv">
+                      <span className="trade-detail-roundtrip-k">P&amp;L</span>
+                      <span className={`trade-detail-roundtrip-v ${leg.pnl != null ? pnlClass(leg.pnl) : "trades-cell-muted"}`}>
+                        {leg.pnl != null && Number.isFinite(leg.pnl) ? formatMoney(leg.pnl) : "—"}
+                      </span>
+                    </span>
+                    <span className="trade-detail-roundtrip-kv">
+                      <span className="trade-detail-roundtrip-k">Share size</span>
+                      <span className="trade-detail-roundtrip-v">{leg.shareSize > 0 ? leg.shareSize : "—"}</span>
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : fills.length > 0 ? (
+            <p className="trade-detail-roundtrips-empty trades-cell-muted">
+              No BOT/SOLD legs detected in fills to list round trips.
+            </p>
+          ) : null}
         </section>
 
         <section className="card trade-detail-notes-panel">
@@ -842,17 +761,6 @@ export default function TradeDetail() {
         />
       </section>
       </div>
-
-      {fills.length > 0 && (
-        <section className="card trade-detail-fills">
-          <h2 className="trade-detail-section-title">Imported fills</h2>
-          <p className="trade-detail-fills-hint">
-            On intraday charts, vertical tints mark each complete round trip (shares return to flat); open size at the
-            end of the sequence is not tinted. Toggle shading and colors under chart Executions (⚙).
-          </p>
-          <TradeExecutionsTable key={tid} fills={fills} />
-        </section>
-      )}
     </div>
   );
 }

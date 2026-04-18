@@ -5167,8 +5167,7 @@ a.journal-row-trade-link:visited {
 
 .trade-detail-stats,
 .trade-detail-notes-panel,
-.trade-detail-chart-section,
-.trade-detail-fills {
+.trade-detail-chart-section {
   padding: 16px 18px;
 }
 
@@ -5250,6 +5249,86 @@ a.journal-row-trade-link:visited {
 .trade-detail-stat-locked dd {
   color: var(--muted);
   font-weight: 600;
+}
+
+.trade-detail-roundtrips {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+  min-height: 0;
+}
+
+.trade-detail-roundtrip-card {
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.trade-detail-roundtrip-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.trade-detail-roundtrip-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.02em;
+}
+
+.trade-detail-roundtrip-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(130, 165, 210, 0.45);
+  color: var(--muted);
+  background: rgba(37, 43, 56, 0.9);
+}
+
+.trade-detail-roundtrip-body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 14px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+@media (max-width: 520px) {
+  .trade-detail-roundtrip-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+.trade-detail-roundtrip-kv {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.trade-detail-roundtrip-k {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.01em;
+}
+
+.trade-detail-roundtrip-v {
+  font-weight: 700;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.trade-detail-roundtrips-empty {
+  margin: 14px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 .trade-detail-notes-input {
@@ -7572,17 +7651,6 @@ a.journal-row-trade-link:visited {
   border-radius: 4px;
   background: rgba(0, 0, 0, 0.35);
   color: #cbd5e1;
-}
-
-.trade-detail-fills-hint {
-  font-size: 13px;
-  color: var(--muted);
-  margin: -6px 0 14px;
-  line-height: 1.45;
-}
-
-.trade-detail-fill-grid {
-  grid-template-columns: 100px 72px 64px minmax(80px, 1fr);
 }
 
 .trade-detail-fills-pagination {

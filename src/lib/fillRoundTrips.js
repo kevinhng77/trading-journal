@@ -103,3 +103,107 @@ export function completedRoundTripUnixSpans(fills, fillToUnix) {
 
   return out;
 }
+
+/**
+ * VWAP of shares added vs reduced within one chronological fill list (one flat→flat leg
+ * or an open tail). Handles scale-in/out and same-fill flips (e.g. long → short).
+ * @param {object[]} fillsChrono
+ * @returns {{ avgEntry: number|null, avgExit: number|null, shareSize: number }}
+ */
+function roundTripEntryExitMetrics(fillsChrono) {
+  let pos = 0;
+  let openNotional = 0;
+  let openQty = 0;
+  let closeNotional = 0;
+  let closeQty = 0;
+  let maxAbs = 0;
+
+  for (const f of fillsChrono) {
+    const p = Number(f.price);
+    const q = Math.abs(Number(f.quantity));
+    const side = String(f.side || "").toUpperCase();
+    const delta =
+      side === "BOT" || side === "BUY"
+        ? q
+        : side === "SOLD" || side === "SLD" || side === "SELL"
+          ? -q
+          : 0;
+    if (!Number.isFinite(p) || delta === 0) continue;
+
+    let rem = delta;
+
+    if (pos !== 0 && rem !== 0 && Math.sign(rem) !== Math.sign(pos)) {
+      const closeAmount = Math.min(Math.abs(pos), Math.abs(rem));
+      closeNotional += closeAmount * p;
+      closeQty += closeAmount;
+      pos += Math.sign(rem) * closeAmount;
+      rem -= Math.sign(rem) * closeAmount;
+    }
+
+    if (rem !== 0) {
+      openNotional += Math.abs(rem) * p;
+      openQty += Math.abs(rem);
+      pos += rem;
+    }
+
+    maxAbs = Math.max(maxAbs, Math.abs(pos));
+  }
+
+  return {
+    avgEntry: openQty > 0 ? openNotional / openQty : null,
+    avgExit: closeQty > 0 ? closeNotional / closeQty : null,
+    shareSize: maxAbs,
+  };
+}
+
+/**
+ * One row per completed round trip (flat → flat), plus a final row if the position
+ * is still open. Used on the trade detail snapshot.
+ *
+ * @param {object[] | undefined} fills
+ * @returns {{ legIndex: number, isOpen: boolean, avgEntry: number|null, avgExit: number|null, shareSize: number, pnl: number|null }[]}
+ */
+export function roundTripLegSummariesFromFills(fills) {
+  const sorted = [...(fills || [])].sort((a, b) => String(a.time ?? "").localeCompare(String(b.time ?? "")));
+  let pos = 0;
+  /** @type {object[]} */
+  let cur = [];
+  /** @type {{ legIndex: number, isOpen: boolean, avgEntry: number|null, avgExit: number|null, shareSize: number, pnl: number|null }[]} */
+  const out = [];
+  let legIndex = 0;
+
+  for (const f of sorted) {
+    const delta = fillSignedQtyDelta(f);
+    if (delta === 0) continue;
+    if (pos === 0) cur = [];
+    cur.push(f);
+    pos += delta;
+    if (pos === 0 && cur.length) {
+      const m = roundTripEntryExitMetrics(cur);
+      const pnl = roundTripFifoRealizedPnlUsd(cur);
+      out.push({
+        legIndex: legIndex++,
+        isOpen: false,
+        avgEntry: m.avgEntry != null ? Math.round(m.avgEntry * 1e6) / 1e6 : null,
+        avgExit: m.avgExit != null ? Math.round(m.avgExit * 1e6) / 1e6 : null,
+        shareSize: Math.round(m.shareSize),
+        pnl: Number.isFinite(pnl) ? pnl : null,
+      });
+      cur = [];
+    }
+  }
+
+  if (cur.length > 0) {
+    const m = roundTripEntryExitMetrics(cur);
+    out.push({
+      legIndex: legIndex++,
+      isOpen: true,
+      avgEntry: m.avgEntry != null ? Math.round(m.avgEntry * 1e6) / 1e6 : null,
+      avgExit: m.avgExit != null ? Math.round(m.avgExit * 1e6) / 1e6 : null,
+      shareSize: Math.round(m.shareSize),
+      pnl: null,
+    });
+  }
+
+  return out;
+}
