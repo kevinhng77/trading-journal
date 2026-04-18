@@ -16,7 +16,6 @@ import {
 } from "../storage/chartIndicatorPrefs";
 import { useLiveTrades } from "../hooks/useLiveTrades";
 import ChartIndicatorsModal from "../components/ChartIndicatorsModal";
-import ChartPresetsDropdown from "../components/ChartPresetsDropdown";
 const TradeExecutionChart = lazy(() => import("../components/TradeExecutionChart.jsx"));
 import TradeNotesEditor from "../components/TradeNotesEditor";
 import TradeTagsEditor from "../components/TradeTagsEditor";
@@ -31,13 +30,11 @@ import { tradeFeesPaid, tradeGrossPnl, tradeNetPnl } from "../lib/tradeExecution
 import { roundTripLegSummariesFromFills } from "../lib/fillRoundTrips";
 import { formatChartIntervalLabel } from "../lib/chartIntervals";
 import { formatPlaybookTradeTag } from "../lib/formatPlaybookTradeTag";
-import { loadTradeAnnotationNotes, saveTradeAnnotationNotes } from "../storage/tradeAnnotationNotes";
 import {
   loadTradeChartRiskLinesRaw,
   migrateRiskLineRows,
   saveTradeChartRiskLines,
 } from "../storage/tradeChartRiskLines";
-import { loadTradeChartTrendlines, saveTradeChartTrendlines } from "../storage/tradeChartTrendlines";
 import MetricHintIcon from "../components/MetricHintIcon";
 import { TRADE_SNAPSHOT_HINTS } from "../lib/metricHints";
 import StarToggle from "../components/StarToggle";
@@ -114,9 +111,6 @@ export default function TradeDetail() {
   const [shareBusy, setShareBusy] = useState(false);
   const [riskLineMarkMode, setRiskLineMarkMode] = useState(false);
   const [riskLines, setRiskLines] = useState(() => []);
-  const [trendlineDrawMode, setTrendlineDrawMode] = useState(false);
-  const [trendlines, setTrendlines] = useState(() => []);
-  const [annotationNotes, setAnnotationNotes] = useState(() => []);
   const chartWrapRef = useRef(null);
   const tradeShareBundleRef = useRef(/** @type {HTMLDivElement | null} */ (null));
   const tradeSharePanelsRef = useRef(/** @type {HTMLDivElement | null} */ (null));
@@ -139,51 +133,24 @@ export default function TradeDetail() {
       if (!tid) {
         setRiskLines([]);
         setRiskLineMarkMode(false);
-        setTrendlines([]);
-        setTrendlineDrawMode(false);
-        setAnnotationNotes([]);
         return;
       }
       setRiskLines(migrateRiskLineRows(loadTradeChartRiskLinesRaw(tid), trade));
       setRiskLineMarkMode(false);
-      const tl = loadTradeChartTrendlines(tid);
-      setTrendlines(tl);
-      setTrendlineDrawMode(false);
-      const rawAnn = loadTradeAnnotationNotes(tid);
-      const n = tl.length;
-      const aligned = [];
-      for (let i = 0; i < n; i += 1) aligned.push(typeof rawAnn[i] === "string" ? rawAnn[i] : "");
-      setAnnotationNotes(aligned);
     });
     return () => cancelAnimationFrame(raf);
   }, [tid, trade]);
 
   useEffect(() => {
-    if (!tid) return;
-    const raf = requestAnimationFrame(() => {
-      setAnnotationNotes((prev) => {
-        const n = trendlines.length;
-        if (prev.length === n) return prev;
-        const next = prev.slice(0, n);
-        while (next.length < n) next.push("");
-        saveTradeAnnotationNotes(tid, next);
-        return next;
-      });
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [trendlines.length, tid]);
-
-  useEffect(() => {
-    if (!riskLineMarkMode && !trendlineDrawMode) return;
+    if (!riskLineMarkMode) return;
     function onKey(/** @type {KeyboardEvent} */ e) {
       if (e.key === "Escape") {
         setRiskLineMarkMode(false);
-        setTrendlineDrawMode(false);
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [riskLineMarkMode, trendlineDrawMode]);
+  }, [riskLineMarkMode]);
 
   const addRiskLineSegment = useCallback((seg) => {
     if (!tid || !seg || !Number.isFinite(seg.price) || seg.t1 == null || seg.t2 == null) return;
@@ -202,32 +169,6 @@ export default function TradeDetail() {
     if (!tid) return;
     setRiskLines([]);
     saveTradeChartRiskLines(tid, []);
-  }, [tid]);
-
-  const onTrendlinesChange = useCallback((updater) => {
-    if (!tid) return;
-    setTrendlines((prev) => {
-      const next = typeof updater === "function" ? updater(prev) : updater;
-      saveTradeChartTrendlines(tid, next);
-      return next;
-    });
-  }, [tid]);
-
-  const undoLastTrendline = useCallback(() => {
-    if (!tid) return;
-    setTrendlines((prev) => {
-      const next = prev.slice(0, -1);
-      saveTradeChartTrendlines(tid, next);
-      return next;
-    });
-  }, [tid]);
-
-  const clearTrendlines = useCallback(() => {
-    if (!tid) return;
-    setTrendlines([]);
-    saveTradeChartTrendlines(tid, []);
-    setAnnotationNotes([]);
-    saveTradeAnnotationNotes(tid, []);
   }, [tid]);
 
   async function copyChartScreenshotToClipboard() {
@@ -589,16 +530,7 @@ export default function TradeDetail() {
 
         <section className="card trade-detail-notes-panel">
           <h2 className="trade-detail-section-title">Notes</h2>
-          <TradeNotesEditor
-            key={tid}
-            tradeId={tid}
-            numberedMarkerCount={trendlines.length}
-            annotationNotes={annotationNotes}
-            onAnnotationNotesChange={(rows) => {
-              setAnnotationNotes(rows);
-              saveTradeAnnotationNotes(tid, rows);
-            }}
-          />
+          <TradeNotesEditor key={tid} tradeId={tid} />
         </section>
         </div>
 
@@ -618,43 +550,8 @@ export default function TradeDetail() {
             <div className="trade-detail-chart-tools-left" role="toolbar" aria-label="Chart markup">
               <button
                 type="button"
-                className={`chart-tv-toolbar-btn chart-tv-toolbar-btn--icon-only${trendlineDrawMode ? " is-active" : ""}`}
-                onClick={() => {
-                  setRiskLineMarkMode(false);
-                  setTrendlineDrawMode((v) => !v);
-                }}
-                aria-pressed={trendlineDrawMode}
-                aria-label={
-                  trendlineDrawMode ? "Stop placing numbered chart notes" : "Place numbered chart notes"
-                }
-                title={
-                  trendlineDrawMode
-                    ? "Click the chart to drop the next number. Each number has a matching note in Notes below. Esc to stop."
-                    : "Numbered notes: turn on, then click the chart once per marker. Write details next to each number under Notes."
-                }
-              >
-                <svg
-                  className="chart-tv-toolbar-catalog-icon"
-                  viewBox="0 0 24 24"
-                  width="20"
-                  height="20"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  aria-hidden
-                >
-                  <circle cx="6" cy="7" r="2.25" fill="currentColor" stroke="none" opacity="0.95" />
-                  <circle cx="6" cy="12" r="2.25" fill="currentColor" stroke="none" opacity="0.95" />
-                  <circle cx="6" cy="17" r="2.25" fill="currentColor" stroke="none" opacity="0.95" />
-                  <path d="M11 7h9M11 12h9M11 17h7" opacity="0.92" />
-                </svg>
-              </button>
-              <button
-                type="button"
                 className={`chart-tv-toolbar-btn chart-tv-toolbar-btn--icon-only${riskLineMarkMode ? " is-active" : ""}`}
                 onClick={() => {
-                  setTrendlineDrawMode(false);
                   setRiskLineMarkMode((v) => !v);
                 }}
                 aria-pressed={riskLineMarkMode}
@@ -680,28 +577,6 @@ export default function TradeDetail() {
                   <path d="M7 8v8M12 7v10M17 9v6" opacity="0.4" />
                 </svg>
               </button>
-              {trendlines.length > 0 ? (
-                <>
-                  <button
-                    type="button"
-                    className="trade-detail-chart-risk-clear"
-                    onClick={undoLastTrendline}
-                    title="Remove the last numbered chart marker"
-                    aria-label="Undo last numbered marker"
-                  >
-                    Undo #
-                  </button>
-                  <button
-                    type="button"
-                    className="trade-detail-chart-risk-clear"
-                    onClick={clearTrendlines}
-                    title="Remove all numbered markers and their chart notes"
-                    aria-label="Clear all numbered markers"
-                  >
-                    Clear #
-                  </button>
-                </>
-              ) : null}
               {riskLines.length > 0 ? (
                 <button
                   type="button"
@@ -714,7 +589,6 @@ export default function TradeDetail() {
                 </button>
               ) : null}
             </div>
-            <ChartPresetsDropdown prefs={indicatorPrefs} onChange={applyIndicatorPrefs} />
             {chartToolbarMsg ? (
               <p className="trade-detail-chart-toolbar-msg" role="status" aria-live="polite">
                 {chartToolbarMsg}
@@ -798,9 +672,6 @@ export default function TradeDetail() {
               riskLines={riskLines}
               onAddRiskLine={addRiskLineSegment}
               riskLineMarkMode={riskLineMarkMode}
-              trendlines={trendlines}
-              onTrendlinesChange={onTrendlinesChange}
-              trendlineDrawMode={trendlineDrawMode}
               onOpenIndicatorsCatalog={() => setIndicatorsCatalogOpen(true)}
             />
           </Suspense>

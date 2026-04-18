@@ -75,9 +75,10 @@ export default function ImportTradesPage() {
   return (
     <div className="page-wrap import-trades-page">
       <div className="page-header">
-        <h1>Import trades</h1>
+        <h1>Trade Settings</h1>
         <p className="import-trades-page-lead">
-          Choose the CSV format and which account bucket should receive the rows, then upload your file.
+          Pick the CSV format and account bucket, then import your file. Time zone and merge rules live under import
+          options below.
         </p>
       </div>
 

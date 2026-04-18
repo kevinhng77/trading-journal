@@ -193,16 +193,16 @@ export function DashboardBento({
                     <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
                       <defs>
                         <linearGradient id="dashboard-donut-win" x1="0.5" y1="0" x2="0.5" y2="1">
-                          <stop offset="0%" stopColor="#4d8f6a" stopOpacity="1" />
-                          <stop offset="100%" stopColor="#3d6b55" stopOpacity="1" />
+                          <stop offset="0%" stopColor="#6ee7b7" stopOpacity="1" />
+                          <stop offset="100%" stopColor="#34d399" stopOpacity="1" />
                         </linearGradient>
                         <linearGradient id="dashboard-donut-loss" x1="0.5" y1="0" x2="0.5" y2="1">
-                          <stop offset="0%" stopColor="#9a6368" stopOpacity="1" />
-                          <stop offset="100%" stopColor="#6f4549" stopOpacity="1" />
+                          <stop offset="0%" stopColor="#fda4af" stopOpacity="1" />
+                          <stop offset="100%" stopColor="#f43f5e" stopOpacity="1" />
                         </linearGradient>
                         <linearGradient id="dashboard-donut-flat" x1="0.5" y1="0" x2="0.5" y2="1">
-                          <stop offset="0%" stopColor="#5a6274" />
-                          <stop offset="100%" stopColor="#3e4452" />
+                          <stop offset="0%" stopColor="#64748b" />
+                          <stop offset="100%" stopColor="#475569" />
                         </linearGradient>
                       </defs>
                       <Pie
@@ -213,10 +213,10 @@ export function DashboardBento({
                         cy="50%"
                         innerRadius="64%"
                         outerRadius="84%"
-                        paddingAngle={0.35}
-                        cornerRadius={0}
-                        stroke="rgba(22, 29, 44, 0.92)"
-                        strokeWidth={1}
+                        paddingAngle={1.15}
+                        cornerRadius={3}
+                        stroke="rgba(15, 18, 26, 0.35)"
+                        strokeWidth={0.75}
                         isAnimationActive
                       >
                         {pieData.map((entry) => {

@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import NotesVoiceInputButton from "../components/NotesVoiceInputButton";
-import { appendSpacedChunk } from "../lib/appendDictationChunk";
 import {
   createEmptyMissedPlay,
   createEmptyPlay,
@@ -152,41 +150,6 @@ export default function Playbook() {
     setSaveError(null);
     setMissedPlays(next);
     return true;
-  }, []);
-
-  const appendPlayVoiceField = useCallback((playId, field, chunk) => {
-    const t = String(chunk ?? "").trim();
-    if (!t) return;
-    setPlays((currentPlays) => {
-      if (!currentPlays.some((p) => p.id === playId)) return currentPlays;
-      const next = currentPlays.map((p) => {
-        if (p.id !== playId) return p;
-        const merged = appendSpacedChunk(String(p[field] ?? ""), t);
-        return { ...p, [field]: merged };
-      });
-      const r = savePlaybook(next);
-      if (!r.ok) {
-        setSaveError(r.message);
-        return currentPlays;
-      }
-      setSaveError(null);
-      return next;
-    });
-    setMissedPlays((currentMissed) => {
-      if (!currentMissed.some((p) => p.id === playId)) return currentMissed;
-      const next = currentMissed.map((p) => {
-        if (p.id !== playId) return p;
-        const merged = appendSpacedChunk(String(p[field] ?? ""), t);
-        return { ...p, [field]: merged };
-      });
-      const r = saveMissedPlays(next);
-      if (!r.ok) {
-        setSaveError(r.message);
-        return currentMissed;
-      }
-      setSaveError(null);
-      return next;
-    });
   }, []);
 
   const activeList = selectedScope === "plays" ? plays : missedPlays;
@@ -513,10 +476,7 @@ export default function Playbook() {
 
               <div className="playbook-field-grid">
                 <label className="playbook-field playbook-field--pair">
-                  <span className="playbook-field-label-row">
-                    <span className="playbook-field-label">Rules (one per line)</span>
-                    <NotesVoiceInputButton onAppend={(c) => appendPlayVoiceField(selectedPlay.id, "rules", c)} />
-                  </span>
+                  <span className="playbook-field-label">Rules (one per line)</span>
                   <textarea
                     className="playbook-textarea playbook-textarea--pair"
                     rows={5}
@@ -526,10 +486,7 @@ export default function Playbook() {
                 </label>
 
                 <label className="playbook-field playbook-field--pair">
-                  <span className="playbook-field-label-row">
-                    <span className="playbook-field-label">Criteria</span>
-                    <NotesVoiceInputButton onAppend={(c) => appendPlayVoiceField(selectedPlay.id, "criteria", c)} />
-                  </span>
+                  <span className="playbook-field-label">Criteria</span>
                   <textarea
                     className="playbook-textarea playbook-textarea--pair"
                     rows={5}
@@ -540,10 +497,7 @@ export default function Playbook() {
                 </label>
 
                 <label className="playbook-field playbook-field--pair">
-                  <span className="playbook-field-label-row">
-                    <span className="playbook-field-label">Entry</span>
-                    <NotesVoiceInputButton onAppend={(c) => appendPlayVoiceField(selectedPlay.id, "entry", c)} />
-                  </span>
+                  <span className="playbook-field-label">Entry</span>
                   <textarea
                     className="playbook-textarea playbook-textarea--pair"
                     rows={4}
@@ -554,10 +508,7 @@ export default function Playbook() {
                 </label>
 
                 <label className="playbook-field playbook-field--pair">
-                  <span className="playbook-field-label-row">
-                    <span className="playbook-field-label">Exit</span>
-                    <NotesVoiceInputButton onAppend={(c) => appendPlayVoiceField(selectedPlay.id, "exit", c)} />
-                  </span>
+                  <span className="playbook-field-label">Exit</span>
                   <textarea
                     className="playbook-textarea playbook-textarea--pair"
                     rows={4}
@@ -647,10 +598,7 @@ export default function Playbook() {
 
               <div className="playbook-notes-block">
                 <label className="playbook-field playbook-field--full">
-                  <span className="playbook-field-label-row">
-                    <span className="playbook-field-label">Notes</span>
-                    <NotesVoiceInputButton onAppend={(c) => appendPlayVoiceField(selectedPlay.id, "exitNotes", c)} />
-                  </span>
+                  <span className="playbook-field-label">Notes</span>
                   <textarea
                     className="playbook-textarea"
                     rows={4}

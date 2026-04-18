@@ -15,7 +15,6 @@ import TradeDetail from "./pages/TradeDetail";
 import Journal from "./pages/Journal";
 import StarReview from "./pages/StarReview";
 import Playbook from "./pages/Playbook";
-import AccountBalancePage from "./pages/AccountBalancePage";
 import SettingsLayout from "./pages/SettingsLayout";
 import SettingsGeneralPage from "./pages/SettingsGeneralPage";
 import SettingsTradeImportPage from "./pages/SettingsTradeImportPage";
@@ -25,13 +24,13 @@ import ImportTradesPage from "./pages/ImportTradesPage";
 function App() {
   return (
     <Routes>
-      <Route path="/settings" element={<SettingsLayout />}>
-        <Route index element={<Navigate to="general" replace />} />
-        <Route path="general" element={<SettingsGeneralPage />} />
-        <Route path="trade-import" element={<SettingsTradeImportPage />} />
-        <Route path="trading-account" element={<SettingsTradingAccountPage />} />
-      </Route>
       <Route element={<ShellLayout />}>
+        <Route path="/settings" element={<SettingsLayout />}>
+          <Route index element={<Navigate to="general" replace />} />
+          <Route path="general" element={<SettingsGeneralPage />} />
+          <Route path="trade-import" element={<SettingsTradeImportPage />} />
+          <Route path="trading-account" element={<SettingsTradingAccountPage />} />
+        </Route>
         <Route path="/" element={<Dashboard />} />
         <Route path="/reports" element={<ReportsLayout />}>
           <Route index element={<ReportsOverview />} />
@@ -48,7 +47,6 @@ function App() {
         <Route path="/journal" element={<Journal />} />
         <Route path="/star" element={<StarReview />} />
         <Route path="/playbook" element={<Playbook />} />
-        <Route path="/account-balance" element={<AccountBalancePage />} />
         <Route path="/import-trades" element={<ImportTradesPage />} />
       </Route>
     </Routes>

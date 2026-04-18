@@ -1947,15 +1947,15 @@ a.import-btn.import-btn--nav {
 }
 
 .dashboard-winloss-legend-row--winning .dashboard-winloss-legend-dot {
-  background: #458a67;
+  background: linear-gradient(180deg, #6ee7b7, #34d399);
 }
 
 .dashboard-winloss-legend-row--losing .dashboard-winloss-legend-dot {
-  background: #8a575c;
+  background: linear-gradient(180deg, #fda4af, #f43f5e);
 }
 
 .dashboard-winloss-legend-row--breakeven .dashboard-winloss-legend-dot {
-  background: #4a5160;
+  background: linear-gradient(180deg, #64748b, #475569);
 }
 
 .dashboard-winloss-legend-name {
@@ -5503,28 +5503,31 @@ a.journal-row-trade-link:visited {
 }
 
 .trade-detail-header-tags--split {
+  flex-direction: column;
+  align-items: stretch;
   flex-wrap: nowrap;
-  align-items: center;
   gap: 10px 14px;
 }
 
 .trade-detail-header-tags-actions {
   display: flex;
   flex-direction: row;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
   flex: 0 0 auto;
 }
 
 .trade-detail-header-tags-chips {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
   display: flex;
   flex-direction: row;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 8px;
   overflow-x: auto;
   overflow-y: hidden;
@@ -10474,125 +10477,4 @@ html[data-ui-theme="violet"] {
   --range-active-bg-top: #3b2f5a;
   --range-active-bg-bottom: #2a2144;
   --range-active-fg: #faf5ff;
-}
-
-/* —— Account balance (monthly ledger) —— */
-.account-balance-page-header {
-  align-items: flex-start;
-}
-
-.account-balance-lead {
-  margin: 10px 0 0;
-  max-width: 760px;
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--muted);
-}
-
-.account-balance-card {
-  padding: 0;
-}
-
-.account-balance-table-wrap {
-  overflow-x: auto;
-  border-radius: 18px;
-}
-
-.account-balance-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-
-.account-balance-table thead th {
-  text-align: left;
-  padding: 14px 16px;
-  background: linear-gradient(180deg, #222a3a 0%, #181f2e 100%);
-  font-weight: 700;
-  color: #d8e1ef;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.28);
-  white-space: nowrap;
-}
-
-.account-balance-table tbody td {
-  padding: 10px 14px;
-  border-top: 1px solid var(--border);
-  color: #cdd6e6;
-  vertical-align: top;
-}
-
-.account-balance-th-narrow {
-  width: 96px;
-  text-align: center !important;
-}
-
-.account-balance-th-actions {
-  width: 132px;
-}
-
-.account-balance-month {
-  font-weight: 600;
-  color: #e8edf7;
-  white-space: nowrap;
-}
-
-.account-balance-td-center {
-  text-align: center;
-  vertical-align: middle !important;
-}
-
-.account-balance-checkbox {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-  accent-color: var(--accent-green);
-}
-
-.account-balance-input {
-  width: 100%;
-  min-width: 100px;
-  max-width: 140px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--bg-card-inner);
-  color: var(--text);
-  font-family: inherit;
-  font-size: 14px;
-}
-
-.account-balance-input:focus {
-  outline: none;
-  border-color: color-mix(in srgb, var(--accent-green) 45%, var(--border));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-green) 22%, transparent);
-}
-
-.account-balance-input:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.account-balance-hint {
-  margin-top: 6px;
-  font-size: 12px;
-  line-height: 1.35;
-  color: var(--muted);
-}
-
-.account-balance-fill-btn {
-  padding: 8px 10px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: rgba(22, 28, 42, 0.75);
-  color: #e2e8f0;
-  font-size: 12px;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.account-balance-fill-btn:hover {
-  border-color: color-mix(in srgb, var(--accent-green) 35%, var(--border));
-  color: #fff;
 }

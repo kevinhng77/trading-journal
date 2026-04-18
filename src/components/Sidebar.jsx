@@ -49,13 +49,6 @@ function Sidebar() {
         </Link>
 
         <NavLink
-          to="/account-balance"
-          className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-        >
-          Account balance
-        </NavLink>
-
-        <NavLink
           to="/trades"
           end
           className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}

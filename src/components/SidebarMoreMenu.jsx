@@ -12,14 +12,6 @@ function IconGear({ className }) {
   );
 }
 
-function IconSliders({ className }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" width="18" height="18" aria-hidden fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M9 8h6M15 16h6M3 4h4" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 function IconPalette({ className }) {
   return (
     <svg className={className} viewBox="0 0 24 24" width="18" height="18" aria-hidden fill="currentColor">
@@ -110,7 +102,7 @@ export default function SidebarMoreMenu() {
         className="sidebar-settings-popover"
         style={{ opacity: visible ? 1 : 0, pointerEvents: visible ? "auto" : "none" }}
         role="menu"
-        aria-label="Settings menu"
+        aria-label="Quick menu"
       >
         <NavLink
           to="/import-trades"
@@ -118,17 +110,8 @@ export default function SidebarMoreMenu() {
           role="menuitem"
           onClick={() => setOpen(false)}
         >
-          <IconSliders className="sidebar-settings-popover__icon" />
-          <span className="sidebar-settings-popover__label">Upload CSV</span>
-        </NavLink>
-        <NavLink
-          to="/settings/general"
-          className="sidebar-settings-popover__item"
-          role="menuitem"
-          onClick={() => setOpen(false)}
-        >
           <IconGear className="sidebar-settings-popover__icon" />
-          <span className="sidebar-settings-popover__label">Settings</span>
+          <span className="sidebar-settings-popover__label">Trade Settings</span>
         </NavLink>
         <div className="sidebar-settings-popover__theme" role="group" aria-label="Color theme">
           <span className="sidebar-settings-popover__theme-left">
