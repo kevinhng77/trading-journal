@@ -1,7 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Link, useOutletContext, useSearchParams } from "react-router-dom";
 import { groupTradesByDate, formatMoney, pnlClass } from "../../storage/storage";
-import { useLiveTrades } from "../../hooks/useLiveTrades";
+import { useRawAndReportTrades } from "../../hooks/useReportViewTrades";
 import { filterTradesForReport, DEFAULT_REPORT_FILTERS } from "../../lib/reportFilters";
 import { getDayAggregate } from "../../lib/dashboardStats";
 import { buildCalendarWeeks, formatMonthTitle, sumMonthPnl } from "../../lib/calendarGrid";
@@ -140,7 +140,7 @@ function MonthExpandedGrid({ year, monthIndex, grouped }) {
 export default function ReportsCalendar() {
   const ctx = useOutletContext() ?? {};
   const applied = ctx.appliedReportFilters ?? DEFAULT_REPORT_FILTERS;
-  const trades = useLiveTrades();
+  const { reportTrades: trades } = useRawAndReportTrades();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedYear = parseYear(searchParams);
 
@@ -195,14 +195,28 @@ export default function ReportsCalendar() {
     );
   }
 
+  const lastExpandedMonthKey = useRef(/** @type {string | null} */ (null));
+
   useEffect(() => {
-    if (!openKey) return;
-    document.querySelector(".reports-calendar-page-toolbar")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    const id = `reports-month-${openKey}`;
-    const id2 = requestAnimationFrame(() => {
-      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-    return () => cancelAnimationFrame(id2);
+    const scrollMonthIntoView = (key) => {
+      const el = document.getElementById(`reports-month-${key}`);
+      if (!el) return;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      });
+    };
+
+    if (openKey) {
+      lastExpandedMonthKey.current = openKey;
+      scrollMonthIntoView(openKey);
+      return;
+    }
+
+    const was = lastExpandedMonthKey.current;
+    lastExpandedMonthKey.current = null;
+    if (was) scrollMonthIntoView(was);
   }, [openKey]);
 
   const months = Array.from({ length: 12 }, (_, m) => {

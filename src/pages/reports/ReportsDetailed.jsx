@@ -16,7 +16,7 @@ import {
   LineChart,
   Line,
 } from "recharts";
-import { useLiveTrades } from "../../hooks/useLiveTrades";
+import { useRawAndReportTrades } from "../../hooks/useReportViewTrades";
 import { filterTradesForReport, reportFiltersActive, DEFAULT_REPORT_FILTERS } from "../../lib/reportFilters";
 import {
   computeDashboardStats,
@@ -262,7 +262,7 @@ const DETAIL_SUBTABS = [
 export default function ReportsDetailed() {
   const ctx = useOutletContext() ?? {};
   const applied = ctx.appliedReportFilters ?? DEFAULT_REPORT_FILTERS;
-  const trades = useLiveTrades();
+  const { reportTrades: trades } = useRawAndReportTrades();
   const [rangeDays, setRangeDays] = useState(30);
   const [subTab, setSubTab] = useState("days");
 

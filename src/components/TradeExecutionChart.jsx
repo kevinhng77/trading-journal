@@ -1235,7 +1235,7 @@ export default function TradeExecutionChart({
         const pad = periodSec;
         const alpha = typeof rtPrefs.alpha === "number" ? rtPrefs.alpha : 0.1;
         const spans = completedRoundTripUnixSpans(fills, (f) =>
-          fillWallTimeToUnixSeconds(tradeDate, f.time, fillTimeZone),
+          fillWallTimeToUnixSeconds(String(f.date ?? tradeDate).trim() || tradeDate, f.time, fillTimeZone),
         );
         for (const sp of spans) {
           const pnl = Number(sp.pnl);

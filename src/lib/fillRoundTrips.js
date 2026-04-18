@@ -3,6 +3,23 @@
  * Used by the execution chart overlay; incomplete tails (still open) are not banded.
  */
 
+/** Chronological order using session date then wall time (multiday-safe). */
+export function compareFillsBySessionThenTime(a, b) {
+  const c = String(a?.date ?? "").localeCompare(String(b?.date ?? ""));
+  if (c !== 0) return c;
+  return String(a?.time ?? "").localeCompare(String(b?.time ?? ""));
+}
+
+function sessionDatesFromFills(fills) {
+  const uniq = [...new Set(fills.map((f) => String(f.date ?? "").trim()).filter(Boolean))].sort();
+  if (!uniq.length) return { entryDate: null, exitDate: null, isMultidayLeg: false };
+  return {
+    entryDate: uniq[0],
+    exitDate: uniq[uniq.length - 1],
+    isMultidayLeg: uniq.length > 1,
+  };
+}
+
 /** @param {object} f @returns {number} signed share delta (BOT +, SOLD -), 0 if unknown */
 export function fillSignedQtyDelta(f) {
   const q = Math.abs(Number(f?.quantity));
@@ -70,7 +87,7 @@ export function roundTripFifoRealizedPnlUsd(fillsChrono) {
  * @returns {{ from: number, to: number, index: number, pnl: number }[]}
  */
 export function completedRoundTripUnixSpans(fills, fillToUnix) {
-  const sorted = [...(fills || [])].sort((a, b) => String(a.time ?? "").localeCompare(String(b.time ?? "")));
+  const sorted = [...(fills || [])].sort(compareFillsBySessionThenTime);
   let pos = 0;
   /** @type {object[]} */
   let curFills = [];
@@ -161,14 +178,14 @@ function roundTripEntryExitMetrics(fillsChrono) {
  * is still open. Used on the trade detail snapshot.
  *
  * @param {object[] | undefined} fills
- * @returns {{ legIndex: number, isOpen: boolean, avgEntry: number|null, avgExit: number|null, shareSize: number, pnl: number|null }[]}
+ * @returns {{ legIndex: number, isOpen: boolean, avgEntry: number|null, avgExit: number|null, shareSize: number, pnl: number|null, entryDate: string|null, exitDate: string|null, isMultidayLeg: boolean }[]}
  */
 export function roundTripLegSummariesFromFills(fills) {
-  const sorted = [...(fills || [])].sort((a, b) => String(a.time ?? "").localeCompare(String(b.time ?? "")));
+  const sorted = [...(fills || [])].sort(compareFillsBySessionThenTime);
   let pos = 0;
   /** @type {object[]} */
   let cur = [];
-  /** @type {{ legIndex: number, isOpen: boolean, avgEntry: number|null, avgExit: number|null, shareSize: number, pnl: number|null }[]} */
+  /** @type {object[]} */
   const out = [];
   let legIndex = 0;
 
@@ -181,6 +198,7 @@ export function roundTripLegSummariesFromFills(fills) {
     if (pos === 0 && cur.length) {
       const m = roundTripEntryExitMetrics(cur);
       const pnl = roundTripFifoRealizedPnlUsd(cur);
+      const { entryDate, exitDate, isMultidayLeg } = sessionDatesFromFills(cur);
       out.push({
         legIndex: legIndex++,
         isOpen: false,
@@ -188,6 +206,9 @@ export function roundTripLegSummariesFromFills(fills) {
         avgExit: m.avgExit != null ? Math.round(m.avgExit * 1e6) / 1e6 : null,
         shareSize: Math.round(m.shareSize),
         pnl: Number.isFinite(pnl) ? pnl : null,
+        entryDate,
+        exitDate,
+        isMultidayLeg,
       });
       cur = [];
     }
@@ -195,6 +216,7 @@ export function roundTripLegSummariesFromFills(fills) {
 
   if (cur.length > 0) {
     const m = roundTripEntryExitMetrics(cur);
+    const { entryDate, exitDate, isMultidayLeg } = sessionDatesFromFills(cur);
     out.push({
       legIndex: legIndex++,
       isOpen: true,
@@ -202,6 +224,9 @@ export function roundTripLegSummariesFromFills(fills) {
       avgExit: m.avgExit != null ? Math.round(m.avgExit * 1e6) / 1e6 : null,
       shareSize: Math.round(m.shareSize),
       pnl: null,
+      entryDate,
+      exitDate,
+      isMultidayLeg,
     });
   }
 

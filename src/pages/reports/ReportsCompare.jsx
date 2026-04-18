@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { useLiveTrades } from "../../hooks/useLiveTrades";
+import { useRawAndReportTrades } from "../../hooks/useReportViewTrades";
 import ReportsFilterStrip from "../../components/ReportsFilterStrip";
 import { filterTradesForReport, reportFiltersActive, DEFAULT_REPORT_FILTERS } from "../../lib/reportFilters";
 import { computeDashboardStats, computeProfitFactor, sumTradePnl } from "../../lib/dashboardStats";
@@ -107,7 +107,7 @@ export default function ReportsCompare() {
   const ctx = useOutletContext() ?? {};
   const allTags = ctx.allTags ?? [];
   const allSetups = ctx.allSetups ?? [];
-  const trades = useLiveTrades();
+  const { reportTrades: trades } = useRawAndReportTrades();
 
   const [groupA, setGroupA] = useState(() => loadCompareGroupFilters().a);
   const [groupB, setGroupB] = useState(() => loadCompareGroupFilters().b);

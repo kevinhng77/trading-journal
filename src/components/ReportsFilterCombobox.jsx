@@ -8,12 +8,25 @@ import { useEffect, useRef, useState } from "react";
  *   value: string,
  *   options: { value: string, label: string }[],
  *   onChange: (value: string) => void,
- *   variant: "side" | "duration",
+ *   variant: "side" | "duration" | "account",
+ *   disabled?: boolean,
  * }} props
  */
-export default function ReportsFilterCombobox({ id, ariaLabelledBy, value, options, onChange, variant }) {
+export default function ReportsFilterCombobox({
+  id,
+  ariaLabelledBy,
+  value,
+  options,
+  onChange,
+  variant,
+  disabled = false,
+}) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
+
+  useEffect(() => {
+    if (disabled) setOpen(false);
+  }, [disabled]);
 
   useEffect(() => {
     if (!open) return;
@@ -44,8 +57,13 @@ export default function ReportsFilterCombobox({ id, ariaLabelledBy, value, optio
         aria-expanded={open}
         aria-controls={open ? `${id}-listbox` : undefined}
         aria-labelledby={ariaLabelledBy}
-        onClick={() => setOpen((o) => !o)}
+        disabled={disabled}
+        onClick={() => {
+          if (disabled) return;
+          setOpen((o) => !o);
+        }}
         onKeyDown={(e) => {
+          if (disabled) return;
           if (e.key === "Escape") setOpen(false);
           if (e.key === "ArrowDown" || e.key === "ArrowUp") {
             e.preventDefault();

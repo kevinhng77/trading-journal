@@ -14,7 +14,7 @@ import {
   Tooltip,
   Cell,
 } from "recharts";
-import { useLiveTrades } from "../../hooks/useLiveTrades";
+import { useRawAndReportTrades } from "../../hooks/useReportViewTrades";
 import { filterTradesForReport, reportFiltersActive, DEFAULT_REPORT_FILTERS } from "../../lib/reportFilters";
 import {
   tradesInLastDays,
@@ -83,7 +83,7 @@ function ChartEmpty({ children }) {
 export default function ReportsDrawdown() {
   const ctx = useOutletContext() ?? {};
   const applied = ctx.appliedReportFilters ?? DEFAULT_REPORT_FILTERS;
-  const trades = useLiveTrades();
+  const { reportTrades: trades } = useRawAndReportTrades();
   const [rangeDays, setRangeDays] = useState(30);
 
   const filtered = useMemo(() => filterTradesForReport(trades, applied), [trades, applied]);

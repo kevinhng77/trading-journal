@@ -18,7 +18,8 @@ import {
   loadChartIndicatorPrefs,
   saveChartIndicatorPrefs,
 } from "../storage/chartIndicatorPrefs";
-import { useLiveTrades } from "../hooks/useLiveTrades";
+import { useRawAndReportTrades } from "../hooks/useReportViewTrades";
+import { logicalTradeForStoredTrade } from "../lib/logicalRoundTripTrades";
 import ChartIndicatorsModal from "../components/ChartIndicatorsModal";
 const TradeExecutionChart = lazy(() => import("../components/TradeExecutionChart.jsx"));
 import TradeNotesEditor from "../components/TradeNotesEditor";
@@ -68,15 +69,45 @@ function formatTradeWhen(trade) {
   });
 }
 
+function formatSessionIso(iso) {
+  const s = String(iso ?? "").trim();
+  if (!s) return "—";
+  const d = new Date(`${s}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return s;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
 export default function TradeDetail() {
   const { tradeId: tradeIdParam } = useParams();
   const navigate = useNavigate();
-  const trades = useLiveTrades();
+  const { rawTrades, reportTrades } = useRawAndReportTrades();
 
-  const trade = useMemo(
-    () => findTradeByParam(trades, tradeIdParam ?? ""),
-    [trades, tradeIdParam],
+  const rawTrade = useMemo(
+    () => findTradeByParam(rawTrades, tradeIdParam ?? ""),
+    [rawTrades, tradeIdParam],
   );
+
+  const viewTrade = useMemo(
+    () => findTradeByParam(reportTrades, tradeIdParam ?? ""),
+    [reportTrades, tradeIdParam],
+  );
+
+  const spanning = useMemo(
+    () => (rawTrade ? logicalTradeForStoredTrade(rawTrades, rawTrade) : null),
+    [rawTrades, rawTrade],
+  );
+
+  const trade = useMemo(() => {
+    if (viewTrade) return viewTrade;
+    if (
+      spanning &&
+      rawTrade &&
+      (spanning.fills?.length ?? 0) > (rawTrade.fills?.length ?? 0)
+    ) {
+      return spanning;
+    }
+    return rawTrade ?? null;
+  }, [viewTrade, spanning, rawTrade]);
 
   const [roundTripsExpanded, setRoundTripsExpanded] = useState(false);
 
@@ -99,7 +130,8 @@ export default function TradeDetail() {
     return (trade.fills ?? []).some((f) => f && ("commission" in f || "miscFees" in f));
   }, [trade]);
 
-  const tid = trade ? stableTradeId(trade) : "";
+  const tidNav = trade ? stableTradeId(trade) : "";
+  const tidEditor = trade?._editorStableId ? String(trade._editorStableId) : tidNav;
   const { isTradeStarred, toggleTrade } = useStarred();
   const [chartInterval, setChartInterval] = useState("1");
   const [fillTimeZone] = useState(() => loadFillTimeZone());
@@ -129,7 +161,7 @@ export default function TradeDetail() {
       setRoundTripsExpanded(false);
     });
     return () => cancelAnimationFrame(raf);
-  }, [tid, trade]);
+  }, [tidNav, trade]);
 
   async function copyChartScreenshotToClipboard() {
     const el = getChartCaptureEl();
@@ -234,15 +266,15 @@ export default function TradeDetail() {
   }, []);
 
   const { prev, next } = useMemo(
-    () => (tid ? neighborTradeIds(trades, tid) : { prev: null, next: null }),
-    [trades, tid],
+    () => (tidNav ? neighborTradeIds(reportTrades, tidNav) : { prev: null, next: null }),
+    [reportTrades, tidNav],
   );
 
-  const allTagSuggestions = useMemo(() => collectAllTagsFromTrades(trades), [trades]);
+  const allTagSuggestions = useMemo(() => collectAllTagsFromTrades(rawTrades), [rawTrades]);
   const playbookPlayNames = usePlaybookPlayNames();
   const allSetupSuggestions = useMemo(
-    () => buildSetupFilterSuggestions(trades, playbookPlayNames),
-    [trades, playbookPlayNames],
+    () => buildSetupFilterSuggestions(rawTrades, playbookPlayNames),
+    [rawTrades, playbookPlayNames],
   );
 
   function go(id) {
@@ -251,12 +283,27 @@ export default function TradeDetail() {
   }
 
   function removeTrade() {
-    if (!tid) return;
-    const ok = window.confirm("Delete this trade? This cannot be undone.");
+    if (!trade) return;
+    const ids =
+      trade._storageStableIds?.length > 0
+        ? [...trade._storageStableIds]
+        : [tidEditor].filter(Boolean);
+    const ok = window.confirm(
+      ids.length > 1
+        ? `Delete all ${ids.length} stored rows for this position? This cannot be undone.`
+        : "Delete this trade? This cannot be undone.",
+    );
     if (!ok) return;
-    const n = deleteTradesByStableIds(new Set([tid]));
+    const n = deleteTradesByStableIds(new Set(ids));
     if (n > 0) navigate("/trades");
   }
+
+  const fills = trade?.fills ?? [];
+
+  const tradeDetailHeaderHasChipsRow = useMemo(
+    () => normalizeTagList(trade?.setups).length > 0 || normalizeTagList(trade?.tags).length > 0,
+    [trade?.setups, trade?.tags],
+  );
 
   if (!trade) {
     return (
@@ -276,13 +323,6 @@ export default function TradeDetail() {
       </div>
     );
   }
-
-  const fills = trade.fills ?? [];
-
-  const tradeDetailHeaderHasChipsRow = useMemo(
-    () => normalizeTagList(trade.setups).length > 0 || normalizeTagList(trade.tags).length > 0,
-    [trade.setups, trade.tags],
-  );
 
   return (
     <div className="page-wrap trade-detail-page">
@@ -319,17 +359,17 @@ export default function TradeDetail() {
               </button>
             </div>
             <StarToggle
-              starred={Boolean(tid && isTradeStarred(tid))}
+              starred={Boolean(tidNav && isTradeStarred(tidNav))}
               onToggle={() => {
-                if (tid) toggleTrade(tid);
+                if (tidNav) toggleTrade(tidNav);
               }}
               className="trade-detail-header-icon-btn trade-detail-header-icon-btn--star"
               title={
-                tid && isTradeStarred(tid)
+                tidNav && isTradeStarred(tidNav)
                   ? "Remove from starred (*)"
                   : "Star this trade for review on the * page"
               }
-              aria-label={tid && isTradeStarred(tid) ? "Unstar trade" : "Star trade"}
+              aria-label={tidNav && isTradeStarred(tidNav) ? "Unstar trade" : "Star trade"}
             />
             <button
               type="button"
@@ -389,21 +429,21 @@ export default function TradeDetail() {
           <div className="trade-detail-header-tags-actions">
             <TradeSetupsEditor
               variant="picker"
-              tradeId={tid}
+              tradeId={tidEditor}
               setups={trade.setups}
               suggestionSetups={allSetupSuggestions}
             />
-            <TradeTagsEditor variant="picker" tradeId={tid} tags={trade.tags} suggestionTags={allTagSuggestions} />
+            <TradeTagsEditor variant="picker" tradeId={tidEditor} tags={trade.tags} suggestionTags={allTagSuggestions} />
           </div>
           {tradeDetailHeaderHasChipsRow ? (
             <div className="trade-detail-header-tags-chips" aria-label="Setups and tags on this trade">
               <TradeSetupsEditor
                 variant="chips"
-                tradeId={tid}
+                tradeId={tidEditor}
                 setups={trade.setups}
                 suggestionSetups={allSetupSuggestions}
               />
-              <TradeTagsEditor variant="chips" tradeId={tid} tags={trade.tags} suggestionTags={allTagSuggestions} />
+              <TradeTagsEditor variant="chips" tradeId={tidEditor} tags={trade.tags} suggestionTags={allTagSuggestions} />
             </div>
           ) : null}
         </div>
@@ -471,6 +511,20 @@ export default function TradeDetail() {
                         <span className="trade-detail-roundtrip-k">Share size</span>
                         <span className="trade-detail-roundtrip-v">{leg.shareSize > 0 ? leg.shareSize : "—"}</span>
                       </span>
+                      {leg.isMultidayLeg ? (
+                        <>
+                          <span className="trade-detail-roundtrip-kv">
+                            <span className="trade-detail-roundtrip-k">Entry date</span>
+                            <span className="trade-detail-roundtrip-v">{formatSessionIso(leg.entryDate)}</span>
+                          </span>
+                          <span className="trade-detail-roundtrip-kv">
+                            <span className="trade-detail-roundtrip-k">
+                              {leg.isOpen ? "Last session" : "Exit date"}
+                            </span>
+                            <span className="trade-detail-roundtrip-v">{formatSessionIso(leg.exitDate)}</span>
+                          </span>
+                        </>
+                      ) : null}
                     </div>
                   </div>
                 ))}
@@ -497,7 +551,7 @@ export default function TradeDetail() {
 
         <section className="card trade-detail-notes-panel">
           <h2 className="trade-detail-section-title">Notes</h2>
-          <TradeNotesEditor key={tid} tradeId={tid} />
+          <TradeNotesEditor key={tidEditor} tradeId={tidEditor} />
         </section>
         </div>
 

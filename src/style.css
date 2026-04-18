@@ -1049,16 +1049,6 @@ a.import-btn.import-btn--nav {
   background: rgba(0, 0, 0, 0.12);
 }
 
-.settings-account-active-label {
-  display: block;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 6px;
-}
-
 .settings-account-active-value {
   display: block;
   font-size: 18px;
@@ -2972,6 +2962,16 @@ a.import-btn.import-btn--nav {
   max-width: min(260px, 56vw);
 }
 
+.reports-filter-combobox--account {
+  min-width: 180px;
+  max-width: min(320px, 72vw);
+  width: 100%;
+}
+
+.import-trades-page-field .reports-filter-combobox {
+  width: 100%;
+}
+
 .reports-filter-combobox-trigger {
   box-sizing: border-box;
   width: 100%;
@@ -3001,6 +3001,16 @@ a.import-btn.import-btn--nav {
   outline: none;
   border-color: color-mix(in srgb, var(--accent-green) 55%, transparent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-green) 20%, transparent);
+}
+
+.reports-filter-combobox-trigger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  border-color: var(--border);
+}
+
+.reports-filter-combobox-trigger:disabled:hover {
+  border-color: var(--border);
 }
 
 .reports-filter-combobox-menu {
@@ -4471,7 +4481,7 @@ button.metric-hint-icon:focus-visible {
 
 .reports-cal-mini-cell {
   border-radius: 8px;
-  min-height: 32px;
+  min-height: 52px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4484,7 +4494,7 @@ button.metric-hint-icon:focus-visible {
 
 .reports-cal-mini-pad {
   visibility: hidden;
-  min-height: 32px;
+  min-height: 52px;
 }
 
 .reports-cal-mini-day.reports-cal-neutral {
@@ -4557,7 +4567,7 @@ button.metric-hint-icon:focus-visible {
 .reports-cal-day-card {
   position: relative;
   display: block;
-  min-height: 88px;
+  min-height: 112px;
   padding: 10px 10px 8px;
   border-radius: 12px;
   text-decoration: none;
@@ -5771,17 +5781,9 @@ a.journal-row-trade-link:visited {
   color: var(--muted);
 }
 
-.star-review-account-select {
-  min-width: 160px;
-  padding: 8px 12px;
-  border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  background: rgba(15, 18, 24, 0.92);
-  color: #f1f5f9;
-  font-size: 13px;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
+.star-review-account-combobox {
+  min-width: 200px;
+  max-width: min(320px, 100%);
 }
 
 .star-review-viewing {

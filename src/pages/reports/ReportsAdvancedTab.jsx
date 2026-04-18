@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
-import { useLiveTrades } from "../../hooks/useLiveTrades";
+import { useRawAndReportTrades } from "../../hooks/useReportViewTrades";
 import { filterTradesForReport, reportFiltersActive, DEFAULT_REPORT_FILTERS } from "../../lib/reportFilters";
 import { sortTradesChronoAsc } from "../../lib/dashboardStats";
 import {
@@ -223,7 +223,7 @@ function TradeDot(/** @type {{ cx?: number, cy?: number, payload?: { fill?: stri
 export default function ReportsAdvancedTab() {
   const ctx = useOutletContext() ?? {};
   const applied = ctx.appliedReportFilters ?? DEFAULT_REPORT_FILTERS;
-  const trades = useLiveTrades();
+  const { reportTrades: trades } = useRawAndReportTrades();
   const filtersOn = reportFiltersActive(applied);
 
   const [preset, setPreset] = useState("pnl_index");

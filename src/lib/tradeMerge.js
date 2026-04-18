@@ -9,7 +9,7 @@ import { sumSchwabLineConsiderationFromFills } from "./schwabConsiderationPnl.js
  * @param {string} date
  * @param {string} symbol
  */
-function fillToGroupingFill(f, date, symbol) {
+export function fillToGroupingFill(f, date, symbol) {
   const qty = Math.abs(Number(f.quantity) || 0);
   const amount = Number.isFinite(Number(f.amount)) ? Number(f.amount) : 0;
   const misc = Number.isFinite(Number(f.misc ?? f.miscFees)) ? Number(f.misc ?? f.miscFees) : 0;

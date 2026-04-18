@@ -339,6 +339,8 @@ function buildTradeFromFills(group, date, symbol, tradeId, opts = {}) {
     source: "thinkorswim",
     fills: sorted.map((x) => ({
       id: x.id,
+      date: x.date,
+      symbol,
       time: x.time,
       side: x.side,
       quantity: x.quantity,

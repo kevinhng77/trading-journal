@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { groupTradesByDate, formatMoney, pnlClass } from "../storage/storage";
-import { useLiveTrades } from "../hooks/useLiveTrades";
+import { useRawAndReportTrades } from "../hooks/useReportViewTrades";
 import {
   getWeekDatesMondayStart,
   getDayAggregate,
@@ -36,15 +36,15 @@ function JournalGlyph() {
 function Dashboard() {
   const [rangeDays, setRangeDays] = useState(30);
 
-  const allTrades = useLiveTrades();
-  const groupedAll = useMemo(() => groupTradesByDate(allTrades), [allTrades]);
-  const weekAnchor = useMemo(() => dashboardWeekAnchorDate(allTrades), [allTrades]);
+  const { reportTrades } = useRawAndReportTrades();
+  const groupedAll = useMemo(() => groupTradesByDate(reportTrades), [reportTrades]);
+  const weekAnchor = useMemo(() => dashboardWeekAnchorDate(reportTrades), [reportTrades]);
   const weekDates = getWeekDatesMondayStart(weekAnchor);
   const a = new Date(`${weekDates[0]}T12:00:00`);
   const b = new Date(`${weekDates[6]}T12:00:00`);
   const weekLabel = `${a.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${b.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;
 
-  const tradesScoped = useMemo(() => tradesInLastDays(allTrades, rangeDays), [allTrades, rangeDays]);
+  const tradesScoped = useMemo(() => tradesInLastDays(reportTrades, rangeDays), [reportTrades, rangeDays]);
   const dailySeries = useMemo(() => buildDailySeriesForRange(tradesScoped, rangeDays), [tradesScoped, rangeDays]);
   const drawdownSeries = useMemo(() => buildDrawdownSeries(dailySeries), [dailySeries]);
   const stats = useMemo(() => computeDashboardStats(tradesScoped), [tradesScoped]);

@@ -1,16 +1,20 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { parseThinkorswimAccountCsv } from "../import/thinkorswimCsv";
 import { parseDasTradesCsv } from "../import/dasCsv";
 import { mergeTradesImported } from "../storage/storage";
 import { loadImportGroupingMode } from "../storage/importTradeGroupingPrefs";
+import ReportsFilterCombobox from "../components/ReportsFilterCombobox";
+import { useAllAccountProfilesSync } from "../hooks/useAllAccountProfilesSync";
 import {
   getActiveAccountId,
+  getResolvedAccountDisplayName,
   getTradingAccount,
-  listTradingAccounts,
 } from "../storage/tradingAccounts";
 
 export default function ImportTradesPage() {
-  const accounts = listTradingAccounts();
+  const { accounts } = useAllAccountProfilesSync();
+  const importAccountComboId = useId();
+  const importAccountLabelId = useId();
   const [targetAccountId, setTargetAccountId] = useState(() => getActiveAccountId());
   const [importKind, setImportKind] = useState(() => {
     const a = getTradingAccount(getActiveAccountId());
@@ -28,6 +32,15 @@ export default function ImportTradesPage() {
   const formatMismatch =
     selectedAccount &&
     importKind !== (selectedAccount.importFormat === "das" ? "das" : "tos");
+
+  const accountImportOptions = useMemo(
+    () =>
+      accounts.map((a) => ({
+        value: a.id,
+        label: getResolvedAccountDisplayName(a.id),
+      })),
+    [accounts],
+  );
 
   const onFile = async (e) => {
     const file = e.target.files?.[0];
@@ -57,7 +70,7 @@ export default function ImportTradesPage() {
       }
       const { imported, removedDuplicates } = mergeTradesImported(trades, { accountId: targetAccountId });
       const label = kind === "das" ? "DAS" : "Thinkorswim / Schwab";
-      const bucket = getTradingAccount(targetAccountId)?.label ?? targetAccountId;
+      const bucket = getResolvedAccountDisplayName(targetAccountId);
       let msg = `Imported ${imported} trade row(s) into “${bucket}” (${label}, ${groupingMode} grouping).`;
       if (removedDuplicates) msg += ` Replaced ${removedDuplicates} existing row(s) with the same id.`;
       if (errors.length) msg += `\n\n${errors.length} line(s) skipped (see console).`;
@@ -92,21 +105,20 @@ export default function ImportTradesPage() {
               <option value="das">DAS Trader executions CSV</option>
             </select>
           </label>
-          <label className="import-trades-page-field">
-            <span className="import-trades-page-label">Account (trade bucket)</span>
-            <select
-              className="import-trades-page-select"
+          <div className="import-trades-page-field">
+            <span className="import-trades-page-label" id={importAccountLabelId}>
+              Account (trade bucket)
+            </span>
+            <ReportsFilterCombobox
+              id={importAccountComboId}
+              ariaLabelledBy={importAccountLabelId}
+              variant="account"
               value={targetAccountId}
-              onChange={(e) => setTargetAccountId(e.target.value)}
+              options={accountImportOptions}
+              onChange={(id) => setTargetAccountId(id)}
               disabled={busy}
-            >
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.label} ({a.importFormat === "das" ? "DAS CSV" : "Schwab / TOS CSV"})
-                </option>
-              ))}
-            </select>
-          </label>
+            />
+          </div>
         </div>
         <p className="import-trades-page-hint">
           Changing the account updates the format to that bucket&apos;s default; you can still override the format

@@ -1,21 +1,26 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useId, useState } from "react";
 import { Link } from "react-router-dom";
 import { useStarredForAccount } from "../hooks/useStarredForAccount";
 import { useTradesForAccount } from "../hooks/useTradesForAccount";
+import { useAllAccountProfilesSync } from "../hooks/useAllAccountProfilesSync";
 import { stableTradeId } from "../storage/tradeLookup";
 import { formatDisplayDate, formatMoney, pnlClass } from "../storage/storage";
 import { tradeSignedAmountForAggregation } from "../lib/tradeExecutionMetrics";
 import { toggleStarredTrade } from "../storage/starredItems";
+import ReportsFilterCombobox from "../components/ReportsFilterCombobox";
 import {
   ACCOUNT_CHANGED_EVENT,
   ACCOUNTS_LIST_CHANGED_EVENT,
   getActiveAccountId,
+  getResolvedAccountDisplayName,
   listTradingAccounts,
 } from "../storage/tradingAccounts";
 
 export default function StarReview() {
   const [viewAccountId, setViewAccountId] = useState(() => getActiveAccountId());
-  const accounts = listTradingAccounts();
+  const { accounts } = useAllAccountProfilesSync();
+  const accountComboId = useId();
+  const accountLabelId = useId();
 
   useEffect(() => {
     function onAccount() {
@@ -57,7 +62,15 @@ export default function StarReview() {
   );
 
   const empty = sortedStarDays.length === 0 && sortedStarTradeIds.length === 0;
-  const viewLabel = accounts.find((a) => a.id === viewAccountId)?.label ?? viewAccountId;
+  const viewLabel = getResolvedAccountDisplayName(viewAccountId);
+  const accountOptions = useMemo(
+    () =>
+      accounts.map((a) => ({
+        value: a.id,
+        label: getResolvedAccountDisplayName(a.id),
+      })),
+    [accounts],
+  );
 
   return (
     <div className="page-wrap star-review-page">
@@ -69,21 +82,21 @@ export default function StarReview() {
             bucket; the menu below matches the sidebar account when you switch accounts.
           </p>
         </div>
-        <label className="star-review-account-control">
-          <span className="star-review-account-label">Account</span>
-          <select
-            className="star-review-account-select"
-            value={viewAccountId}
-            onChange={(e) => setViewAccountId(e.target.value)}
-            aria-label="Which account’s starred items to show"
-          >
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="star-review-account-control">
+          <span className="star-review-account-label" id={accountLabelId}>
+            Account
+          </span>
+          <div className="star-review-account-combobox">
+            <ReportsFilterCombobox
+              id={accountComboId}
+              ariaLabelledBy={accountLabelId}
+              variant="account"
+              value={viewAccountId}
+              options={accountOptions}
+              onChange={(id) => setViewAccountId(id)}
+            />
+          </div>
+        </div>
       </div>
 
       {!empty ? (

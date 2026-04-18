@@ -7,7 +7,7 @@ import {
   formatDisplayDate,
 } from "../storage/storage";
 import { getDayAggregate } from "../lib/dashboardStats";
-import { useLiveTrades } from "../hooks/useLiveTrades";
+import { useRawAndReportTrades } from "../hooks/useReportViewTrades";
 import { stableTradeId } from "../storage/tradeLookup";
 import { filterTradesForReport, DEFAULT_REPORT_FILTERS } from "../lib/reportFilters";
 import {
@@ -81,7 +81,7 @@ function Journal() {
   const focusDate = focusDateRaw && DATE_RE.test(focusDateRaw) ? focusDateRaw : null;
   const activeAccountId = useActiveAccountId();
 
-  const trades = useLiveTrades();
+  const { rawTrades, reportTrades } = useRawAndReportTrades();
   const { isDayStarred, toggleDay, isTradeStarred, toggleTrade } = useStarred();
   const [filterDraft, setFilterDraft] = useState(() => loadPersistedReportFilters());
   const [appliedFilters, setAppliedFilters] = useState(() => loadPersistedReportFilters());
@@ -113,16 +113,16 @@ function Journal() {
     };
   }, []);
 
-  const allTags = useMemo(() => collectAllTagsFromTrades(trades), [trades]);
+  const allTags = useMemo(() => collectAllTagsFromTrades(rawTrades), [rawTrades]);
   const playbookPlayNames = usePlaybookPlayNames();
   const allSetups = useMemo(
-    () => buildSetupFilterSuggestions(trades, playbookPlayNames),
-    [trades, playbookPlayNames],
+    () => buildSetupFilterSuggestions(rawTrades, playbookPlayNames),
+    [rawTrades, playbookPlayNames],
   );
 
   const filteredTrades = useMemo(
-    () => filterTradesForReport(trades, appliedFilters),
-    [trades, appliedFilters],
+    () => filterTradesForReport(reportTrades, appliedFilters),
+    [reportTrades, appliedFilters],
   );
   const groupedFiltered = useMemo(() => groupTradesByDate(filteredTrades), [filteredTrades]);
 
@@ -152,9 +152,10 @@ function Journal() {
     };
   }, []);
 
+  const searchKey = searchParams.toString();
   const tradeNotesById = useMemo(
     () => readAllTradeNotes(),
-    [trades, searchParams.toString(), tradeNotesRev, activeAccountId],
+    [rawTrades, searchKey, tradeNotesRev, activeAccountId],
   );
 
   const days = focusDate
@@ -229,7 +230,7 @@ function Journal() {
 
       <div className="journal-main">
         <div className="journal-stack">
-            {trades.length === 0 ? (
+            {rawTrades.length === 0 ? (
               <div className="card journal-day-card journal-empty-state">
                 <p>
                   No journal days yet. Import a Thinkorswim statement CSV to populate trades, then open a day from the

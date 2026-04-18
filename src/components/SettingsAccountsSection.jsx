@@ -106,8 +106,7 @@ export default function SettingsAccountsSection() {
       </p>
       {err ? <p className="settings-account-error">{err}</p> : null}
 
-      <div className="settings-account-active-bar" role="status">
-        <span className="settings-account-active-label">Active in sidebar &amp; journal</span>
+      <div className="settings-account-active-bar" role="status" aria-label="Active trading account">
         <span className="settings-account-active-value">
           {accounts.find((a) => a.id === active)?.label || active}
         </span>

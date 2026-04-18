@@ -11,7 +11,7 @@ import {
   Cell,
   ReferenceLine,
 } from "recharts";
-import { useLiveTrades } from "../../hooks/useLiveTrades";
+import { useRawAndReportTrades } from "../../hooks/useReportViewTrades";
 import { filterTradesForReport, reportFiltersActive, DEFAULT_REPORT_FILTERS } from "../../lib/reportFilters";
 import {
   tradesInLastDays,
@@ -81,7 +81,7 @@ function aggregateDayRows(rows) {
 export default function ReportsWinLossDays() {
   const ctx = useOutletContext() ?? {};
   const applied = ctx.appliedReportFilters ?? DEFAULT_REPORT_FILTERS;
-  const trades = useLiveTrades();
+  const { reportTrades: trades } = useRawAndReportTrades();
   const [rangeDays, setRangeDays] = useState(30);
 
   const filtered = useMemo(() => filterTradesForReport(trades, applied), [trades, applied]);

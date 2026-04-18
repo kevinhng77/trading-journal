@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { useLiveTrades } from "../../hooks/useLiveTrades";
+import { useRawAndReportTrades } from "../../hooks/useReportViewTrades";
 import { filterTradesForReport, reportFiltersActive, DEFAULT_REPORT_FILTERS } from "../../lib/reportFilters";
 import {
   tradesInLastDays,
@@ -78,7 +78,7 @@ function SortTh({ label, sortKey, activeKey, dir, onSort }) {
 export default function ReportsTagBreakdown() {
   const ctx = useOutletContext() ?? {};
   const applied = ctx.appliedReportFilters ?? DEFAULT_REPORT_FILTERS;
-  const trades = useLiveTrades();
+  const { reportTrades: trades } = useRawAndReportTrades();
   const windowDays = 90;
   const dateFrom = String(applied.dateFrom ?? "").trim();
   const dateTo = String(applied.dateTo ?? "").trim();
