@@ -26,7 +26,7 @@ import {
 import { usePlaybookPlayNames } from "../hooks/usePlaybookPlayNames";
 import { mergeTradesByStableIds, splitTradeIntoRoundTripsByStableId } from "../lib/tradeMerge";
 import ReportsFilterStrip from "../components/ReportsFilterStrip";
-import { REPORT_DURATION_OPTIONS } from "../lib/tradeDuration";
+import { REPORTS_DURATION_OPTIONS } from "../lib/tradeDuration";
 import { tradeSignedAmountForAggregation } from "../lib/tradeExecutionMetrics";
 import { prefetchTradeExecutionChart } from "../lib/tradeChartPrefetch";
 import StarToggle from "../components/StarToggle";
@@ -328,7 +328,7 @@ function Trades() {
         onClear={clearFilters}
         allTags={allTags}
         allSetups={allSetups}
-        durationOptions={REPORT_DURATION_OPTIONS}
+        durationOptions={REPORTS_DURATION_OPTIONS}
         symbolPlaceholder="Symbol"
       />
 

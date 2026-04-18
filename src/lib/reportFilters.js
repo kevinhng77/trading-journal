@@ -34,16 +34,7 @@ export const DEFAULT_REPORT_FILTERS = {
 
 /** @typedef {typeof DEFAULT_REPORT_FILTERS} ReportFilters */
 
-const DURATION_VALUES = new Set([
-  "all",
-  "lt1m",
-  "1to5m",
-  "5to30m",
-  "30to120m",
-  "gte120m",
-  "intraday",
-  "multiday",
-]);
+const DURATION_VALUES = new Set(["all", "intraday", "multiday"]);
 
 const ADV_DAY = new Set(["all", "0", "1", "2", "3", "4", "5", "6"]);
 const ADV_MONTH = new Set(["all", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]);

@@ -32,7 +32,7 @@ export function getTradeDurationSeconds(trade) {
   return Math.max(0, Math.round((t1 - t0) / 1000));
 }
 
-/** Fine-grained hold duration (e.g. Trades table). */
+/** Fine-grained hold duration (e.g. Reports “session length” chart). */
 export const REPORT_DURATION_OPTIONS = [
   { value: "all", label: "All" },
   { value: "lt1m", label: "Under 1 minute" },
