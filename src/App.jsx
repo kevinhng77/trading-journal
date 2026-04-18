@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import ShellLayout from "./components/ShellLayout";
 import Dashboard from "./pages/Dashboard";
 import ReportsLayout from "./pages/reports/ReportsLayout";
@@ -15,14 +15,22 @@ import TradeDetail from "./pages/TradeDetail";
 import Journal from "./pages/Journal";
 import StarReview from "./pages/StarReview";
 import Playbook from "./pages/Playbook";
-import TradeImportSettingsPage from "./pages/TradeImportSettingsPage";
-import SettingsPage from "./pages/SettingsPage";
+import AccountBalancePage from "./pages/AccountBalancePage";
+import SettingsLayout from "./pages/SettingsLayout";
+import SettingsGeneralPage from "./pages/SettingsGeneralPage";
+import SettingsTradeImportPage from "./pages/SettingsTradeImportPage";
+import SettingsTradingAccountPage from "./pages/SettingsTradingAccountPage";
+import ImportTradesPage from "./pages/ImportTradesPage";
 
 function App() {
   return (
     <Routes>
-      <Route path="/settings/trade-import" element={<TradeImportSettingsPage />} />
-      <Route path="/settings" element={<SettingsPage />} />
+      <Route path="/settings" element={<SettingsLayout />}>
+        <Route index element={<Navigate to="general" replace />} />
+        <Route path="general" element={<SettingsGeneralPage />} />
+        <Route path="trade-import" element={<SettingsTradeImportPage />} />
+        <Route path="trading-account" element={<SettingsTradingAccountPage />} />
+      </Route>
       <Route element={<ShellLayout />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/reports" element={<ReportsLayout />}>
@@ -40,6 +48,8 @@ function App() {
         <Route path="/journal" element={<Journal />} />
         <Route path="/star" element={<StarReview />} />
         <Route path="/playbook" element={<Playbook />} />
+        <Route path="/account-balance" element={<AccountBalancePage />} />
+        <Route path="/import-trades" element={<ImportTradesPage />} />
       </Route>
     </Routes>
   );

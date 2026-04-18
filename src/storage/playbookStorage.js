@@ -26,9 +26,14 @@ function sanitizeTradeTag(v) {
 }
 
 /**
+ * @typedef {"neutral"|"long"|"short"} PlaybookBias
+ */
+
+/**
  * @typedef {object} PlaybookPlay
  * @property {string} id
  * @property {string} name
+ * @property {PlaybookBias} bias
  * @property {string} rules
  * @property {string} criteria
  * @property {string} entry
@@ -51,6 +56,7 @@ export function createEmptyPlay() {
   return {
     id: newId(),
     name: "Untitled play",
+    bias: "neutral",
     rules: PLAYBOOK_RULES_LIST_TEMPLATE,
     criteria: "",
     entry: "",
@@ -67,6 +73,7 @@ export function createEmptyMissedPlay() {
   return {
     id: newId(),
     name: "Untitled missed",
+    bias: "neutral",
     rules: PLAYBOOK_RULES_LIST_TEMPLATE,
     criteria: "",
     entry: "",
@@ -103,9 +110,13 @@ function normalizePlay(row) {
     : [];
   const rulesRaw = str("rules");
   const rules = rulesRaw.trim() === "" ? PLAYBOOK_RULES_LIST_TEMPLATE : rulesRaw;
+  const biasRaw = o.bias;
+  const bias =
+    biasRaw === "long" || biasRaw === "short" || biasRaw === "neutral" ? biasRaw : "neutral";
   return {
     id,
     name: str("name", "Untitled play") || "Untitled play",
+    bias,
     rules,
     criteria: str("criteria"),
     entry: str("entry"),

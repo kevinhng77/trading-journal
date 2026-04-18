@@ -68,6 +68,13 @@ function imageFilesFromDataTransfer(dt) {
 }
 
 /** @param {ClipboardData | null} cd */
+/** @param {unknown} bias */
+function biasShort(bias) {
+  if (bias === "long") return "L";
+  if (bias === "short") return "S";
+  return "—";
+}
+
 function imageFilesFromClipboard(cd) {
   if (!cd) return [];
   const out = [];
@@ -352,6 +359,10 @@ export default function Playbook() {
       <div className="page-header playbook-page-header">
         <div>
           <h1>Playbook</h1>
+          <p className="playbook-page-lead">
+            One shared playbook for every trading account. Set bias next to the play name; notes live at the bottom
+            after screenshots.
+          </p>
         </div>
         <div className="page-header-actions">
           <button type="button" className="import-btn playbook-header-btn" onClick={addPlay}>
@@ -392,6 +403,9 @@ export default function Playbook() {
                       }}
                     >
                       <span className="playbook-list-item-name">{p.name || "Untitled"}</span>
+                      <span className={`playbook-bias-pill playbook-bias-pill--${p.bias ?? "neutral"}`} title="Bias">
+                        {biasShort(p.bias)}
+                      </span>
                       {p.screenshots.length > 0 && (
                         <span className="playbook-list-item-meta">{p.screenshots.length} img</span>
                       )}
@@ -423,6 +437,9 @@ export default function Playbook() {
                       }}
                     >
                       <span className="playbook-list-item-name">{p.name || "Untitled"}</span>
+                      <span className={`playbook-bias-pill playbook-bias-pill--${p.bias ?? "neutral"}`} title="Bias">
+                        {biasShort(p.bias)}
+                      </span>
                       {p.screenshots.length > 0 && (
                         <span className="playbook-list-item-meta">{p.screenshots.length} img</span>
                       )}
@@ -453,8 +470,10 @@ export default function Playbook() {
                     Missed
                   </span>
                 ) : null}
-                <label className="playbook-field playbook-field--grow">
-                  <span className="playbook-field-label">{selectedScope === "missed" ? "Missed play name" : "Play name"}</span>
+                <label className="playbook-field playbook-field--grow playbook-field--head-name">
+                  <span className="playbook-field-label">
+                    {selectedScope === "missed" ? "Missed play name" : "Play name"}
+                  </span>
                   <input
                     type="text"
                     className="playbook-input"
@@ -463,6 +482,26 @@ export default function Playbook() {
                     autoComplete="off"
                   />
                 </label>
+                <div className="playbook-form-head-bias" role="group" aria-label="Directional bias">
+                  <span className="playbook-field-label playbook-form-head-bias-kicker">Bias</span>
+                  <div className="playbook-bias-toggle playbook-bias-toggle--inline">
+                    {["long", "short"].map((b) => (
+                      <button
+                        key={b}
+                        type="button"
+                        className={`playbook-bias-btn playbook-bias-btn--compact playbook-bias-btn--${b} ${
+                          (selectedPlay.bias ?? "neutral") === b ? "is-active" : ""
+                        }`}
+                        onClick={() => {
+                          const cur = selectedPlay.bias ?? "neutral";
+                          patchPlay(selectedPlay.id, { bias: cur === b ? "neutral" : b });
+                        }}
+                      >
+                        {b === "long" ? "Long" : "Short"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <button
                   type="button"
                   className="playbook-delete-btn"
@@ -473,68 +512,40 @@ export default function Playbook() {
               </div>
 
               <div className="playbook-field-grid">
-                <label className="playbook-field playbook-field--full">
+                <label className="playbook-field playbook-field--pair">
                   <span className="playbook-field-label-row">
                     <span className="playbook-field-label">Rules (one per line)</span>
                     <NotesVoiceInputButton onAppend={(c) => appendPlayVoiceField(selectedPlay.id, "rules", c)} />
                   </span>
                   <textarea
-                    className="playbook-textarea"
+                    className="playbook-textarea playbook-textarea--pair"
                     rows={5}
                     value={selectedPlay.rules}
                     onChange={(e) => patchPlay(selectedPlay.id, { rules: e.target.value })}
                   />
                 </label>
 
-                <label className="playbook-field">
+                <label className="playbook-field playbook-field--pair">
                   <span className="playbook-field-label-row">
                     <span className="playbook-field-label">Criteria</span>
                     <NotesVoiceInputButton onAppend={(c) => appendPlayVoiceField(selectedPlay.id, "criteria", c)} />
                   </span>
                   <textarea
-                    className="playbook-textarea"
-                    rows={4}
+                    className="playbook-textarea playbook-textarea--pair"
+                    rows={5}
                     value={selectedPlay.criteria}
                     onChange={(e) => patchPlay(selectedPlay.id, { criteria: e.target.value })}
                     placeholder="Market structure, levels, indicators, news filter…"
                   />
                 </label>
 
-                <label className="playbook-field playbook-field--full">
-                  <span className="playbook-field-label-row">
-                    <span className="playbook-field-label">Setup notes</span>
-                    <NotesVoiceInputButton onAppend={(c) => appendPlayVoiceField(selectedPlay.id, "setupNotes", c)} />
-                  </span>
-                  <textarea
-                    className="playbook-textarea"
-                    rows={3}
-                    value={selectedPlay.setupNotes ?? ""}
-                    onChange={(e) => patchPlay(selectedPlay.id, { setupNotes: e.target.value })}
-                    placeholder="Extra context, watchlist, or reminders for this setup…"
-                  />
-                </label>
-
-                <label className="playbook-field">
-                  <span className="playbook-field-label-row">
-                    <span className="playbook-field-label">R (plan)</span>
-                    <NotesVoiceInputButton onAppend={(c) => appendPlayVoiceField(selectedPlay.id, "rPlan", c)} />
-                  </span>
-                  <textarea
-                    className="playbook-textarea playbook-textarea--short"
-                    rows={3}
-                    value={selectedPlay.rPlan}
-                    onChange={(e) => patchPlay(selectedPlay.id, { rPlan: e.target.value })}
-                    placeholder="e.g. 2R target, stop at -1R (structure invalidation)"
-                  />
-                </label>
-
-                <label className="playbook-field playbook-field--full">
+                <label className="playbook-field playbook-field--pair">
                   <span className="playbook-field-label-row">
                     <span className="playbook-field-label">Entry</span>
                     <NotesVoiceInputButton onAppend={(c) => appendPlayVoiceField(selectedPlay.id, "entry", c)} />
                   </span>
                   <textarea
-                    className="playbook-textarea"
+                    className="playbook-textarea playbook-textarea--pair"
                     rows={4}
                     value={selectedPlay.entry}
                     onChange={(e) => patchPlay(selectedPlay.id, { entry: e.target.value })}
@@ -542,31 +553,17 @@ export default function Playbook() {
                   />
                 </label>
 
-                <label className="playbook-field playbook-field--full">
+                <label className="playbook-field playbook-field--pair">
                   <span className="playbook-field-label-row">
                     <span className="playbook-field-label">Exit</span>
                     <NotesVoiceInputButton onAppend={(c) => appendPlayVoiceField(selectedPlay.id, "exit", c)} />
                   </span>
                   <textarea
-                    className="playbook-textarea"
+                    className="playbook-textarea playbook-textarea--pair"
                     rows={4}
                     value={selectedPlay.exit}
                     onChange={(e) => patchPlay(selectedPlay.id, { exit: e.target.value })}
                     placeholder="Targets, time stop, scale-out rules…"
-                  />
-                </label>
-
-                <label className="playbook-field playbook-field--full">
-                  <span className="playbook-field-label-row">
-                    <span className="playbook-field-label">Notes</span>
-                    <NotesVoiceInputButton onAppend={(c) => appendPlayVoiceField(selectedPlay.id, "exitNotes", c)} />
-                  </span>
-                  <textarea
-                    className="playbook-textarea"
-                    rows={3}
-                    value={selectedPlay.exitNotes ?? ""}
-                    onChange={(e) => patchPlay(selectedPlay.id, { exitNotes: e.target.value })}
-                    placeholder="Exit-specific notes, exceptions, or post-trade review…"
                   />
                 </label>
               </div>
@@ -646,6 +643,22 @@ export default function Playbook() {
                 ) : (
                   <p className="playbook-shots-empty">Thumbnails appear here after you add images.</p>
                 )}
+              </div>
+
+              <div className="playbook-notes-block">
+                <label className="playbook-field playbook-field--full">
+                  <span className="playbook-field-label-row">
+                    <span className="playbook-field-label">Notes</span>
+                    <NotesVoiceInputButton onAppend={(c) => appendPlayVoiceField(selectedPlay.id, "exitNotes", c)} />
+                  </span>
+                  <textarea
+                    className="playbook-textarea"
+                    rows={4}
+                    value={selectedPlay.exitNotes ?? ""}
+                    onChange={(e) => patchPlay(selectedPlay.id, { exitNotes: e.target.value })}
+                    placeholder="General notes, review, reminders…"
+                  />
+                </label>
               </div>
             </div>
           )}

@@ -7,8 +7,9 @@ import { patchTradeByStableId } from "../storage/storage";
  * @param {string} props.tradeId stable trade id
  * @param {string[] | undefined} props.setups from trade row
  * @param {string[]} props.suggestionSetups unique setups from all trades (for picker)
+ * @param {"full"|"picker"|"chips"} [props.variant] `picker` / `chips` split the bar (e.g. trade detail header).
  */
-export default function TradeSetupsEditor({ tradeId, setups: setupsProp, suggestionSetups = [] }) {
+export default function TradeSetupsEditor({ tradeId, setups: setupsProp, suggestionSetups = [], variant = "full" }) {
   const setups = normalizeTagList(setupsProp);
   const [input, setInput] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -71,120 +72,144 @@ export default function TradeSetupsEditor({ tradeId, setups: setupsProp, suggest
     };
   }, [pickerOpen, closePicker]);
 
+  const pickerBlock = (
+    <div className="trade-tags-picker-wrap">
+      {setups.length === 0 ? (
+        <button
+          type="button"
+          className="trade-tags-add-empty-btn"
+          aria-expanded={pickerOpen}
+          aria-haspopup="dialog"
+          aria-controls={pickerId}
+          onClick={() => {
+            setPickerOpen((prev) => {
+              const next = !prev;
+              if (!next) setPickerSearch("");
+              return next;
+            });
+          }}
+        >
+          Add setups
+        </button>
+      ) : (
+        <button
+          type="button"
+          className="trade-tags-add-link"
+          aria-expanded={pickerOpen}
+          aria-haspopup="dialog"
+          aria-controls={pickerId}
+          onClick={() => {
+            setPickerOpen((prev) => {
+              const next = !prev;
+              if (!next) setPickerSearch("");
+              return next;
+            });
+          }}
+        >
+          Add setups +
+        </button>
+      )}
+      {pickerOpen ? (
+        <div className="trade-tags-dropdown" id={pickerId} role="dialog" aria-label="Add setups">
+          <label className="trade-tags-dropdown-search-label visually-hidden" htmlFor={pickerSearchId}>
+            Search setups
+          </label>
+          <input
+            ref={pickerSearchRef}
+            id={pickerSearchId}
+            type="text"
+            className="trade-tags-dropdown-search"
+            placeholder="Search setups…"
+            value={pickerSearch}
+            onChange={(e) => setPickerSearch(e.target.value)}
+            autoComplete="off"
+          />
+          <div className="trade-tags-dropdown-scroll" role="listbox" aria-label="Matching setups">
+            {suggestionSetups.length === 0 ? (
+              <p className="trade-tags-dropdown-empty">No saved setups yet. Create one below.</p>
+            ) : filteredPick.length === 0 ? (
+              <p className="trade-tags-dropdown-empty">
+                {availablePick.length === 0 ? "All known setups are on this trade." : "No matching setups."}
+              </p>
+            ) : (
+              filteredPick.map((setup) => (
+                <button
+                  key={setup}
+                  type="button"
+                  role="option"
+                  className="trade-tags-dropdown-item"
+                  onClick={() => addFromList(setup)}
+                >
+                  {setup}
+                </button>
+              ))
+            )}
+          </div>
+          <div className="trade-tags-dropdown-footer">
+            <input
+              className="trade-tags-dropdown-new-input"
+              type="text"
+              placeholder="New setup"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addFromInput();
+                }
+              }}
+            />
+            <button type="button" className="trade-tags-dropdown-new-btn" onClick={addFromInput}>
+              Add
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+
+  const chipsBlock =
+    setups.length > 0 ? (
+      <div className="trade-tags-chips-scroller" title={setups.join(", ")}>
+        {setups.map((t) => (
+          <button
+            key={t}
+            type="button"
+            className="trade-tags-chip trade-tags-chip--compact"
+            onClick={() => removeSetup(t)}
+            title={`Remove “${t}”`}
+          >
+            {t}
+            <span className="trade-tags-chip-x" aria-hidden>
+              ×
+            </span>
+          </button>
+        ))}
+      </div>
+    ) : null;
+
+  if (variant === "picker") {
+    return (
+      <div className="trade-tags-editor trade-setups-editor trade-tags-editor--variant-picker">
+        <div className="trade-tags-compact-bar trade-tags-compact-bar--picker-only" ref={pickerRootRef}>
+          {pickerBlock}
+        </div>
+      </div>
+    );
+  }
+
+  if (variant === "chips") {
+    if (!chipsBlock) return null;
+    return (
+      <div className="trade-tags-editor trade-setups-editor trade-tags-editor--variant-chips">{chipsBlock}</div>
+    );
+  }
+
   return (
     <div className="trade-tags-editor trade-setups-editor">
       <div className="trade-tags-compact-bar" ref={pickerRootRef}>
-        <div className="trade-tags-picker-wrap">
-          {setups.length === 0 ? (
-            <button
-              type="button"
-              className="trade-tags-add-empty-btn"
-              aria-expanded={pickerOpen}
-              aria-haspopup="dialog"
-              aria-controls={pickerId}
-              onClick={() => {
-                setPickerOpen((prev) => {
-                  const next = !prev;
-                  if (!next) setPickerSearch("");
-                  return next;
-                });
-              }}
-            >
-              Add setups
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="trade-tags-add-link"
-              aria-expanded={pickerOpen}
-              aria-haspopup="dialog"
-              aria-controls={pickerId}
-              onClick={() => {
-                setPickerOpen((prev) => {
-                  const next = !prev;
-                  if (!next) setPickerSearch("");
-                  return next;
-                });
-              }}
-            >
-              Add setups +
-            </button>
-          )}
-          {pickerOpen ? (
-            <div className="trade-tags-dropdown" id={pickerId} role="dialog" aria-label="Add setups">
-              <label className="trade-tags-dropdown-search-label visually-hidden" htmlFor={pickerSearchId}>
-                Search setups
-              </label>
-              <input
-                ref={pickerSearchRef}
-                id={pickerSearchId}
-                type="text"
-                className="trade-tags-dropdown-search"
-                placeholder="Search setups…"
-                value={pickerSearch}
-                onChange={(e) => setPickerSearch(e.target.value)}
-                autoComplete="off"
-              />
-              <div className="trade-tags-dropdown-scroll" role="listbox" aria-label="Matching setups">
-                {suggestionSetups.length === 0 ? (
-                  <p className="trade-tags-dropdown-empty">No saved setups yet. Create one below.</p>
-                ) : filteredPick.length === 0 ? (
-                  <p className="trade-tags-dropdown-empty">
-                    {availablePick.length === 0 ? "All known setups are on this trade." : "No matching setups."}
-                  </p>
-                ) : (
-                  filteredPick.map((setup) => (
-                    <button
-                      key={setup}
-                      type="button"
-                      role="option"
-                      className="trade-tags-dropdown-item"
-                      onClick={() => addFromList(setup)}
-                    >
-                      {setup}
-                    </button>
-                  ))
-                )}
-              </div>
-              <div className="trade-tags-dropdown-footer">
-                <input
-                  className="trade-tags-dropdown-new-input"
-                  type="text"
-                  placeholder="New setup"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addFromInput();
-                    }
-                  }}
-                />
-                <button type="button" className="trade-tags-dropdown-new-btn" onClick={addFromInput}>
-                  Add
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </div>
-        <div className="trade-tags-chips-scroller" title={setups.length ? setups.join(", ") : undefined}>
-          {setups.length > 0
-            ? setups.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  className="trade-tags-chip trade-tags-chip--compact"
-                  onClick={() => removeSetup(t)}
-                  title={`Remove “${t}”`}
-                >
-                  {t}
-                  <span className="trade-tags-chip-x" aria-hidden>
-                    ×
-                  </span>
-                </button>
-              ))
-            : null}
-        </div>
+        {pickerBlock}
+        {chipsBlock}
       </div>
     </div>
   );

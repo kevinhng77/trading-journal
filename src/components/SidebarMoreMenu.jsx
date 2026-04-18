@@ -113,7 +113,16 @@ export default function SidebarMoreMenu() {
         aria-label="Settings menu"
       >
         <NavLink
-          to="/settings"
+          to="/import-trades"
+          className="sidebar-settings-popover__item"
+          role="menuitem"
+          onClick={() => setOpen(false)}
+        >
+          <IconSliders className="sidebar-settings-popover__icon" />
+          <span className="sidebar-settings-popover__label">Upload CSV</span>
+        </NavLink>
+        <NavLink
+          to="/settings/general"
           className="sidebar-settings-popover__item"
           role="menuitem"
           onClick={() => setOpen(false)}
@@ -128,15 +137,6 @@ export default function SidebarMoreMenu() {
           </span>
           <ThemeSchemeControl className="sidebar-settings-popover__theme-control" showLabel={false} />
         </div>
-        <NavLink
-          to="/settings/trade-import"
-          className="sidebar-settings-popover__item"
-          role="menuitem"
-          onClick={() => setOpen(false)}
-        >
-          <IconSliders className="sidebar-settings-popover__icon" />
-          <span className="sidebar-settings-popover__label">Trade import settings</span>
-        </NavLink>
       </div>
     ) : null;
 

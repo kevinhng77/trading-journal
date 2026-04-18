@@ -1,4 +1,4 @@
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import ImportTradesButton from "./ImportTradesButton";
 import SidebarAccountRow from "./SidebarAccountRow";
 
@@ -13,6 +13,10 @@ function BrandMark() {
 }
 
 function Sidebar() {
+  const { pathname } = useLocation();
+  /** Highlight Reports for every reports sub-route except the calendar (sidebar Calendar owns that). */
+  const reportsSidebarActive = pathname.startsWith("/reports") && pathname !== "/reports/calendar";
+
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -36,12 +40,19 @@ function Sidebar() {
           Calendar
         </NavLink>
 
-        <NavLink
+        <Link
           to="/reports"
-          end
-          className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+          className={`nav-link ${reportsSidebarActive ? "active" : ""}`}
+          aria-current={reportsSidebarActive ? "page" : undefined}
         >
           Reports
+        </Link>
+
+        <NavLink
+          to="/account-balance"
+          className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+        >
+          Account balance
         </NavLink>
 
         <NavLink

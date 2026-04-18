@@ -396,8 +396,8 @@ function Trades() {
             title="Sort by P&amp;L (Schwab AMOUNT sum per trade; row fees in fill detail)"
           />
           <TradesSortHeader label="Notes" sortKey="notes" sort={sort} onSort={setSortByKey} title="Sort by trade note text" />
-          <TradesSortHeader label="Tags" sortKey="tags" sort={sort} onSort={setSortByKey} title="Sort by tags" />
           <TradesSortHeader label="Setup" sortKey="setups" sort={sort} onSort={setSortByKey} title="Sort by setups" />
+          <TradesSortHeader label="Tags" sortKey="tags" sort={sort} onSort={setSortByKey} title="Sort by tags" />
           <div className="trades-star-col-head" title="Star trade for * review">
             *
           </div>
@@ -444,11 +444,11 @@ function Trades() {
                   >
                     {notePreview}
                   </div>
-                  <div className={tags.length ? "trades-tags-cell" : "trades-cell-muted"} title={tagsLabel}>
-                    {tagsLabel}
-                  </div>
                   <div className={setups.length ? "trades-tags-cell" : "trades-cell-muted"} title={setupsLabel}>
                     {setupsLabel}
+                  </div>
+                  <div className={tags.length ? "trades-tags-cell" : "trades-cell-muted"} title={tagsLabel}>
+                    {tagsLabel}
                   </div>
                 </Link>
                 <div className="trades-star-cell">

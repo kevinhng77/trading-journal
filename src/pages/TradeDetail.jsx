@@ -89,7 +89,7 @@ export default function TradeDetail() {
     [trade],
   );
 
-  const ROUND_TRIPS_COLLAPSE_AT = 8;
+  const ROUND_TRIPS_COLLAPSE_AT = 4;
   const roundTripLegsVisible = useMemo(() => {
     if (roundTripLegs.length <= ROUND_TRIPS_COLLAPSE_AT || roundTripsExpanded) return roundTripLegs;
     return roundTripLegs.slice(0, ROUND_TRIPS_COLLAPSE_AT);
@@ -459,15 +459,45 @@ export default function TradeDetail() {
               title="Remove this trade"
               aria-label="Remove this trade"
             >
-              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden fill="currentColor">
-                <path d="M9 3h6a1 1 0 0 1 1 1v1h4v2H4V5h4V4a1 1 0 0 1 1-1zm1 5h2v10h-2V8zm4 0h2v10h-2V8zM7 8h2v10H7V8z" />
+              <svg
+                className="trade-detail-header-delete-icon"
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                aria-hidden
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M3 6h18" />
+                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                <path d="M10 11v6M14 11v6" />
               </svg>
             </button>
           </div>
         </header>
-        <div className="trade-detail-header-tags">
-          <TradeSetupsEditor tradeId={tid} setups={trade.setups} suggestionSetups={allSetupSuggestions} />
-          <TradeTagsEditor tradeId={tid} tags={trade.tags} suggestionTags={allTagSuggestions} />
+        <div className="trade-detail-header-tags trade-detail-header-tags--split">
+          <div className="trade-detail-header-tags-actions">
+            <TradeSetupsEditor
+              variant="picker"
+              tradeId={tid}
+              setups={trade.setups}
+              suggestionSetups={allSetupSuggestions}
+            />
+            <TradeTagsEditor variant="picker" tradeId={tid} tags={trade.tags} suggestionTags={allTagSuggestions} />
+          </div>
+          <div className="trade-detail-header-tags-chips" aria-label="Setups and tags on this trade">
+            <TradeSetupsEditor
+              variant="chips"
+              tradeId={tid}
+              setups={trade.setups}
+              suggestionSetups={allSetupSuggestions}
+            />
+            <TradeTagsEditor variant="chips" tradeId={tid} tags={trade.tags} suggestionTags={allTagSuggestions} />
+          </div>
         </div>
       </div>
 
@@ -545,8 +575,8 @@ export default function TradeDetail() {
                   aria-expanded={roundTripsExpanded}
                 >
                   {roundTripsExpanded
-                    ? `Show only first ${ROUND_TRIPS_COLLAPSE_AT} round trips`
-                    : `Show ${roundTripLegs.length - ROUND_TRIPS_COLLAPSE_AT} more round trips`}
+                    ? `Show only first ${ROUND_TRIPS_COLLAPSE_AT} trades`
+                    : `Show ${roundTripLegs.length - ROUND_TRIPS_COLLAPSE_AT} more trade${roundTripLegs.length - ROUND_TRIPS_COLLAPSE_AT === 1 ? "" : "s"}`}
                 </button>
               ) : null}
             </>

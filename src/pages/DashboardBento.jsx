@@ -193,16 +193,16 @@ export function DashboardBento({
                     <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
                       <defs>
                         <linearGradient id="dashboard-donut-win" x1="0.5" y1="0" x2="0.5" y2="1">
-                          <stop offset="0%" stopColor="#86efac" stopOpacity="1" />
-                          <stop offset="100%" stopColor="#22c55e" stopOpacity="1" />
+                          <stop offset="0%" stopColor="#4d8f6a" stopOpacity="1" />
+                          <stop offset="100%" stopColor="#3d6b55" stopOpacity="1" />
                         </linearGradient>
                         <linearGradient id="dashboard-donut-loss" x1="0.5" y1="0" x2="0.5" y2="1">
-                          <stop offset="0%" stopColor="#fca5a5" stopOpacity="1" />
-                          <stop offset="100%" stopColor="#f43f5e" stopOpacity="0.98" />
+                          <stop offset="0%" stopColor="#9a6368" stopOpacity="1" />
+                          <stop offset="100%" stopColor="#6f4549" stopOpacity="1" />
                         </linearGradient>
                         <linearGradient id="dashboard-donut-flat" x1="0.5" y1="0" x2="0.5" y2="1">
-                          <stop offset="0%" stopColor="#5f677a" />
-                          <stop offset="100%" stopColor="#454c5c" />
+                          <stop offset="0%" stopColor="#5a6274" />
+                          <stop offset="100%" stopColor="#3e4452" />
                         </linearGradient>
                       </defs>
                       <Pie
@@ -211,12 +211,12 @@ export function DashboardBento({
                         nameKey="name"
                         cx="50%"
                         cy="50%"
-                        innerRadius="62%"
-                        outerRadius="86%"
-                        paddingAngle={1.25}
-                        cornerRadius={2}
-                        stroke="#12151f"
-                        strokeWidth={2}
+                        innerRadius="64%"
+                        outerRadius="84%"
+                        paddingAngle={0.35}
+                        cornerRadius={0}
+                        stroke="rgba(22, 29, 44, 0.92)"
+                        strokeWidth={1}
                         isAnimationActive
                       >
                         {pieData.map((entry) => {

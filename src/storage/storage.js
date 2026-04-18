@@ -1,7 +1,11 @@
 import { stableTradeId } from "./tradeLookup";
 import { tradeSignedAmountForAggregation } from "../lib/tradeExecutionMetrics";
 import { sumSchwabLineConsiderationFromFills } from "../lib/schwabConsiderationPnl.js";
-import { ensureTradesMigratedForAccounts, getActiveAccountId, tradesStorageKey } from "./tradingAccounts";
+import {
+  ensureTradesMigratedForAccounts,
+  getActiveAccountId,
+  tradesStorageKey,
+} from "./tradingAccounts";
 
 export const TRADES_UPDATED_EVENT = "tj-trades-updated";
 
@@ -24,10 +28,11 @@ function normalizeTradePnlFromFills(trade) {
   return trade;
 }
 
-export function loadTrades() {
+/** @param {string} accountId */
+export function loadTradesForAccount(accountId) {
   try {
     ensureTradesMigratedForAccounts();
-    const key = tradesStorageKey(getActiveAccountId());
+    const key = tradesStorageKey(accountId);
     const raw = localStorage.getItem(key);
     const arr = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(arr)) return [];
@@ -37,9 +42,14 @@ export function loadTrades() {
   }
 }
 
-export function saveTrades(trades) {
+export function loadTrades() {
+  return loadTradesForAccount(getActiveAccountId());
+}
+
+/** @param {string} accountId @param {unknown[]} trades */
+export function saveTradesForAccount(accountId, trades) {
   try {
-    const key = tradesStorageKey(getActiveAccountId());
+    const key = tradesStorageKey(accountId);
     localStorage.setItem(key, JSON.stringify(trades));
   } catch (e) {
     if (e && e.name === "QuotaExceededError") {
@@ -52,10 +62,19 @@ export function saveTrades(trades) {
   window.dispatchEvent(new Event(TRADES_UPDATED_EVENT));
 }
 
-/** Replace any existing rows with the same `id`, then append (handy for re-import). Preserves `tags` when re-importing the same id. */
-export function mergeTradesImported(newTrades) {
+export function saveTrades(trades) {
+  saveTradesForAccount(getActiveAccountId(), trades);
+}
+
+/**
+ * Replace any existing rows with the same `id`, then append (handy for re-import). Preserves `tags` when re-importing the same id.
+ * @param {unknown[]} newTrades
+ * @param {{ accountId?: string }} [opts] When set, merges into that account bucket instead of the active journal account.
+ */
+export function mergeTradesImported(newTrades, opts) {
+  const accountId = opts?.accountId ?? getActiveAccountId();
   const newIds = new Set(newTrades.map((t) => t.id));
-  const existing = loadTrades();
+  const existing = loadTradesForAccount(accountId);
   const existingById = new Map(existing.map((t) => [t.id, t]));
   const kept = existing.filter((t) => !newIds.has(t.id));
   const withTags = newTrades.map((t) => {
@@ -66,7 +85,7 @@ export function mergeTradesImported(newTrades) {
     return t;
   });
   const merged = [...kept, ...withTags];
-  saveTrades(merged);
+  saveTradesForAccount(accountId, merged);
   return {
     imported: newTrades.length,
     removedDuplicates: existing.length - kept.length,

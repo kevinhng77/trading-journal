@@ -3,12 +3,14 @@ import { getActiveAccountId } from "./tradingAccounts";
 const LEGACY_DAYS_KEY = "tradingJournalStarredDates";
 const LEGACY_TRADES_KEY = "tradingJournalStarredTradeIds";
 
-function daysKey() {
-  return `${LEGACY_DAYS_KEY}:${getActiveAccountId()}`;
+/** @param {string} [accountId] defaults to active account */
+function daysKey(accountId = getActiveAccountId()) {
+  return `${LEGACY_DAYS_KEY}:${accountId}`;
 }
 
-function tradesKey() {
-  return `${LEGACY_TRADES_KEY}:${getActiveAccountId()}`;
+/** @param {string} [accountId] */
+function tradesKey(accountId = getActiveAccountId()) {
+  return `${LEGACY_TRADES_KEY}:${accountId}`;
 }
 
 export const STARS_CHANGED_EVENT = "tradingJournalStarsChanged";
@@ -43,11 +45,11 @@ function migrateLegacyStarredTradesOnce() {
   localStorage.removeItem(LEGACY_TRADES_KEY);
 }
 
-/** @returns {Set<string>} */
-export function loadStarredDays() {
+/** @param {string} accountId */
+export function loadStarredDaysForAccount(accountId) {
   migrateLegacyStarredDaysOnce();
   try {
-    const raw = localStorage.getItem(daysKey());
+    const raw = localStorage.getItem(daysKey(accountId));
     const a = asStringArray(raw ? JSON.parse(raw) : []);
     return new Set(a.filter((d) => DATE_RE.test(d)));
   } catch {
@@ -55,29 +57,39 @@ export function loadStarredDays() {
   }
 }
 
-/** @returns {Set<string>} */
-export function loadStarredTradeIds() {
+/** @param {string} accountId */
+export function loadStarredTradeIdsForAccount(accountId) {
   migrateLegacyStarredTradesOnce();
   try {
-    const raw = localStorage.getItem(tradesKey());
+    const raw = localStorage.getItem(tradesKey(accountId));
     return new Set(asStringArray(raw ? JSON.parse(raw) : []));
   } catch {
     return new Set();
   }
 }
 
-/** @param {Set<string>} set */
-function saveDaysSet(set) {
-  const arr = [...set].filter((d) => DATE_RE.test(d)).sort();
-  if (!arr.length) localStorage.removeItem(daysKey());
-  else localStorage.setItem(daysKey(), JSON.stringify(arr));
+/** @returns {Set<string>} */
+export function loadStarredDays() {
+  return loadStarredDaysForAccount(getActiveAccountId());
 }
 
-/** @param {Set<string>} set */
-function saveTradesSet(set) {
+/** @returns {Set<string>} */
+export function loadStarredTradeIds() {
+  return loadStarredTradeIdsForAccount(getActiveAccountId());
+}
+
+/** @param {string} accountId @param {Set<string>} set */
+function saveDaysSetForAccount(accountId, set) {
+  const arr = [...set].filter((d) => DATE_RE.test(d)).sort();
+  if (!arr.length) localStorage.removeItem(daysKey(accountId));
+  else localStorage.setItem(daysKey(accountId), JSON.stringify(arr));
+}
+
+/** @param {string} accountId @param {Set<string>} set */
+function saveTradesSetForAccount(accountId, set) {
   const arr = [...set].sort();
-  if (!arr.length) localStorage.removeItem(tradesKey());
-  else localStorage.setItem(tradesKey(), JSON.stringify(arr));
+  if (!arr.length) localStorage.removeItem(tradesKey(accountId));
+  else localStorage.setItem(tradesKey(accountId), JSON.stringify(arr));
 }
 
 function bump() {
@@ -86,25 +98,32 @@ function bump() {
 
 /**
  * @param {string} date - YYYY-MM-DD
+ * @param {string} [accountId] bucket to toggle (defaults active journal account)
  * @returns {boolean} true if now starred
  */
-export function toggleStarredDay(date) {
+export function toggleStarredDay(date, accountId) {
+  const aid = accountId ?? getActiveAccountId();
   if (!DATE_RE.test(date)) return false;
-  const s = loadStarredDays();
+  const s = loadStarredDaysForAccount(aid);
   if (s.has(date)) s.delete(date);
   else s.add(date);
-  saveDaysSet(s);
+  saveDaysSetForAccount(aid, s);
   bump();
   return s.has(date);
 }
 
-/** @param {string} tradeId */
-export function toggleStarredTrade(tradeId) {
+/**
+ * @param {string} tradeId
+ * @param {string} [accountId] bucket to toggle (defaults active journal account)
+ * @returns {boolean} true if now starred
+ */
+export function toggleStarredTrade(tradeId, accountId) {
+  const aid = accountId ?? getActiveAccountId();
   if (!tradeId) return false;
-  const s = loadStarredTradeIds();
+  const s = loadStarredTradeIdsForAccount(aid);
   if (s.has(tradeId)) s.delete(tradeId);
   else s.add(tradeId);
-  saveTradesSet(s);
+  saveTradesSetForAccount(aid, s);
   bump();
   return s.has(tradeId);
 }

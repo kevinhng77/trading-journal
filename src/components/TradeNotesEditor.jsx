@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { appendSpacedChunk } from "../lib/appendDictationChunk";
 import { loadTradeNote, saveTradeNote } from "../storage/tradeNotes";
 import NotesVoiceInputButton from "./NotesVoiceInputButton";
+
+/** Max height (px) for the main note field before we offer expand/collapse. */
+const NOTES_PREVIEW_MAX_PX = 120;
 
 /**
  * @param {{
@@ -18,11 +21,28 @@ export default function TradeNotesEditor({
   onAnnotationNotesChange,
 }) {
   const [note, setNote] = useState(() => loadTradeNote(tradeId));
+  const [notesExpanded, setNotesExpanded] = useState(false);
+  const [notesNeedExpand, setNotesNeedExpand] = useState(false);
+  const mainNoteRef = useRef(/** @type {HTMLTextAreaElement | null} */ (null));
 
   useEffect(() => {
     const t = setTimeout(() => saveTradeNote(tradeId, note), 400);
     return () => clearTimeout(t);
   }, [note, tradeId]);
+
+  useLayoutEffect(() => {
+    const el = mainNoteRef.current;
+    if (!el) return;
+    const prevRows = el.rows;
+    el.rows = 1;
+    const contentHeight = el.scrollHeight;
+    el.rows = prevRows;
+    setNotesNeedExpand(contentHeight > NOTES_PREVIEW_MAX_PX + 4);
+  }, [note, tradeId]);
+
+  useEffect(() => {
+    if (!notesNeedExpand) setNotesExpanded(false);
+  }, [notesNeedExpand]);
 
   const appendVoice = useCallback((chunk) => {
     setNote((cur) => appendSpacedChunk(cur, chunk));
@@ -44,15 +64,28 @@ export default function TradeNotesEditor({
     [annotationNotes, onAnnotationNotesChange, numberedMarkerCount],
   );
 
+  const clampNotes = notesNeedExpand && !notesExpanded;
+
   return (
     <>
       <textarea
-        className="trade-detail-notes-input"
+        ref={mainNoteRef}
+        className={`trade-detail-notes-input${clampNotes ? " trade-detail-notes-input--clamped" : ""}`}
         placeholder="Click here to start typing your notes…"
         value={note}
         onChange={(e) => setNote(e.target.value)}
         rows={8}
       />
+      {notesNeedExpand ? (
+        <button
+          type="button"
+          className="trade-detail-notes-expand-btn"
+          onClick={() => setNotesExpanded((v) => !v)}
+          aria-expanded={notesExpanded}
+        >
+          {notesExpanded ? "Collapse notes" : "View full notes"}
+        </button>
+      ) : null}
       {numberedMarkerCount > 0 && onAnnotationNotesChange ? (
         <div className="trade-detail-annotation-block">
           <ul className="trade-detail-annotation-list">
