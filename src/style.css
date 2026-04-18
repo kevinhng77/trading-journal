@@ -632,21 +632,6 @@ a.import-btn.import-btn--nav {
   cursor: wait;
 }
 
-.import-trades-page-footer-links {
-  margin-top: 22px;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.import-trades-page-footer-links a {
-  color: var(--accent-green);
-  text-decoration: none;
-}
-
-.import-trades-page-footer-links a:hover {
-  text-decoration: underline;
-}
-
 .import-settings-btn {
   flex: 0 0 44px;
   width: 44px;

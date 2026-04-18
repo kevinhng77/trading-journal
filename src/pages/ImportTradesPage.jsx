@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import { parseThinkorswimAccountCsv } from "../import/thinkorswimCsv";
 import { parseDasTradesCsv } from "../import/dasCsv";
 import { mergeTradesImported } from "../storage/storage";
@@ -140,12 +139,6 @@ export default function ImportTradesPage() {
           {busy ? "Importing…" : "Choose CSV file…"}
         </button>
       </div>
-
-      <p className="import-trades-page-footer-links">
-        <Link to="/settings/trade-import">Import options</Link>
-        <span aria-hidden> · </span>
-        <Link to="/settings/general">All settings</Link>
-      </p>
     </div>
   );
 }
