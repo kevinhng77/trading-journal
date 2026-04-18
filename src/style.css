@@ -5448,6 +5448,10 @@ a.journal-row-trade-link:visited {
   margin-bottom: 18px;
 }
 
+.trade-detail-page-head:not(:has(.trade-detail-header-tags-chips)) {
+  margin-bottom: 10px;
+}
+
 .trade-detail-header-bar {
   display: flex;
   align-items: center;

@@ -1,5 +1,9 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { buildSetupFilterSuggestions, collectAllTagsFromTrades } from "../lib/tradeTags";
+import {
+  buildSetupFilterSuggestions,
+  collectAllTagsFromTrades,
+  normalizeTagList,
+} from "../lib/tradeTags";
 import { usePlaybookPlayNames } from "../hooks/usePlaybookPlayNames";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -275,6 +279,11 @@ export default function TradeDetail() {
 
   const fills = trade.fills ?? [];
 
+  const tradeDetailHeaderHasChipsRow = useMemo(
+    () => normalizeTagList(trade.setups).length > 0 || normalizeTagList(trade.tags).length > 0,
+    [trade.setups, trade.tags],
+  );
+
   return (
     <div className="page-wrap trade-detail-page">
       <div className="trade-detail-page-head">
@@ -386,15 +395,17 @@ export default function TradeDetail() {
             />
             <TradeTagsEditor variant="picker" tradeId={tid} tags={trade.tags} suggestionTags={allTagSuggestions} />
           </div>
-          <div className="trade-detail-header-tags-chips" aria-label="Setups and tags on this trade">
-            <TradeSetupsEditor
-              variant="chips"
-              tradeId={tid}
-              setups={trade.setups}
-              suggestionSetups={allSetupSuggestions}
-            />
-            <TradeTagsEditor variant="chips" tradeId={tid} tags={trade.tags} suggestionTags={allTagSuggestions} />
-          </div>
+          {tradeDetailHeaderHasChipsRow ? (
+            <div className="trade-detail-header-tags-chips" aria-label="Setups and tags on this trade">
+              <TradeSetupsEditor
+                variant="chips"
+                tradeId={tid}
+                setups={trade.setups}
+                suggestionSetups={allSetupSuggestions}
+              />
+              <TradeTagsEditor variant="chips" tradeId={tid} tags={trade.tags} suggestionTags={allTagSuggestions} />
+            </div>
+          ) : null}
         </div>
       </div>
 
