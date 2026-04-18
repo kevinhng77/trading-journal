@@ -1,13 +1,35 @@
 import { stableTradeId } from "./tradeLookup";
 import { tradeSignedAmountForAggregation } from "../lib/tradeExecutionMetrics";
+import { sumSchwabLineConsiderationFromFills } from "../lib/schwabConsiderationPnl.js";
 
 const STORAGE_KEY = "tradingJournalTrades";
 export const TRADES_UPDATED_EVENT = "tj-trades-updated";
 
+/** BOT/SOLD cash-grid fills: recompute stored `pnl` so bad merges / string amounts cannot drift (e.g. −$859). */
+function isSchwabStyleCashFills(trade) {
+  if (trade?.source === "thinkorswim") return true;
+  const fills = trade?.fills;
+  if (!Array.isArray(fills) || fills.length === 0) return false;
+  return fills.some((f) => /^(BOT|SOLD)\s/i.test(String(f?.description ?? "")));
+}
+
+function normalizeTradePnlFromFills(trade) {
+  if (!trade || !Array.isArray(trade.fills) || trade.fills.length === 0) return trade;
+  if (!isSchwabStyleCashFills(trade)) return trade;
+  const next = sumSchwabLineConsiderationFromFills(trade.fills);
+  const prev = Number(trade.pnl);
+  if (!Number.isFinite(prev) || Math.abs(prev - next) > 0.0005) {
+    return { ...trade, pnl: next };
+  }
+  return trade;
+}
+
 export function loadTrades() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const arr = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(arr)) return [];
+    return arr.map(normalizeTradePnlFromFills);
   } catch {
     return [];
   }

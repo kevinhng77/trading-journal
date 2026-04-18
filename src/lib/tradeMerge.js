@@ -1,7 +1,7 @@
 import { groupFillsIntoTrades } from "../import/thinkorswimCsv.js";
 import { stableTradeId } from "../storage/tradeLookup";
 import { getTradeTags, getTradeSetups, normalizeTagList } from "./tradeTags";
-import { tradeSignedAmountForAggregation } from "./tradeExecutionMetrics";
+import { sumSchwabLineConsiderationFromFills } from "./schwabConsiderationPnl.js";
 
 /**
  * Parser-style fill row for {@link groupFillsIntoTrades} from a stored trade fill.
@@ -67,11 +67,10 @@ export function mergeTradesByStableIds(stableIds, allTrades) {
   }
 
   let volume = 0;
-  let pnlSum = 0;
   for (const t of picked) {
     volume += Number(t.volume) || 0;
-    pnlSum += tradeSignedAmountForAggregation(t);
   }
+  const mergedPnl = sumSchwabLineConsiderationFromFills(mergedFills);
 
   const tags = normalizeTagList(picked.flatMap((t) => getTradeTags(t)));
   const setups = normalizeTagList(picked.flatMap((t) => getTradeSetups(t)));
@@ -81,7 +80,7 @@ export function mergeTradesByStableIds(stableIds, allTrades) {
     id: primary.id ?? stableTradeId(primary),
     volume,
     executions: mergedFills.length,
-    pnl: Math.round(pnlSum * 100) / 100,
+    pnl: mergedPnl,
     fills: mergedFills,
     ...(tags.length > 0 ? { tags } : {}),
     ...(setups.length > 0 ? { setups } : {}),

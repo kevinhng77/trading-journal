@@ -16,6 +16,7 @@
 
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { normalizeWallTime } from "../api/alpacaBars";
+import { sumSchwabLineConsiderationFromFills } from "../lib/schwabConsiderationPnl.js";
 
 const NY_TZ = "America/New_York";
 
@@ -316,12 +317,11 @@ function buildTradeFromFills(group, date, symbol, tradeId, opts = {}) {
   /** Cash TRD rows carry `ref`; ATH synthetic fills use `ref: ""`. Prefer TRD rows for P/L when both appear. */
   const preferTrd = opts.preferCashTrdNetForPnl === true;
   const hasTrd = preferTrd && sorted.some((g) => String(g.ref ?? "").trim() !== "");
+  const legs = sorted.filter((g) => !(hasTrd && String(g.ref ?? "").trim() === ""));
   for (const g of sorted) {
     volume += g.quantity;
-    if (hasTrd && String(g.ref ?? "").trim() === "") continue;
-    pnl += g.amount;
   }
-  pnl = Math.round(pnl * 100) / 100;
+  pnl = sumSchwabLineConsiderationFromFills(legs);
   const executions = sorted.length;
   const time = sorted[0]?.time ?? "";
   return {

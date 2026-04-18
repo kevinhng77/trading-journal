@@ -3,6 +3,12 @@
  * fill-sequence approximations for MFE/MAE when tick data is unavailable.
  */
 
+import {
+  parseSchwabMoneyCell,
+  sumSchwabLineConsiderationFromFills,
+  sumSchwabNetCashFromFills,
+} from "./schwabConsiderationPnl.js";
+
 /**
  * @param {object} trade
  * @returns {number}
@@ -26,9 +32,15 @@ export function tradeMiscFeesSigned(trade) {
   return sumFillField(trade, "miscFees");
 }
 
-/** Sum of AMOUNT cells (market consideration before fees), when present. */
+/** Sum of AMOUNT / consideration cells (commas and `="..."` safe). */
 export function tradeAmountSum(trade) {
-  return sumFillField(trade, "amount");
+  const fills = trade?.fills;
+  if (!Array.isArray(fills)) return 0;
+  let s = 0;
+  for (const f of fills) {
+    s += parseSchwabMoneyCell(f?.amount);
+  }
+  return Math.round(s * 100) / 100;
 }
 
 /** Positive dollars paid in commissions + misc (0 if unknown). */
@@ -48,9 +60,7 @@ export function tradeFeesPaid(trade) {
 export function tradeGrossPnl(trade) {
   const fills = trade?.fills ?? [];
   if (!fills.length) return Number(trade?.pnl) || 0;
-  const hasAmount = fills.some((f) => f && f.amount != null && Number.isFinite(Number(f.amount)));
-  if (!hasAmount) return Number(trade?.pnl) || 0;
-  return Math.round(tradeAmountSum(trade) * 100) / 100;
+  return sumSchwabLineConsiderationFromFills(fills);
 }
 
 /**
@@ -60,14 +70,12 @@ export function tradeGrossPnl(trade) {
  */
 export function tradeNetPnl(trade) {
   const fills = trade?.fills ?? [];
-  let sum = 0;
-  let n = 0;
-  for (const f of fills) {
-    if (f?.netCash == null || !Number.isFinite(Number(f.netCash))) continue;
-    sum += Number(f.netCash);
-    n += 1;
+  if (
+    fills.length > 0 &&
+    fills.some((f) => f?.netCash != null && String(f.netCash).trim() !== "")
+  ) {
+    return sumSchwabNetCashFromFills(fills);
   }
-  if (n > 0) return Math.round(sum * 100) / 100;
   return Math.round((Number(trade?.pnl) || 0) * 100) / 100;
 }
 
@@ -81,20 +89,7 @@ export function tradeNetPnl(trade) {
 export function tradeSignedAmountForAggregation(trade) {
   const fills = trade?.fills;
   if (Array.isArray(fills) && fills.length > 0) {
-    let sum = 0;
-    let any = false;
-    for (const f of fills) {
-      if (f == null) continue;
-      const raw =
-        f.amount != null && Number.isFinite(Number(f.amount)) ? f.amount : f.netCash;
-      if (raw == null) continue;
-      const v = Number(raw);
-      if (Number.isFinite(v)) {
-        any = true;
-        sum += v;
-      }
-    }
-    if (any) return Math.round(sum * 100) / 100;
+    return sumSchwabLineConsiderationFromFills(fills);
   }
   return Math.round((Number(trade?.pnl) || 0) * 100) / 100;
 }
