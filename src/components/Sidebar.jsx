@@ -1,6 +1,6 @@
 import { Link, NavLink } from "react-router-dom";
 import ImportTradesButton from "./ImportTradesButton";
-import SidebarMoreMenu from "./SidebarMoreMenu";
+import SidebarAccountRow from "./SidebarAccountRow";
 
 function BrandMark() {
   return (
@@ -70,10 +70,11 @@ function Sidebar() {
       </nav>
 
       <div className="sidebar-footer">
-        <div className="sidebar-footer-import-row">
+        <div className="sidebar-footer-import-block">
           <ImportTradesButton />
-          <SidebarMoreMenu />
         </div>
+        <div className="sidebar-footer-divider" aria-hidden />
+        <SidebarAccountRow />
       </div>
     </aside>
   );

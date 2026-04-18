@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import ThemeSchemeControl from "../components/ThemeSchemeControl";
+import SettingsAccountsSection from "../components/SettingsAccountsSection";
 
 export default function SettingsPage() {
   return (
@@ -11,8 +12,11 @@ export default function SettingsPage() {
         <p className="settings-standalone-kicker">Settings</p>
         <h1 className="settings-standalone-title">Settings</h1>
         <p className="settings-standalone-lead">
-          Appearance and import options. Changes apply immediately and are stored in this browser.
+          Appearance, account labels, and import options. Changes apply immediately and are stored in
+          this browser.
         </p>
+
+        <SettingsAccountsSection />
 
         <section className="settings-standalone-card" aria-labelledby="appearance-heading">
           <h2 id="appearance-heading" className="settings-standalone-card-title">

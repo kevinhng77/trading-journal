@@ -51,9 +51,9 @@ export default function StarReview() {
         </div>
       ) : (
         <div className="star-review-columns">
-          {sortedStarDays.length > 0 ? (
-            <section className="card star-review-section">
-              <h2 className="star-review-section-title">Starred days</h2>
+          <section className="card star-review-section">
+            <h2 className="star-review-section-title">Starred days</h2>
+            {sortedStarDays.length > 0 ? (
               <ul className="star-review-list">
                 {sortedStarDays.map((date) => (
                   <li key={date}>
@@ -64,12 +64,14 @@ export default function StarReview() {
                   </li>
                 ))}
               </ul>
-            </section>
-          ) : null}
+            ) : (
+              <p className="star-review-section-empty">No starred journal days yet.</p>
+            )}
+          </section>
 
-          {sortedStarTradeIds.length > 0 ? (
-            <section className="card star-review-section">
-              <h2 className="star-review-section-title">Starred trades</h2>
+          <section className="card star-review-section">
+            <h2 className="star-review-section-title">Starred trades</h2>
+            {sortedStarTradeIds.length > 0 ? (
               <ul className="star-review-list star-review-list--trades">
                 {sortedStarTradeIds.map((id) => {
                   const t = tradeById.get(id);
@@ -103,8 +105,10 @@ export default function StarReview() {
                   );
                 })}
               </ul>
-            </section>
-          ) : null}
+            ) : (
+              <p className="star-review-section-empty">No starred trades yet.</p>
+            )}
+          </section>
         </div>
       )}
     </div>
