@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Link, useOutletContext, useSearchParams } from "react-router-dom";
 import { groupTradesByDate, formatMoney, pnlClass } from "../../storage/storage";
 import { useRawAndReportTrades } from "../../hooks/useReportViewTrades";
@@ -27,6 +28,14 @@ function expandedMonthKeyFromSearch(searchParams, selectedYear) {
   const mo = Number(m[2]);
   if (y !== selectedYear || mo < 0 || mo > 11) return null;
   return `${y}-${mo}`;
+}
+
+/** @param {string | null} openKey */
+function expandedMonthIndexFromKey(openKey) {
+  if (!openKey) return null;
+  const m = /^(\d{4})-(\d{1,2})$/.exec(openKey);
+  if (!m) return null;
+  return Number(m[2]);
 }
 
 function JournalGlyph({ className }) {
@@ -185,21 +194,28 @@ export default function ReportsCalendar() {
     });
   }
 
+  /** Push history when opening a month so the browser Back control returns to the year grid. */
   function openOrToggleMonth(key) {
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        const selY = parseYear(next);
-        const cur = expandedMonthKeyFromSearch(next, selY);
-        if (cur === key) {
+    const cur = expandedMonthKeyFromSearch(searchParams, selectedYear);
+    if (cur === key) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
           next.delete("expand");
-        } else {
+          return next;
+        },
+        { replace: true },
+      );
+    } else {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
           next.set("expand", key);
-        }
-        return next;
-      },
-      { replace: true },
-    );
+          return next;
+        },
+        { replace: false },
+      );
+    }
   }
 
   const calendarYear = new Date().getFullYear();
@@ -216,12 +232,7 @@ export default function ReportsCalendar() {
   const grouped = groupTradesByDate(inYear);
   const openKey = expandedMonthKeyFromSearch(searchParams, selectedYear);
   const modalOpen = Boolean(openKey);
-
-  useLayoutEffect(() => {
-    if (!openKey) return;
-    const el = document.getElementById(`reports-cal-modal-month-${openKey}`);
-    el?.scrollIntoView({ block: "start", behavior: "auto" });
-  }, [openKey, selectedYear]);
+  const expandedMo = expandedMonthIndexFromKey(openKey);
 
   useEffect(() => {
     if (!modalOpen) return;
@@ -272,18 +283,35 @@ export default function ReportsCalendar() {
     );
   });
 
-  const modalMonthSections = Array.from({ length: 12 }, (_, m) => {
-    const key = `${selectedYear}-${m}`;
-    const title = formatMonthTitle(selectedYear, m);
-    return (
-      <section key={key} id={`reports-cal-modal-month-${key}`} className="reports-cal-modal-month">
-        <div className="reports-cal-modal-month-head">
-          <h3 className="reports-cal-modal-month-title">{title}</h3>
+  const modalNode =
+    modalOpen && expandedMo != null ? (
+      <div className="reports-cal-modal-backdrop" role="presentation" onClick={closeCalendarModal}>
+        <div
+          className="reports-cal-modal reports-cal-modal--single"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reports-cal-modal-title"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="reports-cal-modal-toolbar">
+            <h2 id="reports-cal-modal-title" className="reports-cal-modal-title">
+              {formatMonthTitle(selectedYear, expandedMo)}
+            </h2>
+            <button
+              ref={closeBtnRef}
+              type="button"
+              className="reports-cal-modal-close range-btn"
+              onClick={closeCalendarModal}
+            >
+              Close
+            </button>
+          </div>
+          <div className="reports-cal-modal-single-body">
+            <MonthExpandedGrid year={selectedYear} monthIndex={expandedMo} grouped={grouped} />
+          </div>
         </div>
-        <MonthExpandedGrid year={selectedYear} monthIndex={m} grouped={grouped} />
-      </section>
-    );
-  });
+      </div>
+    ) : null;
 
   return (
     <>
@@ -315,35 +343,7 @@ export default function ReportsCalendar() {
       </div>
       <div className="reports-calendar-grid">{months}</div>
 
-      {modalOpen ? (
-        <div className="reports-cal-modal-backdrop" role="presentation" onClick={closeCalendarModal}>
-          <div
-            className="reports-cal-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="reports-cal-modal-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="reports-cal-modal-toolbar">
-              <h2 id="reports-cal-modal-title" className="reports-cal-modal-title">
-                {selectedYear} calendar
-              </h2>
-              <p className="reports-cal-modal-hint">Scroll to move between months.</p>
-              <button
-                ref={closeBtnRef}
-                type="button"
-                className="reports-cal-modal-close range-btn"
-                onClick={closeCalendarModal}
-              >
-                Close
-              </button>
-            </div>
-            <div className="reports-cal-modal-body">
-              {modalMonthSections}
-            </div>
-          </div>
-        </div>
-      ) : null}
+      {typeof document !== "undefined" && modalNode ? createPortal(modalNode, document.body) : null}
     </>
   );
 }

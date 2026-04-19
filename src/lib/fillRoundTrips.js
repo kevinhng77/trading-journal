@@ -3,6 +3,8 @@
  * Used by the execution chart overlay; incomplete tails (still open) are not banded.
  */
 
+import { inferOpeningSide } from "./tradeSide.js";
+
 /** Chronological order using session date then wall time (multiday-safe). */
 export function compareFillsBySessionThenTime(a, b) {
   const c = String(a?.date ?? "").localeCompare(String(b?.date ?? ""));
@@ -178,7 +180,7 @@ function roundTripEntryExitMetrics(fillsChrono) {
  * is still open. Used on the trade detail snapshot.
  *
  * @param {object[] | undefined} fills
- * @returns {{ legIndex: number, isOpen: boolean, avgEntry: number|null, avgExit: number|null, shareSize: number, pnl: number|null, entryDate: string|null, exitDate: string|null, isMultidayLeg: boolean }[]}
+ * @returns {{ legIndex: number, isOpen: boolean, openingSide: "long"|"short"|null, avgEntry: number|null, avgExit: number|null, shareSize: number, pnl: number|null, entryDate: string|null, exitDate: string|null, isMultidayLeg: boolean }[]}
  */
 export function roundTripLegSummariesFromFills(fills) {
   const sorted = [...(fills || [])].sort(compareFillsBySessionThenTime);
@@ -202,6 +204,7 @@ export function roundTripLegSummariesFromFills(fills) {
       out.push({
         legIndex: legIndex++,
         isOpen: false,
+        openingSide: inferOpeningSide({ fills: cur }),
         avgEntry: m.avgEntry != null ? Math.round(m.avgEntry * 1e6) / 1e6 : null,
         avgExit: m.avgExit != null ? Math.round(m.avgExit * 1e6) / 1e6 : null,
         shareSize: Math.round(m.shareSize),
@@ -220,6 +223,7 @@ export function roundTripLegSummariesFromFills(fills) {
     out.push({
       legIndex: legIndex++,
       isOpen: true,
+      openingSide: inferOpeningSide({ fills: cur }),
       avgEntry: m.avgEntry != null ? Math.round(m.avgEntry * 1e6) / 1e6 : null,
       avgExit: m.avgExit != null ? Math.round(m.avgExit * 1e6) / 1e6 : null,
       shareSize: Math.round(m.shareSize),

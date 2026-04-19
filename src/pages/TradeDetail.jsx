@@ -457,9 +457,17 @@ export default function TradeDetail() {
                   <div key={leg.legIndex} className="trade-detail-roundtrip-card">
                     <div className="trade-detail-roundtrip-head">
                       <span className="trade-detail-roundtrip-title">Trade {leg.legIndex + 1}</span>
-                      {leg.isOpen ? (
-                        <span className="trade-detail-roundtrip-badge">Open</span>
-                      ) : null}
+                      <div className="trade-detail-roundtrip-badges">
+                        {leg.openingSide ? (
+                          <span
+                            className={`trade-detail-roundtrip-dir trade-detail-roundtrip-dir--${leg.openingSide}`}
+                            title={leg.openingSide === "long" ? "Long" : "Short"}
+                          >
+                            {leg.openingSide === "long" ? "Long" : "Short"}
+                          </span>
+                        ) : null}
+                        {leg.isOpen ? <span className="trade-detail-roundtrip-badge">Open</span> : null}
+                      </div>
                     </div>
                     <div className="trade-detail-roundtrip-body">
                       <span className="trade-detail-roundtrip-kv">
