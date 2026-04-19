@@ -34,6 +34,7 @@ import { prefetchTradeExecutionChart } from "../lib/tradeChartPrefetch";
 import { appendSpacedChunk } from "../lib/appendDictationChunk";
 import NotesVoiceInputButton from "../components/NotesVoiceInputButton";
 import StarToggle from "../components/StarToggle";
+import TradeSymbolCell from "../components/TradeSymbolCell";
 import { useStarred } from "../hooks/useStarred";
 import { readAllTradeNotes, TRADE_NOTES_CHANGED_EVENT } from "../storage/tradeNotes";
 import {
@@ -399,7 +400,7 @@ function Journal() {
                               }}
                             >
                               <div className="journal-time-cell">{trade.time || "—"}</div>
-                              <div className="trades-symbol">{trade.symbol}</div>
+                              <TradeSymbolCell trade={trade} />
                               <div>{trade.volume}</div>
                               <div>{trade.executions}</div>
                               <div className={pnlClass(rowAmt)}>{formatMoney(rowAmt)}</div>

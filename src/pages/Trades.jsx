@@ -30,6 +30,7 @@ import { REPORTS_DURATION_OPTIONS } from "../lib/tradeDuration";
 import { tradeSignedAmountForAggregation } from "../lib/tradeExecutionMetrics";
 import { prefetchTradeExecutionChart } from "../lib/tradeChartPrefetch";
 import StarToggle from "../components/StarToggle";
+import TradeSymbolCell from "../components/TradeSymbolCell";
 import { useStarred } from "../hooks/useStarred";
 import { readAllTradeNotes, TRADE_NOTES_CHANGED_EVENT } from "../storage/tradeNotes";
 import { ACCOUNT_CHANGED_EVENT } from "../storage/tradingAccounts";
@@ -436,7 +437,7 @@ function Trades() {
                   aria-label={`Open trade ${trade.symbol} ${trade.date}`}
                 >
                   <div>{formatTradeTableDate(trade.date)}</div>
-                  <div className="trades-symbol">{trade.symbol}</div>
+                  <TradeSymbolCell trade={trade} />
                   <div>{trade.volume}</div>
                   <div>{trade.executions}</div>
                   <div className={pnlClass(displayPnl)}>{formatMoney(displayPnl)}</div>
