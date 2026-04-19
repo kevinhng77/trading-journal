@@ -17,19 +17,19 @@ function parseYear(searchParams) {
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
- * Intersect the report date span with a calendar year: which months to show and which
- * ISO days in the year grid should render as real days (vs padding).
+ * Intersect report date From/To with a calendar year. Used only to dim days outside the
+ * range while keeping the full 12-month grid layout.
  * @param {number} year
  * @param {string} dateFrom
  * @param {string} dateTo
- * @returns {{ months: number[] | null, clipFrom: string | null, clipTo: string | null }}
+ * @returns {{ clipFrom: string | null, clipTo: string | null }}
  */
-function yearDateClipForFilters(year, dateFrom, dateTo) {
+function yearDateRangeClipForYear(year, dateFrom, dateTo) {
   const f = String(dateFrom ?? "").trim().slice(0, 10);
   const t = String(dateTo ?? "").trim().slice(0, 10);
   const y0 = `${year}-01-01`;
   const y1 = `${year}-12-31`;
-  if (!f && !t) return { months: null, clipFrom: null, clipTo: null };
+  if (!f && !t) return { clipFrom: null, clipTo: null };
 
   let spanStart = f || y0;
   let spanEnd = t || y1;
@@ -41,16 +41,9 @@ function yearDateClipForFilters(year, dateFrom, dateTo) {
 
   const rangeStart = spanStart < y0 ? y0 : spanStart;
   const rangeEnd = spanEnd > y1 ? y1 : spanEnd;
-  if (rangeStart > rangeEnd) return { months: [], clipFrom: null, clipTo: null };
+  if (rangeStart > rangeEnd) return { clipFrom: null, clipTo: null };
 
-  const m0 = Number(rangeStart.slice(5, 7)) - 1;
-  const m1 = Number(rangeEnd.slice(5, 7)) - 1;
-  const lo = Math.max(0, Math.min(11, m0));
-  const hi = Math.max(0, Math.min(11, m1));
-  /** @type {number[]} */
-  const months = [];
-  for (let m = lo; m <= hi; m++) months.push(m);
-  return { months, clipFrom: rangeStart, clipTo: rangeEnd };
+  return { clipFrom: rangeStart, clipTo: rangeEnd };
 }
 
 /** @param {string} iso @param {string | null} clipFrom @param {string | null} clipTo */
@@ -108,7 +101,15 @@ function MonthMiniGrid({ year, monthIndex, grouped, clipFrom, clipTo }) {
               return <div key={`e-${wi}-${di}`} className="reports-cal-mini-cell reports-cal-mini-pad" />;
             }
             if (!dayInDateClip(iso, clipFrom, clipTo)) {
-              return <div key={`c-${iso}`} className="reports-cal-mini-cell reports-cal-mini-pad" aria-hidden />;
+              return (
+                <div
+                  key={`c-${iso}`}
+                  className="reports-cal-mini-cell reports-cal-mini-day reports-cal-neutral reports-cal-outside-filter"
+                  title="Outside report date filter"
+                >
+                  {Number(iso.slice(8, 10))}
+                </div>
+              );
             }
             const day = getDayAggregate(grouped, iso);
             return (
@@ -159,7 +160,20 @@ function MonthExpandedGrid({ year, monthIndex, grouped, clipFrom, clipTo }) {
                     return <td key={`p-${wi}-${di}`} className="reports-cal-td-pad" />;
                   }
                   if (!dayInDateClip(iso, clipFrom, clipTo)) {
-                    return <td key={`c-${iso}`} className="reports-cal-td-pad" aria-hidden />;
+                    const dom = Number(iso.slice(8, 10));
+                    return (
+                      <td key={`c-${iso}`} className="reports-cal-td-day">
+                        <div
+                          className="reports-cal-day-card reports-cal-neutral reports-cal-outside-filter"
+                          title="Outside report date filter"
+                        >
+                          <JournalGlyph className="reports-cal-day-glyph" />
+                          <div className="reports-cal-day-dom">{dom}</div>
+                          <div className="reports-cal-day-pnl trades-cell-muted">$0</div>
+                          <div className="reports-cal-day-trades">0 trades</div>
+                        </div>
+                      </td>
+                    );
                   }
                   const day = getDayAggregate(grouped, iso);
                   weekPnl += day.pnl;
@@ -283,22 +297,10 @@ export default function ReportsCalendar() {
   const modalOpen = Boolean(openKey);
   const expandedMo = expandedMonthIndexFromKey(openKey);
 
-  const yearClip = useMemo(
-    () => yearDateClipForFilters(selectedYear, applied.dateFrom, applied.dateTo),
+  const { clipFrom, clipTo } = useMemo(
+    () => yearDateRangeClipForYear(selectedYear, applied.dateFrom, applied.dateTo),
     [selectedYear, applied.dateFrom, applied.dateTo],
   );
-  const monthIndicesToRender = yearClip.months ?? [...Array(12).keys()];
-  const { clipFrom, clipTo } = yearClip;
-
-  const visibleMonthSet = useMemo(
-    () => new Set(yearClip.months ?? [...Array(12).keys()]),
-    [yearClip.months],
-  );
-
-  useEffect(() => {
-    if (expandedMo == null) return;
-    if (!visibleMonthSet.has(expandedMo)) closeCalendarModal();
-  }, [expandedMo, visibleMonthSet, closeCalendarModal]);
 
   useEffect(() => {
     if (!modalOpen) return;
@@ -318,7 +320,7 @@ export default function ReportsCalendar() {
     };
   }, [modalOpen, closeCalendarModal]);
 
-  const months = monthIndicesToRender.map((m) => {
+  const months = Array.from({ length: 12 }, (_, m) => {
     const key = `${selectedYear}-${m}`;
     const title = formatMonthTitle(selectedYear, m);
     const monthPnl = sumMonthPnl(grouped, selectedYear, m, clipFrom, clipTo);
@@ -413,16 +415,7 @@ export default function ReportsCalendar() {
           </button>
         </div>
       </div>
-      {months.length === 0 ? (
-        <div className="card reports-calendar-range-empty">
-          <p className="reports-calendar-range-empty-text">
-            No calendar days in <strong>{selectedYear}</strong> for the applied date range. Change the year or clear the
-            date filter to see months here.
-          </p>
-        </div>
-      ) : (
-        <div className="reports-calendar-grid">{months}</div>
-      )}
+      <div className="reports-calendar-grid">{months}</div>
 
       {typeof document !== "undefined" && modalNode ? createPortal(modalNode, document.body) : null}
     </>

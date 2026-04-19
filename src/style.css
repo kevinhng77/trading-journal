@@ -4463,23 +4463,6 @@ button.metric-hint-icon:focus-visible {
   gap: 18px;
 }
 
-.reports-calendar-range-empty {
-  padding: 22px 20px;
-  margin-top: 4px;
-}
-
-.reports-calendar-range-empty-text {
-  margin: 0;
-  font-size: 14px;
-  color: var(--muted);
-  line-height: 1.45;
-}
-
-.reports-calendar-range-empty-text strong {
-  color: var(--text);
-  font-weight: 700;
-}
-
 @media (max-width: 1100px) {
   .reports-calendar-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4620,6 +4603,14 @@ button.metric-hint-icon:focus-visible {
   border-color: var(--border);
 }
 
+.reports-cal-mini-day.reports-cal-outside-filter {
+  opacity: 0.5;
+  cursor: default;
+  background: #161a24;
+  color: #64748b;
+  border-color: rgba(51, 65, 85, 0.45);
+}
+
 .reports-cal-expanded {
   margin-top: 8px;
 }
@@ -4699,6 +4690,14 @@ button.metric-hint-icon:focus-visible {
 
 .reports-cal-day-card.grey {
   background: #2a3142;
+}
+
+.reports-cal-day-card.reports-cal-outside-filter {
+  opacity: 0.52;
+  cursor: default;
+  pointer-events: none;
+  background: #161a24;
+  border-color: rgba(51, 65, 85, 0.45);
 }
 
 .reports-cal-day-glyph {
@@ -5837,9 +5836,9 @@ a.journal-row-trade-link:visited {
 }
 
 .star-toggle-btn.star-toggle-btn--on:hover .star-toggle-glyph {
-  color: #5c6370;
+  color: #fde68a;
   filter: none;
-  text-shadow: none;
+  text-shadow: 0 0 14px rgba(250, 204, 21, 0.55), 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 
 .star-toggle-btn:focus-visible {
@@ -5853,9 +5852,9 @@ a.journal-row-trade-link:visited {
 }
 
 .star-toggle-btn--on .star-toggle-glyph {
-  color: #4b5563;
-  filter: none;
-  text-shadow: none;
+  color: #fbbf24;
+  filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.55));
+  text-shadow: 0 0 10px rgba(251, 191, 36, 0.4), 0 1px 2px rgba(0, 0, 0, 0.55);
 }
 
 .trades-star-cell .star-toggle-btn:hover,
@@ -5874,9 +5873,9 @@ a.journal-row-trade-link:visited {
 
 .trades-star-cell .star-toggle-btn.star-toggle-btn--on:hover .star-toggle-glyph,
 .journal-trade-star-cell .star-toggle-btn.star-toggle-btn--on:hover .star-toggle-glyph {
-  color: #5f6670;
-  filter: none;
-  text-shadow: none;
+  color: #fde68a;
+  filter: drop-shadow(0 0 5px rgba(250, 204, 21, 0.5));
+  text-shadow: 0 0 12px rgba(250, 204, 21, 0.45), 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 
 .star-toggle-btn.trade-detail-header-icon-btn--star {
@@ -5902,8 +5901,9 @@ a.journal-row-trade-link:visited {
 }
 
 .star-toggle-btn.trade-detail-header-icon-btn--star.star-toggle-btn--on .star-toggle-glyph {
-  color: #52525b;
-  text-shadow: none;
+  color: #fcd34d;
+  filter: drop-shadow(0 0 8px rgba(252, 211, 77, 0.6));
+  text-shadow: 0 0 14px rgba(250, 204, 21, 0.45), 0 1px 2px rgba(0, 0, 0, 0.55);
 }
 
 .star-toggle-btn.trade-detail-header-icon-btn--star.star-toggle-btn--on:hover {
@@ -5913,7 +5913,9 @@ a.journal-row-trade-link:visited {
 }
 
 .star-toggle-btn.trade-detail-header-icon-btn--star.star-toggle-btn--on:hover .star-toggle-glyph {
-  color: #57534e;
+  color: #fef08a;
+  filter: drop-shadow(0 0 10px rgba(254, 240, 138, 0.55));
+  text-shadow: 0 0 16px rgba(253, 224, 71, 0.5), 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .star-toggle-btn.trade-detail-header-icon-btn--star .star-toggle-glyph {
@@ -10577,7 +10579,18 @@ html[data-ui-theme="light"] .sidebar-more-menu-btn[aria-expanded="true"] {
 }
 
 html[data-ui-theme="light"] .star-toggle-btn--on .star-toggle-glyph {
-  color: #64748b;
+  color: #d97706;
+  filter: drop-shadow(0 0 4px rgba(217, 119, 6, 0.35));
+  text-shadow: none;
+}
+
+html[data-ui-theme="light"] .star-toggle-btn.star-toggle-btn--on:hover .star-toggle-glyph {
+  color: #b45309;
+}
+
+html[data-ui-theme="light"] .star-toggle-btn.trade-detail-header-icon-btn--star.star-toggle-btn--on .star-toggle-glyph {
+  color: #d97706;
+  filter: drop-shadow(0 0 5px rgba(217, 119, 6, 0.4));
 }
 
 html[data-ui-theme="light"] .card {
