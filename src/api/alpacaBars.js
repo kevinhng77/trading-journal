@@ -85,37 +85,68 @@ export function isDailyInterval(interval) {
   return isDailyLikeInterval(interval);
 }
 
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** @param {string} a @param {string} b */
+function maxIsoDate(a, b) {
+  const as = String(a ?? "").trim().slice(0, 10);
+  const bs = String(b ?? "").trim().slice(0, 10);
+  if (!ISO_DAY.test(as)) return ISO_DAY.test(bs) ? bs : as;
+  if (!ISO_DAY.test(bs)) return as;
+  return as >= bs ? as : bs;
+}
+
 /**
  * Wide Alpaca range for deep history; the chart fits the loaded bar span on first paint.
- * @param {string} tradeIsoDate - YYYY-MM-DD
+ * @param {string} tradeIsoDate - YYYY-MM-DD (journal row; usually last session with fills)
  * @param {string} chartInterval - UI value (see `chartIntervals.js`)
+ * @param {{ fillSpanStart?: string, fillSpanEnd?: string }} [opts] - min/max fill `date` for multi-session trades
  * @returns {{ start: string, end: string, maxTotalBars: number }}
  */
-export function chartHistoryQuery(tradeIsoDate, chartInterval) {
+export function chartHistoryQuery(tradeIsoDate, chartInterval, opts) {
   const dailyLike = isDailyLikeInterval(chartInterval);
-  const trade = parseISO(tradeIsoDate);
+  const o = opts ?? {};
+  const fillStart = String(o.fillSpanStart ?? "").trim().slice(0, 10);
+  const fillEnd = String(o.fillSpanEnd ?? "").trim().slice(0, 10);
+  const hasFillSpan = ISO_DAY.test(fillStart) && ISO_DAY.test(fillEnd);
+
+  const endDateStr = hasFillSpan ? maxIsoDate(tradeIsoDate, fillEnd) : tradeIsoDate;
+  const trade = parseISO(endDateStr);
   const today = new Date();
   const key = intervalHistoryKey(chartInterval);
-  const maxTotalBars = MAX_BARS_CAP[key] ?? MAX_BARS_CAP[1];
+  let maxTotalBars = MAX_BARS_CAP[key] ?? MAX_BARS_CAP[1];
 
   if (dailyLike) {
     const yearsBack = chartInterval === "W" ? 10 : 5;
     const start = subYears(trade, yearsBack);
     return {
       start: format(start, "yyyy-MM-dd"),
-      end: tradeIsoDate,
+      end: endDateStr,
       maxTotalBars,
     };
   }
 
   const lookbackDays = LOOKBACK_DAYS[key] ?? LOOKBACK_DAYS[1];
-  const startLocal = subDays(trade, lookbackDays);
+  let startLocal = subDays(trade, lookbackDays);
+  if (hasFillSpan) {
+    const first = parseISO(fillStart);
+    const paddedFirst = subDays(first, 2);
+    if (paddedFirst < startLocal) startLocal = paddedFirst;
+  }
   const startStr = format(startLocal, "yyyy-MM-dd");
   const start = fromZonedTime(`${startStr}T00:00:00`, "America/New_York");
 
-  let end = fromZonedTime(`${tradeIsoDate}T23:59:59.999`, "America/New_York");
+  let end = fromZonedTime(`${endDateStr}T23:59:59.999`, "America/New_York");
   const endMs = Math.min(end.getTime(), today.getTime());
   end = new Date(endMs);
+
+  if (hasFillSpan && fillStart < fillEnd) {
+    const spanMs = parseISO(fillEnd).getTime() - parseISO(fillStart).getTime();
+    const spanDays = spanMs / 86400000 + 1;
+    if (spanDays > 10 && (key === 1 || key === 2)) {
+      maxTotalBars = Math.min(50_000, Math.round(maxTotalBars + spanDays * 420));
+    }
+  }
 
   return {
     start: start.toISOString(),

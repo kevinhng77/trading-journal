@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { format, parseISO, subDays } from "date-fns";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import {
@@ -58,6 +58,8 @@ function lineWidthForLwLineSeries(prefsWidth, pixelRatio) {
 
 /** US session calendar for business-day objects from lightweight-charts. */
 const CHART_BUSINESS_DAY_TZ = "America/New_York";
+
+const FILL_ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Thinkorswim-style dark chart: pane color, grid, and candles closer to desktop TOS equity charts. */
 const TOS_CHART = {
@@ -493,10 +495,26 @@ export default function TradeExecutionChart({
     };
   }, [chartContextMenu]);
 
+  /** Earliest / latest fill session date so multi-session trades request and frame enough history. */
+  const chartFillSpan = useMemo(() => {
+    const list = Array.isArray(fills) ? fills : [];
+    let minD = "";
+    let maxD = "";
+    for (const f of list) {
+      const d = String(f?.date ?? "").trim().slice(0, 10);
+      if (!FILL_ISO_DAY.test(d)) continue;
+      if (!minD || d < minD) minD = d;
+      if (!maxD || d > maxD) maxD = d;
+    }
+    if (!minD || !maxD) return null;
+    return { start: minD, end: maxD };
+  }, [fills]);
+
   useEffect(() => {
     let cancelled = false;
     const timeframe = chartIntervalToAlpacaTimeframe(chartInterval);
-    const { start, end, maxTotalBars } = chartHistoryQuery(tradeDate, chartInterval);
+    const spanOpts = chartFillSpan ? { fillSpanStart: chartFillSpan.start, fillSpanEnd: chartFillSpan.end } : {};
+    const { start, end, maxTotalBars } = chartHistoryQuery(tradeDate, chartInterval, spanOpts);
 
     async function load() {
       setLoading(true);
@@ -528,7 +546,7 @@ export default function TradeExecutionChart({
     return () => {
       cancelled = true;
     };
-  }, [symbol, tradeDate, chartInterval]);
+  }, [symbol, tradeDate, chartInterval, chartFillSpan]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -543,8 +561,12 @@ export default function TradeExecutionChart({
       ? []
       : lwBars.map((b) => b.time).filter((t) => typeof t === "number");
 
+    const dailyHighlightDay = chartFillSpan?.end ?? tradeDate;
     const dailyMarkerTime = daily
-      ? lwBars.find((b) => b.time === tradeDate)?.time ?? lwBars[lwBars.length - 1]?.time ?? tradeDate
+      ? lwBars.find((b) => b.time === dailyHighlightDay)?.time ??
+          lwBars.find((b) => b.time === tradeDate)?.time ??
+          lwBars[lwBars.length - 1]?.time ??
+          tradeDate
       : undefined;
 
     /** @type {Map<number, { low: number, high: number }>} */
@@ -1123,16 +1145,46 @@ export default function TradeExecutionChart({
     }
 
     /**
-     * Intraday: viewport always includes NY 6:30am–1:00pm on the trade date (not zoomed to executions only).
-     * Uses trade-day bar min/max (not whole-history last bar) so an early-halt day still shows through 13:00.
+     * Intraday: multi-session trades zoom to all loaded bars between first and last fill session (plus pad).
+     * Otherwise: NY 6:30am–1:00pm on the trade date (not zoomed to executions only).
      * @returns {boolean} true if visible range was applied
      */
     function applyIntradayDefaultVisibleRange() {
       if (daily || barTimesAsc.length < 2) return false;
       const periodSec = barPeriodSecondsForInterval(chartInterval);
       const pad = periodSec * 2;
-      const { from: winFrom, to: winTo } = tradeExecutionDefaultIntradayWindowNy(tradeDate);
       const tz = CHART_BUSINESS_DAY_TZ;
+
+      if (
+        chartFillSpan &&
+        chartFillSpan.start &&
+        chartFillSpan.end &&
+        chartFillSpan.start < chartFillSpan.end
+      ) {
+        let spanMin = Infinity;
+        let spanMax = -Infinity;
+        for (const t of barTimesAsc) {
+          if (typeof t !== "number") continue;
+          const d = formatInTimeZone(new Date(t * 1000), tz, "yyyy-MM-dd");
+          if (d < chartFillSpan.start || d > chartFillSpan.end) continue;
+          spanMin = Math.min(spanMin, t);
+          spanMax = Math.max(spanMax, t);
+        }
+        if (Number.isFinite(spanMin) && Number.isFinite(spanMax) && spanMin <= spanMax) {
+          const from = spanMin - pad;
+          const to = spanMax + pad;
+          if (from < to) {
+            try {
+              chart.timeScale().setVisibleRange({ from, to });
+              return true;
+            } catch {
+              return false;
+            }
+          }
+        }
+      }
+
+      const { from: winFrom, to: winTo } = tradeExecutionDefaultIntradayWindowNy(tradeDate);
       let dayFirst = Infinity;
       let dayLast = -Infinity;
       for (const t of barTimesAsc) {
@@ -1366,6 +1418,7 @@ export default function TradeExecutionChart({
     onPatchMarkers,
     onPatchRoundTripShading,
     onRemoveEmaLine,
+    chartFillSpan,
   ]);
 
   useEffect(() => {
