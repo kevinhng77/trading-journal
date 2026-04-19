@@ -19,6 +19,12 @@ import {
   saveChartIndicatorPrefs,
 } from "../storage/chartIndicatorPrefs";
 import { useRawAndReportTrades } from "../hooks/useReportViewTrades";
+import { filterTradesForReport, reportFiltersActive } from "../lib/reportFilters";
+import {
+  loadPersistedReportFilters,
+  REPORT_FILTERS_PERSIST_EVENT,
+  REPORT_FILTERS_STORAGE_KEY,
+} from "../storage/reportFiltersPersist";
 import ChartIndicatorsModal from "../components/ChartIndicatorsModal";
 const TradeExecutionChart = lazy(() => import("../components/TradeExecutionChart.jsx"));
 import TradeNotesEditor from "../components/TradeNotesEditor";
@@ -117,6 +123,8 @@ export default function TradeDetail() {
   const [playbookSendOpen, setPlaybookSendOpen] = useState(false);
   const [chartToolbarMsg, setChartToolbarMsg] = useState(/** @type {string | null} */ (null));
   const [shareBusy, setShareBusy] = useState(false);
+  /** Applied Trades/Journal/Reports filters — prev/next chart nav only walks trades in this set. */
+  const [appliedNavFilters, setAppliedNavFilters] = useState(() => loadPersistedReportFilters());
   const chartWrapRef = useRef(null);
   const tradeShareBundleRef = useRef(/** @type {HTMLDivElement | null} */ (null));
   const tradeSharePanelsRef = useRef(/** @type {HTMLDivElement | null} */ (null));
@@ -139,6 +147,22 @@ export default function TradeDetail() {
     });
     return () => cancelAnimationFrame(raf);
   }, [tidNav, trade]);
+
+  useEffect(() => {
+    function onFiltersPersisted() {
+      setAppliedNavFilters(loadPersistedReportFilters());
+    }
+    window.addEventListener(REPORT_FILTERS_PERSIST_EVENT, onFiltersPersisted);
+    return () => window.removeEventListener(REPORT_FILTERS_PERSIST_EVENT, onFiltersPersisted);
+  }, []);
+
+  useEffect(() => {
+    function onStorage(/** @type {StorageEvent} */ e) {
+      if (e.key === REPORT_FILTERS_STORAGE_KEY) setAppliedNavFilters(loadPersistedReportFilters());
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   async function copyChartScreenshotToClipboard() {
     const el = getChartCaptureEl();
@@ -242,9 +266,14 @@ export default function TradeDetail() {
     });
   }, []);
 
+  const tradesForChartNav = useMemo(() => {
+    if (!reportFiltersActive(appliedNavFilters)) return rawTrades;
+    return filterTradesForReport(rawTrades, appliedNavFilters);
+  }, [rawTrades, appliedNavFilters]);
+
   const { prev, next } = useMemo(
-    () => (tidNav ? neighborTradeIds(rawTrades, tidNav) : { prev: null, next: null }),
-    [rawTrades, tidNav],
+    () => (tidNav ? neighborTradeIds(tradesForChartNav, tidNav) : { prev: null, next: null }),
+    [tradesForChartNav, tidNav],
   );
 
   const allTagSuggestions = useMemo(() => collectAllTagsFromTrades(rawTrades), [rawTrades]);
