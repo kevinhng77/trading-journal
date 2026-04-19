@@ -5703,14 +5703,39 @@ a.journal-row-trade-link:visited {
 }
 
 .star-toggle-btn:hover {
-  color: #cbd5e1;
-  border-color: rgba(148, 163, 184, 0.5);
-  background: rgba(36, 42, 56, 0.75);
+  color: #e2e8f0;
+  border-color: rgba(148, 163, 184, 0.55);
+  background: rgba(14, 17, 26, 0.96);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.star-toggle-btn:hover .star-toggle-glyph {
+  color: #f1f5f9;
+  filter: brightness(0.92);
+}
+
+.star-toggle-btn:focus-visible {
+  outline: 2px solid rgba(94, 234, 212, 0.45);
+  outline-offset: 2px;
 }
 
 .star-toggle-glyph {
   font-size: 17px;
   line-height: 1;
+}
+
+.trades-star-cell .star-toggle-btn:hover,
+.journal-trade-star-cell .star-toggle-btn:hover {
+  background: rgba(10, 12, 20, 0.98);
+  border-color: rgba(71, 85, 105, 0.65);
+  color: #f8fafc;
+}
+
+.trades-star-cell .star-toggle-btn:hover .star-toggle-glyph,
+.journal-trade-star-cell .star-toggle-btn:hover .star-toggle-glyph {
+  color: #f1f5f9;
+  filter: brightness(0.88);
+  text-shadow: 0 0 12px rgba(148, 163, 184, 0.25);
 }
 
 .star-toggle-btn.trade-detail-header-icon-btn--star {

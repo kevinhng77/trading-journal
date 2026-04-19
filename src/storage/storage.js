@@ -6,6 +6,7 @@ import {
   getActiveAccountId,
   tradesStorageKey,
 } from "./tradingAccounts";
+import { clearStarredTradeIdsForAccount } from "./starredItems.js";
 
 export const TRADES_UPDATED_EVENT = "tj-trades-updated";
 
@@ -51,6 +52,9 @@ export function saveTradesForAccount(accountId, trades) {
   try {
     const key = tradesStorageKey(accountId);
     localStorage.setItem(key, JSON.stringify(trades));
+    if (Array.isArray(trades) && trades.length === 0) {
+      clearStarredTradeIdsForAccount(accountId);
+    }
   } catch (e) {
     if (e && e.name === "QuotaExceededError") {
       throw new Error(

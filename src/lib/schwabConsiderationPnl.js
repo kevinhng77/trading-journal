@@ -1,5 +1,13 @@
 /**
- * Schwab cash-grid **consideration** (matches **AMOUNT** column semantics for P/L vs statement grids).
+ * Schwab cash-grid **consideration** (TRD **BOT** / **SOLD** rows) for P/L.
+ *
+ * **Flat round-trip (net shares = 0):** For fills already filtered to one symbol with session
+ * `date` on each TRD line, P/L is **Σ SOLD(q·p) − Σ BOT(q·p)** (same as VWAP algebra) **plus**
+ * **Σ (misc + comm)** on those lines — i.e. cash from prices then fees.
+ *
+ * **Otherwise** (open tail, one-sided, or missing prices): sum per-line **AMOUNT** / consideration
+ * via {@link schwabFillConsiderationDollars} (legacy path).
+ *
  * Kept separate from `thinkorswimCsv.js` so metrics and storage can import it without circular deps.
  */
 
@@ -40,16 +48,64 @@ export function schwabFillConsiderationDollars(f) {
   return nc - misc - comm;
 }
 
-/**
- * @param {object[]} fills
- * @returns {number}
- */
-export function sumSchwabLineConsiderationFromFills(fills) {
+/** Net share position: BOT adds quantity, SOLD subtracts. */
+function netSharePositionFromTrdFills(fills) {
+  let pos = 0;
+  for (const f of fills ?? []) {
+    if (f == null) continue;
+    const q = Math.abs(Number(f.quantity));
+    if (!Number.isFinite(q) || q <= 0) continue;
+    const side = String(f.side ?? "").toUpperCase();
+    if (side === "BOT") pos += q;
+    else if (side === "SOLD") pos -= q;
+  }
+  return pos;
+}
+
+function sumSchwabFillConsiderationOnly(fills) {
   let s = 0;
   for (const f of fills ?? []) {
     s += schwabFillConsiderationDollars(f);
   }
   return Math.round(s * 100) / 100;
+}
+
+/**
+ * @param {object[]} fills
+ * @returns {number}
+ */
+export function sumSchwabLineConsiderationFromFills(fills) {
+  if (!Array.isArray(fills) || fills.length === 0) return 0;
+
+  const pos = netSharePositionFromTrdFills(fills);
+  let botNotional = 0;
+  let soldNotional = 0;
+  let fees = 0;
+  let hasBotPx = false;
+  let hasSoldPx = false;
+
+  for (const f of fills) {
+    if (f == null) continue;
+    const q = Math.abs(Number(f.quantity));
+    const p = Number(f.price);
+    const side = String(f.side ?? "").toUpperCase();
+    if (Number.isFinite(q) && q > 0 && Number.isFinite(p)) {
+      if (side === "BOT") {
+        botNotional += q * p;
+        hasBotPx = true;
+      } else if (side === "SOLD") {
+        soldNotional += q * p;
+        hasSoldPx = true;
+      }
+    }
+    fees += parseSchwabMoneyCell(f.misc ?? f.miscFees ?? 0) + parseSchwabMoneyCell(f.comm ?? f.commission ?? 0);
+  }
+
+  if (Math.abs(pos) <= 1e-6 && hasBotPx && hasSoldPx) {
+    return Math.round((soldNotional - botNotional + fees) * 100) / 100;
+  }
+
+  return sumSchwabFillConsiderationOnly(fills);
 }
 
 /**

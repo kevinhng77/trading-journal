@@ -137,3 +137,10 @@ export function isDayStarred(date) {
 export function isTradeStarred(tradeId) {
   return loadStarredTradeIds().has(tradeId);
 }
+
+/** Remove all starred trade ids for an account (e.g. when the journal has no trades left). */
+export function clearStarredTradeIdsForAccount(accountId) {
+  const aid = accountId ?? getActiveAccountId();
+  saveTradesSetForAccount(aid, new Set());
+  bump();
+}

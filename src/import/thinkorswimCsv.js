@@ -1,10 +1,13 @@
 /**
  * Schwab / Thinkorswim **Account Statement** CSV import.
  *
- * **Trade P&amp;L** (stored on each merged/split trade) is the sum of **`AMOUNT`** on those rows so it
- * matches Schwab / TOS **Profits and Losses** and symbol P/L grids. **Misc + commissions** stay on each
- * fill; **`netCash`** (AMOUNT + misc + comm) remains for true cash impact and the trade detail “net incl.
- * row fees” line.
+ * **Trade P&amp;L** (stored on each trade) comes from **TRD** rows: each line’s session **`date`**
+ * (`tradeSessionDateIsoFromTos`), **`symbol`** and **BOT** (bought) / **SOLD** from the description,
+ * **`quantity` × `price`**, then **`misc` + `comm`** on the row. For a **flat** round-trip (net shares
+ * zero after BOT/SOLD legs), P/L = **Σ SOLD(q·p) − Σ BOT(q·p) + Σ(misc+comm)** — same as averaging
+ * notionals then cashing out (see {@link sumSchwabLineConsiderationFromFills}). Open tails fall back to
+ * per-line **AMOUNT** / consideration sums. **`netCash`** on fills remains for the trade detail “net
+ * incl. row fees” line.
  *
  * **Normal grouping** walks each symbol’s fills in chronological order (all session dates in the file) and
  * merges a round trip into **one** journal trade dated on the **flat** day (closing session), including multi-day

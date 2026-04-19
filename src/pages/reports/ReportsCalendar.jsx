@@ -2,7 +2,11 @@ import { useLayoutEffect, useRef } from "react";
 import { Link, useOutletContext, useSearchParams } from "react-router-dom";
 import { groupTradesByDate, formatMoney, pnlClass } from "../../storage/storage";
 import { useRawAndReportTrades } from "../../hooks/useReportViewTrades";
-import { filterTradesForReport, DEFAULT_REPORT_FILTERS } from "../../lib/reportFilters";
+import {
+  filterTradesForReport,
+  DEFAULT_REPORT_FILTERS,
+  reportFiltersForYearCalendar,
+} from "../../lib/reportFilters";
 import { getDayAggregate } from "../../lib/dashboardStats";
 import { buildCalendarWeeks, formatMonthTitle, sumMonthPnl } from "../../lib/calendarGrid";
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -177,8 +181,10 @@ export default function ReportsCalendar() {
 
   const yearChoices = [selectedYear - 2, selectedYear - 1, selectedYear];
 
-  const filtered = filterTradesForReport(trades, applied);
-  const grouped = groupTradesByDate(filtered);
+  const filtered = filterTradesForReport(trades, reportFiltersForYearCalendar(applied));
+  const yPrefix = `${selectedYear}-`;
+  const inYear = filtered.filter((t) => String(t.date ?? "").startsWith(yPrefix));
+  const grouped = groupTradesByDate(inYear);
   const openKey = expandedMonthKeyFromSearch(searchParams, selectedYear);
 
   /** `window.scrollY` captured when user opens a month (before layout grows). */
@@ -186,7 +192,8 @@ export default function ReportsCalendar() {
   /** True only when collapse came from the month Open/Active button (not e.g. year change clearing `expand`). */
   const restoreScrollAfterCollapseRef = useRef(false);
 
-  function toggleMonth(key) {
+  /** Runs before click / URL update so scrollY is the true pre-open position. */
+  function monthTogglePointerDown(key) {
     const cur = expandedMonthKeyFromSearch(searchParams, selectedYear);
     if (cur === key) {
       restoreScrollAfterCollapseRef.current = true;
@@ -194,6 +201,9 @@ export default function ReportsCalendar() {
       scrollYBeforeExpandRef.current = window.scrollY;
       restoreScrollAfterCollapseRef.current = false;
     }
+  }
+
+  function toggleMonth(key) {
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
@@ -220,7 +230,11 @@ export default function ReportsCalendar() {
       const y = scrollYBeforeExpandRef.current;
       scrollYBeforeExpandRef.current = null;
       if (y != null && Number.isFinite(y)) {
-        window.scrollTo({ top: y, left: 0, behavior: "instant" });
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            window.scrollTo({ top: y, left: 0, behavior: "auto" });
+          });
+        });
       }
     } else {
       scrollYBeforeExpandRef.current = null;
@@ -241,6 +255,7 @@ export default function ReportsCalendar() {
           <button
             type="button"
             className={`month-open-btn ${isOpen ? "active" : ""}`}
+            onPointerDown={() => monthTogglePointerDown(key)}
             onClick={() => toggleMonth(key)}
             aria-expanded={isOpen}
           >
