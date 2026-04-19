@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { Link, useOutletContext, useSearchParams } from "react-router-dom";
 import { groupTradesByDate, formatMoney, pnlClass } from "../../storage/storage";
 import { useRawAndReportTrades } from "../../hooks/useReportViewTrades";
@@ -147,6 +147,18 @@ export default function ReportsCalendar() {
   const { reportTrades: trades } = useRawAndReportTrades();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedYear = parseYear(searchParams);
+  const closeBtnRef = useRef(/** @type {HTMLButtonElement | null} */ (null));
+
+  const closeCalendarModal = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("expand");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [setSearchParams]);
 
   function setYear(y) {
     setSearchParams(
@@ -173,6 +185,23 @@ export default function ReportsCalendar() {
     });
   }
 
+  function openOrToggleMonth(key) {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        const selY = parseYear(next);
+        const cur = expandedMonthKeyFromSearch(next, selY);
+        if (cur === key) {
+          next.delete("expand");
+        } else {
+          next.set("expand", key);
+        }
+        return next;
+      },
+      { replace: true },
+    );
+  }
+
   const calendarYear = new Date().getFullYear();
   const yearFromUrl = searchParams.get("year");
   const expandInUrl = Boolean(searchParams.get("expand"));
@@ -186,95 +215,73 @@ export default function ReportsCalendar() {
   const inYear = filtered.filter((t) => String(t.date ?? "").startsWith(yPrefix));
   const grouped = groupTradesByDate(inYear);
   const openKey = expandedMonthKeyFromSearch(searchParams, selectedYear);
-
-  /** `window.scrollY` captured when user opens a month (before layout grows). */
-  const scrollYBeforeExpandRef = useRef(/** @type {number | null} */ (null));
-  /** True only when collapse came from the month Open/Active button (not e.g. year change clearing `expand`). */
-  const restoreScrollAfterCollapseRef = useRef(false);
-
-  /** Runs before click / URL update so scrollY is the true pre-open position. */
-  function monthTogglePointerDown(key) {
-    const cur = expandedMonthKeyFromSearch(searchParams, selectedYear);
-    if (cur === key) {
-      restoreScrollAfterCollapseRef.current = true;
-    } else {
-      scrollYBeforeExpandRef.current = window.scrollY;
-      restoreScrollAfterCollapseRef.current = false;
-    }
-  }
-
-  function toggleMonth(key) {
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        const selY = parseYear(next);
-        const curFromPrev = expandedMonthKeyFromSearch(next, selY);
-        if (curFromPrev === key) next.delete("expand");
-        else next.set("expand", key);
-        return next;
-      },
-      { replace: true },
-    );
-  }
+  const modalOpen = Boolean(openKey);
 
   useLayoutEffect(() => {
-    if (openKey) {
-      requestAnimationFrame(() => {
-        document.getElementById(`reports-month-${openKey}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-      return;
-    }
+    if (!openKey) return;
+    const el = document.getElementById(`reports-cal-modal-month-${openKey}`);
+    el?.scrollIntoView({ block: "start", behavior: "auto" });
+  }, [openKey, selectedYear]);
 
-    if (restoreScrollAfterCollapseRef.current) {
-      restoreScrollAfterCollapseRef.current = false;
-      const y = scrollYBeforeExpandRef.current;
-      scrollYBeforeExpandRef.current = null;
-      if (y != null && Number.isFinite(y)) {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            window.scrollTo({ top: y, left: 0, behavior: "auto" });
-          });
-        });
-      }
-    } else {
-      scrollYBeforeExpandRef.current = null;
+  useEffect(() => {
+    if (!modalOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const t = window.requestAnimationFrame(() => {
+      closeBtnRef.current?.focus();
+    });
+    function onKey(e) {
+      if (e.key === "Escape") closeCalendarModal();
     }
-  }, [openKey]);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.cancelAnimationFrame(t);
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [modalOpen, closeCalendarModal]);
 
   const months = Array.from({ length: 12 }, (_, m) => {
     const key = `${selectedYear}-${m}`;
     const title = formatMonthTitle(selectedYear, m);
     const monthPnl = sumMonthPnl(grouped, selectedYear, m);
-    const isOpen = openKey === key;
+    const isActive = openKey === key;
     return (
-      <div key={key} id={`reports-month-${key}`} className={`card reports-month-card ${isOpen ? "is-expanded" : ""}`}>
+      <div key={key} className={`card reports-month-card${isActive ? " is-cal-active" : ""}`}>
         <div className="month-card-header">
           <div className="reports-month-title-row">
             <h3>{title}</h3>
           </div>
           <button
             type="button"
-            className={`month-open-btn ${isOpen ? "active" : ""}`}
-            onPointerDown={() => monthTogglePointerDown(key)}
-            onClick={() => toggleMonth(key)}
-            aria-expanded={isOpen}
+            className={`month-open-btn ${isActive ? "active" : ""}`}
+            onClick={() => openOrToggleMonth(key)}
+            aria-expanded={isActive}
+            aria-haspopup="dialog"
           >
-            {isOpen ? "Active" : "Open"}
+            {isActive ? "Active" : "Open"}
           </button>
         </div>
 
-        {isOpen ? (
-          <MonthExpandedGrid year={selectedYear} monthIndex={m} grouped={grouped} />
-        ) : (
-          <MonthMiniGrid year={selectedYear} monthIndex={m} grouped={grouped} />
-        )}
+        <MonthMiniGrid year={selectedYear} monthIndex={m} grouped={grouped} />
 
-        {!isOpen && (
-          <div className={`reports-month-summary ${pnlClass(monthPnl)}`}>
-            Month: {formatMoney(monthPnl)}
-          </div>
-        )}
+        <div className={`reports-month-summary ${pnlClass(monthPnl)}`}>
+          Month: {formatMoney(monthPnl)}
+        </div>
       </div>
+    );
+  });
+
+  const modalMonthSections = Array.from({ length: 12 }, (_, m) => {
+    const key = `${selectedYear}-${m}`;
+    const title = formatMonthTitle(selectedYear, m);
+    return (
+      <section key={key} id={`reports-cal-modal-month-${key}`} className="reports-cal-modal-month">
+        <div className="reports-cal-modal-month-head">
+          <h3 className="reports-cal-modal-month-title">{title}</h3>
+        </div>
+        <MonthExpandedGrid year={selectedYear} monthIndex={m} grouped={grouped} />
+      </section>
     );
   });
 
@@ -307,6 +314,36 @@ export default function ReportsCalendar() {
         </div>
       </div>
       <div className="reports-calendar-grid">{months}</div>
+
+      {modalOpen ? (
+        <div className="reports-cal-modal-backdrop" role="presentation" onClick={closeCalendarModal}>
+          <div
+            className="reports-cal-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reports-cal-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="reports-cal-modal-toolbar">
+              <h2 id="reports-cal-modal-title" className="reports-cal-modal-title">
+                {selectedYear} calendar
+              </h2>
+              <p className="reports-cal-modal-hint">Scroll to move between months.</p>
+              <button
+                ref={closeBtnRef}
+                type="button"
+                className="reports-cal-modal-close range-btn"
+                onClick={closeCalendarModal}
+              >
+                Close
+              </button>
+            </div>
+            <div className="reports-cal-modal-body">
+              {modalMonthSections}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

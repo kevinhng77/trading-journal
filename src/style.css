@@ -4456,9 +4456,94 @@ button.metric-hint-icon:focus-visible {
   padding: 18px;
 }
 
-.reports-month-card.is-expanded {
-  grid-column: 1 / -1;
-  scroll-margin-top: 96px;
+.reports-month-card.is-cal-active {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-green) 42%, transparent);
+}
+
+/* Centered “secondary” calendar: all months in one scroll column */
+.reports-cal-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: rgba(10, 12, 18, 0.72);
+  backdrop-filter: blur(4px);
+  box-sizing: border-box;
+}
+
+.reports-cal-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(1040px, 100%);
+  max-height: min(92vh, 900px);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(30, 36, 52, 0.98) 0%, rgba(20, 24, 34, 0.99) 100%);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+.reports-cal-modal-toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.reports-cal-modal-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.reports-cal-modal-hint {
+  margin: 0;
+  flex: 1 1 auto;
+  font-size: 13px;
+  color: var(--muted);
+  min-width: 140px;
+}
+
+.reports-cal-modal-close {
+  margin-left: auto;
+}
+
+.reports-cal-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px 18px 20px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.reports-cal-modal-month {
+  scroll-margin-top: 12px;
+  padding-bottom: 22px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid rgba(100, 116, 139, 0.22);
+}
+
+.reports-cal-modal-month:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 8px;
+}
+
+.reports-cal-modal-month-head {
+  margin-bottom: 8px;
+}
+
+.reports-cal-modal-month-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
 }
 
 .reports-month-summary {
