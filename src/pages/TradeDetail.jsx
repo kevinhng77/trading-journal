@@ -496,19 +496,19 @@ export default function TradeDetail() {
                         <span className="trade-detail-roundtrip-k">Share size</span>
                         <span className="trade-detail-roundtrip-v">{leg.shareSize > 0 ? leg.shareSize : "—"}</span>
                       </span>
-                      {leg.isMultidayLeg ? (
-                        <>
-                          <span className="trade-detail-roundtrip-kv">
-                            <span className="trade-detail-roundtrip-k">Entry date</span>
-                            <span className="trade-detail-roundtrip-v">{formatSessionIso(leg.entryDate)}</span>
+                      {leg.entryDate ? (
+                        <span className="trade-detail-roundtrip-kv">
+                          <span className="trade-detail-roundtrip-k">Entry date</span>
+                          <span className="trade-detail-roundtrip-v">{formatSessionIso(leg.entryDate)}</span>
+                        </span>
+                      ) : null}
+                      {leg.exitDate ? (
+                        <span className="trade-detail-roundtrip-kv">
+                          <span className="trade-detail-roundtrip-k">
+                            {leg.isOpen ? "Last session" : "Exit date"}
                           </span>
-                          <span className="trade-detail-roundtrip-kv">
-                            <span className="trade-detail-roundtrip-k">
-                              {leg.isOpen ? "Last session" : "Exit date"}
-                            </span>
-                            <span className="trade-detail-roundtrip-v">{formatSessionIso(leg.exitDate)}</span>
-                          </span>
-                        </>
+                          <span className="trade-detail-roundtrip-v">{formatSessionIso(leg.exitDate)}</span>
+                        </span>
                       ) : null}
                     </div>
                   </div>

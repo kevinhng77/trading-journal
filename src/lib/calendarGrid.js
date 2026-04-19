@@ -25,11 +25,17 @@ export function formatMonthTitle(year, monthIndex) {
   });
 }
 
-export function sumMonthPnl(grouped, year, monthIndex) {
+/**
+ * @param {string | null | undefined} clipFrom ISO date inclusive, or falsy = no lower bound
+ * @param {string | null | undefined} clipTo ISO date inclusive, or falsy = no upper bound
+ */
+export function sumMonthPnl(grouped, year, monthIndex, clipFrom, clipTo) {
   const last = new Date(year, monthIndex + 1, 0).getDate();
   let total = 0;
   for (let d = 1; d <= last; d++) {
     const iso = localISODate(new Date(year, monthIndex, d));
+    if (clipFrom && iso < clipFrom) continue;
+    if (clipTo && iso > clipTo) continue;
     total += getDayAggregate(grouped, iso).pnl;
   }
   return total;

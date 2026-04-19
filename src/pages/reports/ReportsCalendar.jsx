@@ -1,13 +1,9 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Link, useOutletContext, useSearchParams } from "react-router-dom";
 import { groupTradesByDate, formatMoney, pnlClass } from "../../storage/storage";
 import { useRawAndReportTrades } from "../../hooks/useReportViewTrades";
-import {
-  filterTradesForReport,
-  DEFAULT_REPORT_FILTERS,
-  reportFiltersForYearCalendar,
-} from "../../lib/reportFilters";
+import { filterTradesForReport, DEFAULT_REPORT_FILTERS } from "../../lib/reportFilters";
 import { getDayAggregate } from "../../lib/dashboardStats";
 import { buildCalendarWeeks, formatMonthTitle, sumMonthPnl } from "../../lib/calendarGrid";
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -16,6 +12,53 @@ function parseYear(searchParams) {
   const y = Number(searchParams.get("year"));
   if (Number.isFinite(y) && y >= 1970 && y <= 2100) return y;
   return new Date().getFullYear();
+}
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Intersect the report date span with a calendar year: which months to show and which
+ * ISO days in the year grid should render as real days (vs padding).
+ * @param {number} year
+ * @param {string} dateFrom
+ * @param {string} dateTo
+ * @returns {{ months: number[] | null, clipFrom: string | null, clipTo: string | null }}
+ */
+function yearDateClipForFilters(year, dateFrom, dateTo) {
+  const f = String(dateFrom ?? "").trim().slice(0, 10);
+  const t = String(dateTo ?? "").trim().slice(0, 10);
+  const y0 = `${year}-01-01`;
+  const y1 = `${year}-12-31`;
+  if (!f && !t) return { months: null, clipFrom: null, clipTo: null };
+
+  let spanStart = f || y0;
+  let spanEnd = t || y1;
+  if (!f) spanStart = y0;
+  if (!t) spanEnd = y1;
+  if (!ISO_DAY.test(spanStart)) spanStart = y0;
+  if (!ISO_DAY.test(spanEnd)) spanEnd = y1;
+  if (spanStart > spanEnd) [spanStart, spanEnd] = [spanEnd, spanStart];
+
+  const rangeStart = spanStart < y0 ? y0 : spanStart;
+  const rangeEnd = spanEnd > y1 ? y1 : spanEnd;
+  if (rangeStart > rangeEnd) return { months: [], clipFrom: null, clipTo: null };
+
+  const m0 = Number(rangeStart.slice(5, 7)) - 1;
+  const m1 = Number(rangeEnd.slice(5, 7)) - 1;
+  const lo = Math.max(0, Math.min(11, m0));
+  const hi = Math.max(0, Math.min(11, m1));
+  /** @type {number[]} */
+  const months = [];
+  for (let m = lo; m <= hi; m++) months.push(m);
+  return { months, clipFrom: rangeStart, clipTo: rangeEnd };
+}
+
+/** @param {string} iso @param {string | null} clipFrom @param {string | null} clipTo */
+function dayInDateClip(iso, clipFrom, clipTo) {
+  if (!clipFrom && !clipTo) return true;
+  if (clipFrom && iso < clipFrom) return false;
+  if (clipTo && iso > clipTo) return false;
+  return true;
 }
 
 /** `expand` query value: same key as month cards, `YYYY-M` with M = 0–11. Must match `selectedYear`. */
@@ -54,7 +97,7 @@ function dayStyleClass(day) {
   return pnlClass(day.pnl);
 }
 
-function MonthMiniGrid({ year, monthIndex, grouped }) {
+function MonthMiniGrid({ year, monthIndex, grouped, clipFrom, clipTo }) {
   const weeks = buildCalendarWeeks(year, monthIndex);
   return (
     <div className="reports-cal-mini">
@@ -63,6 +106,9 @@ function MonthMiniGrid({ year, monthIndex, grouped }) {
           {week.map((iso, di) => {
             if (!iso) {
               return <div key={`e-${wi}-${di}`} className="reports-cal-mini-cell reports-cal-mini-pad" />;
+            }
+            if (!dayInDateClip(iso, clipFrom, clipTo)) {
+              return <div key={`c-${iso}`} className="reports-cal-mini-cell reports-cal-mini-pad" aria-hidden />;
             }
             const day = getDayAggregate(grouped, iso);
             return (
@@ -82,9 +128,9 @@ function MonthMiniGrid({ year, monthIndex, grouped }) {
   );
 }
 
-function MonthExpandedGrid({ year, monthIndex, grouped }) {
+function MonthExpandedGrid({ year, monthIndex, grouped, clipFrom, clipTo }) {
   const weeks = buildCalendarWeeks(year, monthIndex);
-  const monthPnl = sumMonthPnl(grouped, year, monthIndex);
+  const monthPnl = sumMonthPnl(grouped, year, monthIndex, clipFrom, clipTo);
 
   return (
     <div className="reports-cal-expanded">
@@ -111,6 +157,9 @@ function MonthExpandedGrid({ year, monthIndex, grouped }) {
                 {week.map((iso, di) => {
                   if (!iso) {
                     return <td key={`p-${wi}-${di}`} className="reports-cal-td-pad" />;
+                  }
+                  if (!dayInDateClip(iso, clipFrom, clipTo)) {
+                    return <td key={`c-${iso}`} className="reports-cal-td-pad" aria-hidden />;
                   }
                   const day = getDayAggregate(grouped, iso);
                   weekPnl += day.pnl;
@@ -226,13 +275,30 @@ export default function ReportsCalendar() {
 
   const yearChoices = [selectedYear - 2, selectedYear - 1, selectedYear];
 
-  const filtered = filterTradesForReport(trades, reportFiltersForYearCalendar(applied));
+  const filtered = filterTradesForReport(trades, applied);
   const yPrefix = `${selectedYear}-`;
   const inYear = filtered.filter((t) => String(t.date ?? "").startsWith(yPrefix));
   const grouped = groupTradesByDate(inYear);
   const openKey = expandedMonthKeyFromSearch(searchParams, selectedYear);
   const modalOpen = Boolean(openKey);
   const expandedMo = expandedMonthIndexFromKey(openKey);
+
+  const yearClip = useMemo(
+    () => yearDateClipForFilters(selectedYear, applied.dateFrom, applied.dateTo),
+    [selectedYear, applied.dateFrom, applied.dateTo],
+  );
+  const monthIndicesToRender = yearClip.months ?? [...Array(12).keys()];
+  const { clipFrom, clipTo } = yearClip;
+
+  const visibleMonthSet = useMemo(
+    () => new Set(yearClip.months ?? [...Array(12).keys()]),
+    [yearClip.months],
+  );
+
+  useEffect(() => {
+    if (expandedMo == null) return;
+    if (!visibleMonthSet.has(expandedMo)) closeCalendarModal();
+  }, [expandedMo, visibleMonthSet, closeCalendarModal]);
 
   useEffect(() => {
     if (!modalOpen) return;
@@ -252,10 +318,10 @@ export default function ReportsCalendar() {
     };
   }, [modalOpen, closeCalendarModal]);
 
-  const months = Array.from({ length: 12 }, (_, m) => {
+  const months = monthIndicesToRender.map((m) => {
     const key = `${selectedYear}-${m}`;
     const title = formatMonthTitle(selectedYear, m);
-    const monthPnl = sumMonthPnl(grouped, selectedYear, m);
+    const monthPnl = sumMonthPnl(grouped, selectedYear, m, clipFrom, clipTo);
     const isActive = openKey === key;
     return (
       <div key={key} className={`card reports-month-card${isActive ? " is-cal-active" : ""}`}>
@@ -274,7 +340,7 @@ export default function ReportsCalendar() {
           </button>
         </div>
 
-        <MonthMiniGrid year={selectedYear} monthIndex={m} grouped={grouped} />
+        <MonthMiniGrid year={selectedYear} monthIndex={m} grouped={grouped} clipFrom={clipFrom} clipTo={clipTo} />
 
         <div className={`reports-month-summary ${pnlClass(monthPnl)}`}>
           Month: {formatMoney(monthPnl)}
@@ -307,7 +373,13 @@ export default function ReportsCalendar() {
             </button>
           </div>
           <div className="reports-cal-modal-single-body">
-            <MonthExpandedGrid year={selectedYear} monthIndex={expandedMo} grouped={grouped} />
+            <MonthExpandedGrid
+              year={selectedYear}
+              monthIndex={expandedMo}
+              grouped={grouped}
+              clipFrom={clipFrom}
+              clipTo={clipTo}
+            />
           </div>
         </div>
       </div>
@@ -341,7 +413,16 @@ export default function ReportsCalendar() {
           </button>
         </div>
       </div>
-      <div className="reports-calendar-grid">{months}</div>
+      {months.length === 0 ? (
+        <div className="card reports-calendar-range-empty">
+          <p className="reports-calendar-range-empty-text">
+            No calendar days in <strong>{selectedYear}</strong> for the applied date range. Change the year or clear the
+            date filter to see months here.
+          </p>
+        </div>
+      ) : (
+        <div className="reports-calendar-grid">{months}</div>
+      )}
 
       {typeof document !== "undefined" && modalNode ? createPortal(modalNode, document.body) : null}
     </>

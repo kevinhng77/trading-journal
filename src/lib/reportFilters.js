@@ -282,23 +282,6 @@ export function filterTradesForReport(trades, filters) {
   return out;
 }
 
-/**
- * Filters for the reports **year** calendar: drop `dateFrom` / `dateTo` and `advMonth`, which
- * otherwise hide trades from month cells (e.g. after Journal syncs a narrow date range).
- * Symbol, tags, setups, side, duration, and other advanced filters still apply.
- * @param {ReportFilters | null | undefined} f
- * @returns {ReportFilters}
- */
-export function reportFiltersForYearCalendar(f) {
-  const base = normalizeReportFilters(f);
-  return {
-    ...base,
-    dateFrom: "",
-    dateTo: "",
-    advMonth: "all",
-  };
-}
-
 export function reportFiltersActive(f) {
   if (!f) return false;
   if (String(f.symbol ?? "").trim()) return true;

@@ -7,6 +7,7 @@ import {
   tradesStorageKey,
 } from "./tradingAccounts";
 import { clearStarredTradeIdsForAccount } from "./starredItems.js";
+import { collapseOppositeOpenSwingPairs } from "../lib/mergeOppositeOpenSwings.js";
 
 export const TRADES_UPDATED_EVENT = "tj-trades-updated";
 
@@ -37,7 +38,25 @@ export function loadTradesForAccount(accountId) {
     const raw = localStorage.getItem(key);
     const arr = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(arr)) return [];
-    return arr.map(normalizeTradePnlFromFills);
+    const normalized = arr.map(normalizeTradePnlFromFills);
+    const { next, changed } = collapseOppositeOpenSwingPairs(normalized);
+    if (changed) {
+      try {
+        localStorage.setItem(key, JSON.stringify(next));
+        if (Array.isArray(next) && next.length === 0) {
+          clearStarredTradeIdsForAccount(accountId);
+        }
+        window.dispatchEvent(new Event(TRADES_UPDATED_EVENT));
+        return next.map(normalizeTradePnlFromFills);
+      } catch (e) {
+        if (e && e.name === "QuotaExceededError") {
+          console.warn("tj: could not persist opposite-open swing merge (quota)", e);
+          return normalized;
+        }
+        throw e;
+      }
+    }
+    return normalized;
   } catch {
     return [];
   }
@@ -51,8 +70,10 @@ export function loadTrades() {
 export function saveTradesForAccount(accountId, trades) {
   try {
     const key = tradesStorageKey(accountId);
-    localStorage.setItem(key, JSON.stringify(trades));
-    if (Array.isArray(trades) && trades.length === 0) {
+    const arr = Array.isArray(trades) ? [...trades] : [];
+    const { next } = collapseOppositeOpenSwingPairs(arr);
+    localStorage.setItem(key, JSON.stringify(next));
+    if (Array.isArray(next) && next.length === 0) {
       clearStarredTradeIdsForAccount(accountId);
     }
   } catch (e) {

@@ -17,7 +17,7 @@ export default function StarToggle({ starred, onToggle, title, "aria-label": ari
       }}
     >
       <span className="star-toggle-glyph" aria-hidden>
-        ☆
+        {starred ? "★" : "☆"}
       </span>
     </button>
   );

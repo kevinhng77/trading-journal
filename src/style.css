@@ -170,6 +170,9 @@ body {
 
 /* Star review: sits under Playbook; quiet utility row, left-aligned */
 .nav-link.nav-link--star {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   text-align: left;
   font-size: 13px;
   font-weight: 500;
@@ -179,6 +182,11 @@ body {
   margin-top: 2px;
   color: rgba(148, 163, 184, 0.72);
   letter-spacing: 0.02em;
+}
+
+.nav-link.nav-link--star .nav-link-star-svg {
+  flex-shrink: 0;
+  opacity: 0.88;
 }
 
 .nav-link.nav-link--star:hover {
@@ -381,21 +389,36 @@ body {
   height: 100%;
   min-height: 48px;
   border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.38);
-  background: rgba(72, 84, 108, 0.35);
-  color: rgba(226, 232, 240, 0.95);
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(226, 232, 240, 0.82);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+  transition: color 0.15s, background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
-.sidebar-more-menu-btn:hover {
-  border-color: rgba(186, 198, 218, 0.5);
+.sidebar-more-menu-btn:hover,
+.sidebar-more-menu-btn:focus-visible {
+  border-color: rgba(148, 163, 184, 0.38);
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  outline: none;
+}
+
+.sidebar-more-menu-btn:active {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.sidebar-more-menu-btn[aria-expanded="true"] {
+  border-color: rgba(148, 163, 184, 0.45);
   color: #fff;
-  background: rgba(88, 100, 128, 0.48);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
 .sidebar-more-menu-kebab {
@@ -4440,6 +4463,23 @@ button.metric-hint-icon:focus-visible {
   gap: 18px;
 }
 
+.reports-calendar-range-empty {
+  padding: 22px 20px;
+  margin-top: 4px;
+}
+
+.reports-calendar-range-empty-text {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.reports-calendar-range-empty-text strong {
+  color: var(--text);
+  font-weight: 700;
+}
+
 @media (max-width: 1100px) {
   .reports-calendar-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -5796,6 +5836,12 @@ a.journal-row-trade-link:visited {
   filter: brightness(0.92);
 }
 
+.star-toggle-btn.star-toggle-btn--on:hover .star-toggle-glyph {
+  color: #5c6370;
+  filter: none;
+  text-shadow: none;
+}
+
 .star-toggle-btn:focus-visible {
   outline: 2px solid rgba(94, 234, 212, 0.45);
   outline-offset: 2px;
@@ -5804,6 +5850,12 @@ a.journal-row-trade-link:visited {
 .star-toggle-glyph {
   font-size: 17px;
   line-height: 1;
+}
+
+.star-toggle-btn--on .star-toggle-glyph {
+  color: #4b5563;
+  filter: none;
+  text-shadow: none;
 }
 
 .trades-star-cell .star-toggle-btn:hover,
@@ -5818,6 +5870,13 @@ a.journal-row-trade-link:visited {
   color: #f1f5f9;
   filter: brightness(0.88);
   text-shadow: 0 0 12px rgba(148, 163, 184, 0.25);
+}
+
+.trades-star-cell .star-toggle-btn.star-toggle-btn--on:hover .star-toggle-glyph,
+.journal-trade-star-cell .star-toggle-btn.star-toggle-btn--on:hover .star-toggle-glyph {
+  color: #5f6670;
+  filter: none;
+  text-shadow: none;
 }
 
 .star-toggle-btn.trade-detail-header-icon-btn--star {
@@ -5843,18 +5902,18 @@ a.journal-row-trade-link:visited {
 }
 
 .star-toggle-btn.trade-detail-header-icon-btn--star.star-toggle-btn--on .star-toggle-glyph {
-  color: #94a3b8;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+  color: #52525b;
+  text-shadow: none;
 }
 
 .star-toggle-btn.trade-detail-header-icon-btn--star.star-toggle-btn--on:hover {
-  color: #94a3b8;
+  color: #64748b;
   border-color: rgba(100, 116, 139, 0.55);
   background: linear-gradient(180deg, rgba(36, 42, 56, 0.98) 0%, rgba(22, 26, 34, 0.99) 100%);
 }
 
 .star-toggle-btn.trade-detail-header-icon-btn--star.star-toggle-btn--on:hover .star-toggle-glyph {
-  color: #b6c2d4;
+  color: #57534e;
 }
 
 .star-toggle-btn.trade-detail-header-icon-btn--star .star-toggle-glyph {
@@ -10497,6 +10556,28 @@ html[data-ui-theme="light"] .nav-link:hover {
 
 html[data-ui-theme="light"] .nav-link.nav-link--star.active {
   color: #0f766e;
+}
+
+html[data-ui-theme="light"] .sidebar-more-menu-btn:hover,
+html[data-ui-theme="light"] .sidebar-more-menu-btn:focus-visible {
+  border-color: rgba(15, 23, 42, 0.14);
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--text);
+  box-shadow: none;
+}
+
+html[data-ui-theme="light"] .sidebar-more-menu-btn:active {
+  background: rgba(15, 23, 42, 0.09);
+}
+
+html[data-ui-theme="light"] .sidebar-more-menu-btn[aria-expanded="true"] {
+  border-color: rgba(15, 23, 42, 0.18);
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--text);
+}
+
+html[data-ui-theme="light"] .star-toggle-btn--on .star-toggle-glyph {
+  color: #64748b;
 }
 
 html[data-ui-theme="light"] .card {
