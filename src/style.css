@@ -2223,22 +2223,6 @@ a.import-btn.import-btn--nav {
   align-items: flex-start;
 }
 
-.journal-focus-hint {
-  margin: -8px 0 0;
-  color: var(--muted);
-  font-size: 14px;
-}
-
-.journal-focus-clear {
-  color: var(--accent-green);
-  text-decoration: none;
-  font-weight: 600;
-}
-
-.journal-focus-clear:hover {
-  text-decoration: underline;
-}
-
 .journal-stack {
   display: flex;
   flex-direction: column;

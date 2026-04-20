@@ -206,14 +206,6 @@ function Journal() {
     <div className="page-wrap journal-page">
       <div className="page-header journal-page-header">
         <h1>Journal</h1>
-        {focusDate && (
-          <p className="journal-focus-hint">
-            Showing <strong>{formatDisplayDate(focusDate)}</strong> only —{" "}
-            <Link className="journal-focus-clear" to="/journal">
-              view all days
-            </Link>
-          </p>
-        )}
       </div>
 
       <ReportsFilterStrip
