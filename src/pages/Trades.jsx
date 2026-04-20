@@ -24,7 +24,11 @@ import {
   getTradeSetups,
 } from "../lib/tradeTags";
 import { usePlaybookPlayNames } from "../hooks/usePlaybookPlayNames";
-import { mergeTradesByStableIds, splitTradeIntoRoundTripsByStableId } from "../lib/tradeMerge";
+import {
+  mergeTradesByStableIds,
+  splitTradeIntoRoundTripsByStableId,
+  tradeHasRoundTripSplit,
+} from "../lib/tradeMerge";
 import ReportsFilterStrip from "../components/ReportsFilterStrip";
 import { REPORTS_DURATION_OPTIONS } from "../lib/tradeDuration";
 import { tradeSignedAmountForAggregation } from "../lib/tradeExecutionMetrics";
@@ -295,18 +299,23 @@ function Trades() {
     }
 
     if (bulkAction === "splitTrades") {
-      if (ids.length !== 1) {
+      let nextList = list;
+      let splitCount = 0;
+      for (const id of ids) {
+        const row = nextList.find((t) => stableTradeId(t) === id);
+        if (!row || !tradeHasRoundTripSplit(row)) continue;
+        const r = splitTradeIntoRoundTripsByStableId(id, nextList);
+        if (!r.ok) continue;
+        nextList = r.next;
+        splitCount += 1;
+      }
+      if (splitCount === 0) {
         window.alert(
-          "Select exactly one trade to split. Each new row is one completed round trip (flat position), not one row per execution.",
+          "No selected trades could be split. Each splittable row needs multiple fills that form more than one completed round trip; single-execution or already-split rows are left unchanged.",
         );
         return;
       }
-      const r = splitTradeIntoRoundTripsByStableId(ids[0], list);
-      if (!r.ok) {
-        window.alert(r.message);
-        return;
-      }
-      saveTrades(r.next);
+      saveTrades(nextList);
       setSelected(new Set());
       setBulkAction("");
       return;

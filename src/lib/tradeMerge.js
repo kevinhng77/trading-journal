@@ -101,6 +101,28 @@ export function mergeTradesByStableIds(stableIds, allTrades) {
 }
 
 /**
+ * Grouped parser rows if this trade would split into 2+ journal rows; otherwise null.
+ * @param {object | null | undefined} trade
+ * @returns {object[] | null}
+ */
+function groupedRoundTripRowsForSplit(trade) {
+  if (!trade) return null;
+  const fills = Array.isArray(trade.fills) ? trade.fills : [];
+  if (fills.length < 2) return null;
+  const date = String(trade.date ?? "");
+  const symbol = String(trade.symbol ?? "");
+  const groupingFills = fills.map((f) => fillToGroupingFill(f, date, symbol));
+  const split = groupFillsIntoTrades(groupingFills, "normal");
+  if (split.length <= 1) return null;
+  return split;
+}
+
+/** True when {@link splitTradeIntoRoundTripsByStableId} would produce multiple rows. */
+export function tradeHasRoundTripSplit(trade) {
+  return groupedRoundTripRowsForSplit(trade) != null;
+}
+
+/**
  * Split one trade into one row per completed round trip (flat → 0 shares), not one row per fill.
  * Uses the same rules as Thinkorswim import "normal" grouping.
  * @param {string} stableId
@@ -111,24 +133,12 @@ export function splitTradeIntoRoundTripsByStableId(stableId, allTrades) {
   const idx = allTrades.findIndex((t) => stableTradeId(t) === stableId);
   if (idx < 0) return { ok: false, message: "Trade not found." };
   const trade = allTrades[idx];
-  const fills = Array.isArray(trade.fills) ? trade.fills : [];
-  if (fills.length < 2) {
-    return {
-      ok: false,
-      message: "This trade only has one execution. Split needs at least two fills to form round trips.",
-    };
-  }
-
-  const date = String(trade.date ?? "");
-  const symbol = String(trade.symbol ?? "");
-  const groupingFills = fills.map((f) => fillToGroupingFill(f, date, symbol));
-  const split = groupFillsIntoTrades(groupingFills, "normal");
-
-  if (split.length <= 1) {
+  const split = groupedRoundTripRowsForSplit(trade);
+  if (!split) {
     return {
       ok: false,
       message:
-        "This trade is already a single completed round trip or one open position. There is nothing to split into separate exits.",
+        "This trade cannot be split: it needs at least two fills that form more than one completed round trip, or it is already a single round trip / one execution.",
     };
   }
 
