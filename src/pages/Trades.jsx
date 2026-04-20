@@ -42,15 +42,41 @@ import { useActiveAccountId } from "../hooks/useActiveAccountId";
 
 const TRADES_PAGE_SIZE = 20;
 
+const TRADES_SORT_SESSION_PREFIX = "tj-trades-sort:";
+
+/** @param {string} accountId */
+function tradesSortSessionKey(accountId) {
+  return `${TRADES_SORT_SESSION_PREFIX}${accountId || "default"}`;
+}
+
+/** @param {string} accountId @returns {TradeSort} */
+function loadTradesSortFromSession(accountId) {
+  const VALID = new Set(["date", "symbol", "volume", "executions", "pnl", "notes", "tags", "setups"]);
+  try {
+    const raw = sessionStorage.getItem(tradesSortSessionKey(accountId));
+    if (!raw) return { key: "date", dir: "desc" };
+    const o = JSON.parse(raw);
+    const key = String(o.key ?? "");
+    const dir = o.dir === "asc" ? "asc" : "desc";
+    if (!VALID.has(key)) return { key: "date", dir: "desc" };
+    return /** @type {TradeSort} */ ({ key: /** @type {TradeSortKey} */ (key), dir });
+  } catch {
+    return { key: "date", dir: "desc" };
+  }
+}
+
+/** @param {string} accountId @param {TradeSort} sort */
+function saveTradesSortToSession(accountId, sort) {
+  try {
+    sessionStorage.setItem(tradesSortSessionKey(accountId), JSON.stringify(sort));
+  } catch {
+    /* ignore */
+  }
+}
+
 /** @typedef {"date"|"symbol"|"volume"|"executions"|"pnl"|"notes"|"tags"|"setups"} TradeSortKey */
 /** @typedef {{ key: TradeSortKey, dir: "asc"|"desc" }} TradeSort */
 
-/**
- * @param {object} a
- * @param {object} b
- * @param {TradeSortKey} key
- * @param {"asc"|"desc"} dir
- */
 /**
  * @param {object} a
  * @param {object} b
@@ -158,7 +184,7 @@ function Trades() {
   const [appliedFilters, setAppliedFilters] = useState(() => loadPersistedReportFilters());
   const [selected, setSelected] = useState(() => new Set());
   /** @type {[TradeSort, import("react").Dispatch<import("react").SetStateAction<TradeSort>>]} */
-  const [sort, setSort] = useState(() => /** @type {TradeSort} */ ({ key: "date", dir: "desc" }));
+  const [sort, setSort] = useState(() => loadTradesSortFromSession(activeAccountId));
   const [page, setPage] = useState(1);
   /** @type {["" | "merge" | "splitTrades" | "delete", import("react").Dispatch<import("react").SetStateAction<"" | "merge" | "splitTrades" | "delete">>]} */
   const [bulkAction, setBulkAction] = useState("");
@@ -191,6 +217,14 @@ function Trades() {
   useEffect(() => {
     if (selected.size === 0) setBulkAction("");
   }, [selected.size]);
+
+  useEffect(() => {
+    setSort(loadTradesSortFromSession(activeAccountId));
+  }, [activeAccountId]);
+
+  useEffect(() => {
+    saveTradesSortToSession(activeAccountId, sort);
+  }, [activeAccountId, sort]);
 
   /** Warm chart chunk so first trade open does not wait on network parse of the heavy module. */
   useEffect(() => {
