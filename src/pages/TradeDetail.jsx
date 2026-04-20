@@ -5,7 +5,7 @@ import {
   normalizeTagList,
 } from "../lib/tradeTags";
 import { usePlaybookPlayNames } from "../hooks/usePlaybookPlayNames";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   formatMoney,
   pnlClass,
@@ -85,6 +85,8 @@ function formatSessionIso(iso) {
 export default function TradeDetail() {
   const { tradeId: tradeIdParam } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const navStarred = searchParams.get("nav") === "starred";
   const { rawTrades } = useRawAndReportTrades();
 
   const trade = useMemo(
@@ -115,7 +117,7 @@ export default function TradeDetail() {
 
   const tidNav = trade ? stableTradeId(trade) : "";
   const tidEditor = trade?._editorStableId ? String(trade._editorStableId) : tidNav;
-  const { isTradeStarred, toggleTrade } = useStarred();
+  const { isTradeStarred, toggleTrade, starredTrades } = useStarred();
   const [chartInterval, setChartInterval] = useState("1");
   const [fillTimeZone] = useState(() => loadFillTimeZone());
   const [indicatorPrefs, setIndicatorPrefs] = useState(() => loadChartIndicatorPrefs());
@@ -267,9 +269,12 @@ export default function TradeDetail() {
   }, []);
 
   const tradesForChartNav = useMemo(() => {
+    if (navStarred) {
+      return rawTrades.filter((t) => starredTrades.has(stableTradeId(t)));
+    }
     if (!reportFiltersActive(appliedNavFilters)) return rawTrades;
     return filterTradesForReport(rawTrades, appliedNavFilters);
-  }, [rawTrades, appliedNavFilters]);
+  }, [rawTrades, appliedNavFilters, navStarred, starredTrades]);
 
   const { prev, next } = useMemo(
     () => (tidNav ? neighborTradeIds(tradesForChartNav, tidNav) : { prev: null, next: null }),
@@ -283,10 +288,14 @@ export default function TradeDetail() {
     [rawTrades, playbookPlayNames],
   );
 
-  function go(id) {
-    if (!id) return;
-    navigate(`/trades/${encodeURIComponent(id)}`);
-  }
+  const go = useCallback(
+    (id) => {
+      if (!id) return;
+      const q = navStarred ? "?nav=starred" : "";
+      navigate(`/trades/${encodeURIComponent(id)}${q}`);
+    },
+    [navigate, navStarred],
+  );
 
   function removeTrade() {
     if (!trade) return;
@@ -344,13 +353,25 @@ export default function TradeDetail() {
             </div>
           </div>
           <div className="trade-detail-nav-actions">
-            <div className="trade-detail-trade-step-group" role="group" aria-label="Navigate between trades">
+            <div
+              className="trade-detail-trade-step-group"
+              role="group"
+              aria-label={navStarred ? "Navigate between starred trades" : "Navigate between trades"}
+            >
               <button
                 type="button"
                 className="trade-detail-trade-step-btn"
                 disabled={!prev}
                 onClick={() => go(prev)}
-                title={prev ? "Open previous trade in this list" : "No previous trade in list"}
+                title={
+                  prev
+                    ? navStarred
+                      ? "Open previous starred trade"
+                      : "Open previous trade in this list"
+                    : navStarred
+                      ? "No previous starred trade"
+                      : "No previous trade in list"
+                }
               >
                 Previous trade
               </button>
@@ -359,7 +380,15 @@ export default function TradeDetail() {
                 className="trade-detail-trade-step-btn"
                 disabled={!next}
                 onClick={() => go(next)}
-                title={next ? "Open next trade in this list" : "No next trade in list"}
+                title={
+                  next
+                    ? navStarred
+                      ? "Open next starred trade"
+                      : "Open next trade in this list"
+                    : navStarred
+                      ? "No next starred trade"
+                      : "No next trade in list"
+                }
               >
                 Next trade
               </button>

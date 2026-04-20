@@ -143,7 +143,10 @@ export default function StarReview() {
                     const pnl = tradeSignedAmountForAggregation(t);
                     return (
                       <li key={id} className="star-review-trade-row">
-                        <Link className="star-review-link" to={`/trades/${encodeURIComponent(id)}`}>
+                        <Link
+                          className="star-review-link"
+                          to={`/trades/${encodeURIComponent(id)}?nav=starred`}
+                        >
                           <span className="star-review-trade-sym">{t.symbol}</span>
                           <span className="star-review-meta">{t.date}</span>
                           <span className={`star-review-pnl ${pnlClass(pnl)}`}>{formatMoney(pnl)}</span>
