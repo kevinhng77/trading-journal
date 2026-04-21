@@ -6956,6 +6956,34 @@ a.journal-row-trade-link:visited {
   margin-bottom: 12px;
 }
 
+.chart-presets-menu-hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.chart-presets-skin-actions {
+  display: flex;
+  gap: 8px;
+  margin: 4px 0 2px;
+}
+
+.chart-presets-skin-btn {
+  flex: 1 1 0;
+  text-align: center;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.chart-presets-skin-btn.is-active {
+  border-color: color-mix(in srgb, var(--accent-green) 55%, transparent);
+  color: #fff;
+}
+
 .chart-presets-save-btn {
   display: block;
   width: 100%;
@@ -8755,20 +8783,6 @@ a.journal-row-trade-link:visited {
 
 .trade-execution-chart-wrap[data-chart-skin="das"] .trade-chart-crosshair-hline-line {
   stroke: rgba(0, 220, 120, 0.35);
-}
-
-.trade-detail-chart-tv-bar--skins {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.trade-detail-chart-skin-btn {
-  padding: 6px 11px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
 }
 
 .trade-chart-session-shades {

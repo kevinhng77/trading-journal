@@ -409,6 +409,8 @@ export default function TradeExecutionChart({
   onOpenIndicatorsCatalog = null,
   /** @type {'tos'|'das'} */
   chartSkinId = "tos",
+  chartGridVisible = true,
+  onToggleChartGrid = null,
 }) {
   const containerRef = useRef(null);
   const trendlineSvgRef = useRef(/** @type {SVGSVGElement | null} */ (null));
@@ -586,6 +588,17 @@ export default function TradeExecutionChart({
     const displayTz = fillTimeZone || CHART_BUSINESS_DAY_TZ;
     const linePxRatio = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
 
+    const showGrid = chartGridVisible !== false;
+    const gridOptions = showGrid
+      ? {
+          vertLines: { color: skin.grid },
+          horzLines: { color: skin.grid },
+        }
+      : {
+          vertLines: { visible: false },
+          horzLines: { visible: false },
+        };
+
     const chart = createChart(el, {
       layout: {
         background: { type: ColorType.Solid, color: skin.bg },
@@ -595,10 +608,7 @@ export default function TradeExecutionChart({
       localization: {
         timeFormatter: (t) => formatCrosshairTimeLabel(t, daily, displayTz) || "—",
       },
-      grid: {
-        vertLines: { color: skin.grid },
-        horzLines: { color: skin.grid },
-      },
+      grid: gridOptions,
       crosshair: {
         mode: CrosshairMode.Normal,
         // Built-in time-axis label can disagree with cursor X when hovering the volume strip (separate price scale).
@@ -1424,6 +1434,7 @@ export default function TradeExecutionChart({
     onRemoveEmaLine,
     chartFillSpan,
     chartSkinId,
+    chartGridVisible,
   ]);
 
   useEffect(() => {
@@ -1434,7 +1445,10 @@ export default function TradeExecutionChart({
     chartContextMenu &&
     (() => {
       const menuW = 240;
-      const itemCount = 1 + (typeof onOpenIndicatorsCatalog === "function" ? 1 : 0);
+      const itemCount =
+        1 +
+        (typeof onOpenIndicatorsCatalog === "function" ? 1 : 0) +
+        (typeof onToggleChartGrid === "function" ? 1 : 0);
       const menuH = itemCount * 44;
       const x = Math.max(6, Math.min(chartContextMenu.x, window.innerWidth - menuW - 6));
       const y = Math.max(6, Math.min(chartContextMenu.y, window.innerHeight - menuH - 6));
@@ -1587,6 +1601,24 @@ export default function TradeExecutionChart({
               <span className="trade-chart-context-item-label">Reset chart view</span>
               <kbd className="trade-chart-context-kbd">Alt+R</kbd>
             </button>
+            {typeof onToggleChartGrid === "function" ? (
+              <button
+                type="button"
+                className="trade-chart-context-item"
+                role="menuitem"
+                onClick={() => {
+                  onToggleChartGrid();
+                  setChartContextMenu(null);
+                }}
+              >
+                <span className="trade-chart-context-item-icon" aria-hidden>
+                  #
+                </span>
+                <span className="trade-chart-context-item-label">
+                  {chartGridVisible !== false ? "Hide price/time grid" : "Show price/time grid"}
+                </span>
+              </button>
+            ) : null}
             {typeof onOpenIndicatorsCatalog === "function" ? (
               <button
                 type="button"

@@ -7,7 +7,7 @@ const MAX_SETS = 40;
 /**
  * @typedef {import("./chartIndicatorPrefs").ChartIndicatorPrefs} ChartIndicatorPrefs
  * @typedef {import("../lib/chartSkins").ChartSkinId} ChartSkinId
- * @typedef {{ id: string, name: string, prefs: ChartIndicatorPrefs, skin?: ChartSkinId }} NamedIndicatorSet
+ * @typedef {{ id: string, name: string, prefs: ChartIndicatorPrefs, skin?: ChartSkinId, gridVisible?: boolean }} NamedIndicatorSet
  */
 
 function safeParse(raw) {
@@ -35,7 +35,10 @@ export function loadNamedIndicatorSets() {
       const prefs = normalizeChartIndicatorPrefs(r.prefs);
       const skinRaw = r.skin;
       const skin = isChartSkinId(skinRaw) ? skinRaw : undefined;
-      out.push({ id, name, prefs, skin });
+      /** @type {NamedIndicatorSet} */
+      const named = { id, name, prefs, skin };
+      if (typeof r.gridVisible === "boolean") named.gridVisible = r.gridVisible;
+      out.push(named);
     });
     return out;
   } catch {
@@ -56,9 +59,10 @@ function persist(sets) {
  * @param {string} name
  * @param {ChartIndicatorPrefs} prefs
  * @param {ChartSkinId} [skin] chart colors (TOS vs DAS) stored with this setup
+ * @param {boolean} [gridVisible] price/time grid on/off stored with this setup
  * @returns {NamedIndicatorSet[]}
  */
-export function addNamedIndicatorSet(name, prefs, skin) {
+export function addNamedIndicatorSet(name, prefs, skin, gridVisible) {
   const trimmed = String(name ?? "").trim().slice(0, 80) || "Untitled";
   const id =
     typeof crypto !== "undefined" && crypto.randomUUID
@@ -67,6 +71,7 @@ export function addNamedIndicatorSet(name, prefs, skin) {
   /** @type {NamedIndicatorSet} */
   const row = { id, name: trimmed, prefs: structuredClone(prefs) };
   if (isChartSkinId(skin)) row.skin = skin;
+  if (typeof gridVisible === "boolean") row.gridVisible = gridVisible;
   const next = [...loadNamedIndicatorSets(), row];
   persist(next);
   return next;
