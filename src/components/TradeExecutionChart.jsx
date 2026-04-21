@@ -410,6 +410,8 @@ export default function TradeExecutionChart({
   chartIntervalBarEnd = null,
   /** When set, chart context menu includes an entry that opens the indicators catalog (trade detail). */
   onOpenIndicatorsCatalog = null,
+  /** When set, context menu + caller toolbar can hide all MAs, VWAP, executions, and round-trip shading at once. */
+  onClearAllIndicators = null,
 }) {
   const containerRef = useRef(null);
   const trendlineSvgRef = useRef(/** @type {SVGSVGElement | null} */ (null));
@@ -1134,7 +1136,7 @@ export default function TradeExecutionChart({
     );
     /** @type {import('lightweight-charts').ISeriesPrimitive<import('lightweight-charts').Time> | null} */
     let markersPrimitive = null;
-    if (execMarkers.length) {
+    if (execMarkers.length && indicatorPrefs.markers.enabled !== false) {
       markersPrimitive = createExecutionMarkersSeriesPrimitive(series, execMarkers, {
         buy: indicatorPrefs.markers.buy,
         sell: indicatorPrefs.markers.sell,
@@ -1429,7 +1431,10 @@ export default function TradeExecutionChart({
     chartContextMenu &&
     (() => {
       const menuW = 240;
-      const itemCount = 1 + (typeof onOpenIndicatorsCatalog === "function" ? 1 : 0);
+      const itemCount =
+        1 +
+        (typeof onOpenIndicatorsCatalog === "function" ? 1 : 0) +
+        (typeof onClearAllIndicators === "function" ? 1 : 0);
       const menuH = itemCount * 44;
       const x = Math.max(6, Math.min(chartContextMenu.x, window.innerWidth - menuW - 6));
       const y = Math.max(6, Math.min(chartContextMenu.y, window.innerHeight - menuH - 6));
@@ -1596,6 +1601,22 @@ export default function TradeExecutionChart({
                   ≡
                 </span>
                 <span className="trade-chart-context-item-label">Browse indicators catalog…</span>
+              </button>
+            ) : null}
+            {typeof onClearAllIndicators === "function" ? (
+              <button
+                type="button"
+                className="trade-chart-context-item"
+                role="menuitem"
+                onClick={() => {
+                  onClearAllIndicators();
+                  setChartContextMenu(null);
+                }}
+              >
+                <span className="trade-chart-context-item-icon" aria-hidden>
+                  ⊗
+                </span>
+                <span className="trade-chart-context-item-label">Remove all indicators</span>
               </button>
             ) : null}
           </div>

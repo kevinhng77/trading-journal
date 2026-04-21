@@ -515,7 +515,19 @@ export default function ChartIndicatorLegend({
     <Fragment>
       <div className="chart-indicator-legend chart-indicator-legend--rich" ref={popoverRef}>
         {showMarkersRow ? (
-          <div className="chart-indicator-legend-row chart-indicator-legend-row--markers">
+          <div
+            className={`chart-indicator-legend-row chart-indicator-legend-row--markers${
+              prefs.markers.enabled === false ? " chart-indicator-legend-row--muted" : ""
+            }`}
+          >
+            <LegendVisibilityToggle
+              visible={prefs.markers.enabled !== false}
+              name="Executions"
+              onToggle={() => {
+                const visible = prefs.markers.enabled !== false;
+                onPatchMarkers({ enabled: !visible });
+              }}
+            />
             <span className="chart-indicator-legend-exec-icon" aria-hidden>
               <ExecutionMarkersPreview
                 shape={prefs.markers.shape ?? "triangle"}

@@ -7,7 +7,7 @@ import { TOS_EMA_FALLBACK_CYCLE } from "../lib/chartEmaColors";
 
 /** @typedef {'triangle' | 'circle' | 'square' | 'diamond'} MarkerShape */
 /** @typedef {'color' | 'size' | 'both'} MarkerSizingMode */
-/** @typedef {{ buy: string, sell: string, size: number, shape: MarkerShape, sizingMode: MarkerSizingMode }} MarkerPrefs */
+/** @typedef {{ buy: string, sell: string, size: number, shape: MarkerShape, sizingMode: MarkerSizingMode, enabled?: boolean }} MarkerPrefs */
 /** @typedef {{ enabled: boolean, winColor: string, lossColor: string, flatColor: string, alpha: number }} RoundTripShadingPrefs */
 /** Line style: 0 solid, 1 dotted, 2 dashed (lightweight-charts subset). */
 /** @typedef {{ id: string, kind?: 'ema'|'sma', enabled: boolean, period: number, color: string, width: number, lineStyle?: 0|1|2 }} MaLinePrefs */
@@ -38,6 +38,7 @@ export const DEFAULT_CHART_INDICATOR_PREFS = /** @type {ChartIndicatorPrefs} */ 
     size: 12,
     shape: "triangle",
     sizingMode: "color",
+    enabled: true,
   },
   roundTripShading: { ...DEFAULT_ROUND_TRIP_SHADING },
   emaLines: [
@@ -156,6 +157,7 @@ export function normalizeChartIndicatorPrefs(data) {
     if (typeof m.size === "number") base.markers.size = clamp(m.size, 5, 28);
     base.markers.shape = sanitizeMarkerShape(m.shape);
     base.markers.sizingMode = sanitizeMarkerSizingMode(m.sizingMode);
+    if (typeof m.enabled === "boolean") base.markers.enabled = m.enabled;
   }
 
   base.roundTripShading = sanitizeRoundTripShading(o.roundTripShading, base.roundTripShading);
@@ -289,4 +291,20 @@ export function saveChartIndicatorPrefs(prefs) {
 
 export function resetChartIndicatorPrefs() {
   return structuredClone(DEFAULT_CHART_INDICATOR_PREFS);
+}
+
+/**
+ * Turn off every overlay (MAs, VWAP, execution markers, round-trip shading). Line definitions stay for quick re-enable.
+ * @param {ChartIndicatorPrefs} prefs
+ * @returns {ChartIndicatorPrefs}
+ */
+export function disableAllChartIndicators(prefs) {
+  const base = normalizeChartIndicatorPrefs(prefs);
+  return {
+    ...base,
+    emaLines: base.emaLines.map((l) => ({ ...l, enabled: false })),
+    vwap: { ...base.vwap, enabled: false },
+    roundTripShading: { ...base.roundTripShading, enabled: false },
+    markers: { ...base.markers, enabled: false },
+  };
 }
