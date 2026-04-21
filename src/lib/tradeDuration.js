@@ -1,3 +1,6 @@
+import { roundTripLegSummariesFromFills } from "./fillRoundTrips.js";
+import { stableTradeId } from "../storage/tradeLookup.js";
+
 /**
  * Parse HH:mm or HH:mm:ss on an ISO calendar date (local).
  * @param {string} isoDate YYYY-MM-DD
@@ -14,6 +17,19 @@ function fillInstantMs(isoDate, timeStr) {
   if ([h, min, sec].some((n) => Number.isNaN(n))) return NaN;
   const iso = `${isoDate}T${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
   return new Date(iso).getTime();
+}
+
+/**
+ * @param {object} trade
+ * @returns {string | null} `SYMBOL|long|shareSize` for open tail, else null
+ */
+function getOpenLegPairKey(trade) {
+  const legs = roundTripLegSummariesFromFills(trade?.fills);
+  const open = legs.find((l) => l.isOpen);
+  if (!open?.openingSide) return null;
+  const sym = String(trade?.symbol ?? "").trim().toUpperCase();
+  if (!sym) return null;
+  return `${sym}|${open.openingSide}|${open.shareSize}`;
 }
 
 /**
@@ -50,28 +66,47 @@ export const REPORTS_DURATION_OPTIONS = [
 ];
 
 /**
- * True when fills span more than one calendar `fill.date` (else treated as intraday).
+ * Multiday when:
+ * - fills use more than one `fill.date`, or
+ * - an open FIFO leg’s fills span multiple session dates, or
+ * - another stored row has the same symbol, same open-leg side, same open-leg share size (paired swing / split import).
+ *
  * @param {object} trade
+ * @param {object[]|undefined} [allTrades] same cohort used for filters (e.g. all rows before duration filter)
  */
-export function tradeIsMultiday(trade) {
+export function tradeIsMultiday(trade, allTrades) {
   const fills = trade?.fills;
   if (!Array.isArray(fills) || fills.length === 0) return false;
+
   const dates = new Set();
   for (const f of fills) {
     if (f.date) dates.add(f.date);
   }
-  return dates.size > 1;
+  if (dates.size > 1) return true;
+
+  const legs = roundTripLegSummariesFromFills(fills);
+  if (legs.some((l) => l.isOpen && l.isMultidayLeg)) return true;
+
+  const pairKey = getOpenLegPairKey(trade);
+  if (!pairKey || !Array.isArray(allTrades) || allTrades.length < 2) return false;
+  const id = stableTradeId(trade);
+  for (const o of allTrades) {
+    if (stableTradeId(o) === id) continue;
+    if (getOpenLegPairKey(o) === pairKey) return true;
+  }
+  return false;
 }
 
 /**
  * @param {object} trade
  * @param {string} bucket
+ * @param {object[]|undefined} [allTrades] pass for multiday/intraday pairing (see {@link tradeIsMultiday})
  */
-export function tradeMatchesDurationBucket(trade, bucket) {
+export function tradeMatchesDurationBucket(trade, bucket, allTrades) {
   const key = String(bucket ?? "all");
   if (!key || key === "all") return true;
-  if (key === "intraday") return !tradeIsMultiday(trade);
-  if (key === "multiday") return tradeIsMultiday(trade);
+  if (key === "intraday") return !tradeIsMultiday(trade, allTrades);
+  if (key === "multiday") return tradeIsMultiday(trade, allTrades);
   const sec = getTradeDurationSeconds(trade);
   if (sec === null) return false;
   switch (key) {

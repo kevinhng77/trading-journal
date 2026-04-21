@@ -1,0 +1,21 @@
+---
+description: Multiday vs intraday trade classification and cohort pairing
+globs: src/lib/tradeDuration.js, src/lib/reportFilters.js, src/lib/dashboardStats.js
+alwaysApply: false
+---
+
+# Multiday classification
+
+Do not define “multiday” only from multiple `fill.date` on a single stored row. The app also treats a trade as multiday when:
+
+1. Any fill row spans more than one calendar `fill.date`, or
+2. The **open** FIFO leg from `roundTripLegSummariesFromFills` has `isMultidayLeg` (that leg’s fills use more than one session date), or
+3. **Paired imports:** another **different** trade (`stableTradeId`) in the same cohort has the same **symbol**, same **open-leg opening side**, and same **open-leg share size** (see `getOpenLegPairKey` in `tradeDuration.js`).
+
+## Call-site contract
+
+- `tradeIsMultiday(trade, allTrades?)` — pass `allTrades` whenever you classify **intraday vs multiday** from a list (pairing needs the cohort).
+- `tradeMatchesDurationBucket(trade, bucket, allTrades?)` — for `intraday` / `multiday` buckets, pass the same trade list the UI filter uses **before** applying the duration filter (see `filterTradesForReport`: `poolForDuration`).
+- `aggregateIntradayMultiday(trades)` must use `tradeIsMultiday(t, trades)`, not the single-argument form.
+
+Changing any of this without updating the others will break filters vs charts vs the BYND-style “two open rows, same symbol/size/side” case.

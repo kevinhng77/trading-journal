@@ -641,7 +641,7 @@ export function aggregateByReportDurationBuckets(trades) {
 }
 
 /**
- * Intraday vs multiday from fill dates when present (else all intraday).
+ * Intraday vs multiday (see {@link tradeIsMultiday} including open-leg pairing across rows).
  * @returns {{ name: string, trades: number, pnl: number }[]}
  */
 export function aggregateIntradayMultiday(trades) {
@@ -649,7 +649,7 @@ export function aggregateIntradayMultiday(trades) {
   const multi = { name: "Multiday", trades: 0, pnl: 0 };
   for (const t of trades) {
     const p = tradeSignedAmountForAggregation(t);
-    if (tradeIsMultiday(t)) {
+    if (tradeIsMultiday(t, trades)) {
       multi.trades += 1;
       multi.pnl += p;
     } else {

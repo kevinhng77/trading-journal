@@ -167,7 +167,8 @@ export function filterTradesForReport(trades, filters) {
 
   const dur = String(f.duration ?? "all");
   if (dur && dur !== "all") {
-    out = out.filter((t) => tradeMatchesDurationBucket(t, dur));
+    const poolForDuration = out;
+    out = out.filter((t) => tradeMatchesDurationBucket(t, dur, poolForDuration));
   }
 
   const from = String(f.dateFrom ?? "").trim();
