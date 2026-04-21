@@ -12,9 +12,11 @@ import {
 /**
  * @param {object} props
  * @param {import("../storage/chartIndicatorPrefs").ChartIndicatorPrefs} props.prefs
- * @param {(p: import("../storage/chartIndicatorPrefs").ChartIndicatorPrefs) => void} props.onChange
+ * @param {import("../lib/chartSkins").ChartSkinId} props.currentSkin
+ * @param {(p: import("../storage/chartIndicatorPrefs").ChartIndicatorPrefs) => void} props.onChange indicator-only (e.g. reset)
+ * @param {(o: { prefs: import("../storage/chartIndicatorPrefs").ChartIndicatorPrefs, skin?: import("../lib/chartSkins").ChartSkinId }) => void} [props.onApplyFullSetup] load saved setup (prefs + optional chart skin)
  */
-export default function ChartPresetsDropdown({ prefs, onChange }) {
+export default function ChartPresetsDropdown({ prefs, currentSkin, onChange, onApplyFullSetup }) {
   const [open, setOpen] = useState(false);
   const [savedSets, setSavedSets] = useState(() => loadNamedIndicatorSets());
 
@@ -27,22 +29,27 @@ export default function ChartPresetsDropdown({ prefs, onChange }) {
   }
 
   function onSaveCurrent() {
-    const name = window.prompt("Name this indicator setup:", "");
+    const name = window.prompt("Name this chart setup (indicators + TOS/DAS look):", "");
     if (name === null) return;
     const trimmed = String(name).trim();
     if (!trimmed) {
       window.alert("Enter a name to save this setup.");
       return;
     }
-    addNamedIndicatorSet(trimmed, prefs);
+    addNamedIndicatorSet(trimmed, prefs, currentSkin);
     setSavedSets(loadNamedIndicatorSets());
   }
 
   /**
-   * @param {{ id: string, name: string, prefs: import("../storage/chartIndicatorPrefs").ChartIndicatorPrefs }} set
+   * @param {{ id: string, name: string, prefs: import("../storage/chartIndicatorPrefs").ChartIndicatorPrefs, skin?: import("../lib/chartSkins").ChartSkinId }} set
    */
   function onApplySet(set) {
-    onChange(normalizeChartIndicatorPrefs(set.prefs));
+    const normalized = normalizeChartIndicatorPrefs(set.prefs);
+    if (typeof onApplyFullSetup === "function") {
+      onApplyFullSetup({ prefs: normalized, skin: set.skin });
+    } else {
+      onChange(normalized);
+    }
     setOpen(false);
   }
 
@@ -61,12 +68,11 @@ export default function ChartPresetsDropdown({ prefs, onChange }) {
         className="chart-tv-toolbar-btn chart-tv-toolbar-btn--presets chart-tv-toolbar-btn--icon-only"
         aria-expanded={open}
         aria-haspopup="true"
-        aria-label="Saved indicator setups and reset"
-        title="Saved setups — save, load, or reset chart indicators"
+        aria-label="Saved chart setups and reset"
+        title="Saved setups — save or load indicators and chart look (TOS/DAS)"
         onClick={toggleOpen}
       >
         <span className="chart-presets-grid-icon" aria-hidden>
-          <span />
           <span />
           <span />
           <span />
@@ -84,7 +90,7 @@ export default function ChartPresetsDropdown({ prefs, onChange }) {
 
             <div className="chart-presets-saved-head">Saved setups</div>
             {savedSets.length === 0 ? (
-              <p className="chart-presets-menu-empty">No saved setups yet. Save the current chart indicators above.</p>
+              <p className="chart-presets-menu-empty">No saved setups yet. Use Save setup on the toolbar or save here.</p>
             ) : (
               <ul className="chart-presets-set-list">
                 {savedSets.map((set) => (
@@ -97,6 +103,11 @@ export default function ChartPresetsDropdown({ prefs, onChange }) {
                       onClick={() => onApplySet(set)}
                     >
                       <span className="chart-presets-set-name">{set.name}</span>
+                      {set.skin ? (
+                        <span className="chart-presets-set-skin" title="Saved chart look">
+                          {set.skin.toUpperCase()}
+                        </span>
+                      ) : null}
                     </button>
                     <button
                       type="button"

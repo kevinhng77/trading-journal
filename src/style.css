@@ -6621,8 +6621,10 @@ a.journal-row-trade-link:visited {
 .trade-detail-chart-tv-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 8px 10px;
   margin-left: auto;
+  justify-content: flex-end;
 }
 
 .chart-presets-dropdown {
@@ -7020,6 +7022,10 @@ a.journal-row-trade-link:visited {
   line-height: 1.35;
   cursor: pointer;
   text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .chart-presets-set-load:hover {
@@ -7029,10 +7035,21 @@ a.journal-row-trade-link:visited {
 
 .chart-presets-set-name {
   display: block;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text);
+}
+
+.chart-presets-set-skin {
+  flex: 0 0 auto;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--accent-green);
+  opacity: 0.85;
 }
 
 .chart-presets-set-remove {
@@ -8727,6 +8744,31 @@ a.journal-row-trade-link:visited {
   transform: translateX(-50%);
   white-space: nowrap;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.trade-execution-chart-wrap[data-chart-skin="das"] .trade-chart-crosshair-price,
+.trade-execution-chart-wrap[data-chart-skin="das"] .trade-chart-crosshair-time {
+  color: #7cffb6;
+  background: rgba(0, 0, 0, 0.88);
+  border-color: rgba(0, 200, 120, 0.35);
+}
+
+.trade-execution-chart-wrap[data-chart-skin="das"] .trade-chart-crosshair-hline-line {
+  stroke: rgba(0, 220, 120, 0.35);
+}
+
+.trade-detail-chart-tv-bar--skins {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.trade-detail-chart-skin-btn {
+  padding: 6px 11px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .trade-chart-session-shades {

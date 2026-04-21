@@ -1,11 +1,13 @@
 import { normalizeChartIndicatorPrefs } from "./chartIndicatorPrefs";
+import { isChartSkinId } from "../lib/chartSkins";
 
 const STORAGE_KEY = "tradingJournalChartIndicatorNamedSets";
 const MAX_SETS = 40;
 
 /**
  * @typedef {import("./chartIndicatorPrefs").ChartIndicatorPrefs} ChartIndicatorPrefs
- * @typedef {{ id: string, name: string, prefs: ChartIndicatorPrefs }} NamedIndicatorSet
+ * @typedef {import("../lib/chartSkins").ChartSkinId} ChartSkinId
+ * @typedef {{ id: string, name: string, prefs: ChartIndicatorPrefs, skin?: ChartSkinId }} NamedIndicatorSet
  */
 
 function safeParse(raw) {
@@ -31,7 +33,9 @@ export function loadNamedIndicatorSets() {
       const id = typeof r.id === "string" && r.id.trim() ? r.id.trim() : `set-${i}`;
       const name = typeof r.name === "string" ? r.name.trim().slice(0, 80) : "Untitled";
       const prefs = normalizeChartIndicatorPrefs(r.prefs);
-      out.push({ id, name, prefs });
+      const skinRaw = r.skin;
+      const skin = isChartSkinId(skinRaw) ? skinRaw : undefined;
+      out.push({ id, name, prefs, skin });
     });
     return out;
   } catch {
@@ -51,15 +55,19 @@ function persist(sets) {
 /**
  * @param {string} name
  * @param {ChartIndicatorPrefs} prefs
+ * @param {ChartSkinId} [skin] chart colors (TOS vs DAS) stored with this setup
  * @returns {NamedIndicatorSet[]}
  */
-export function addNamedIndicatorSet(name, prefs) {
+export function addNamedIndicatorSet(name, prefs, skin) {
   const trimmed = String(name ?? "").trim().slice(0, 80) || "Untitled";
   const id =
     typeof crypto !== "undefined" && crypto.randomUUID
       ? crypto.randomUUID()
       : `set-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-  const next = [...loadNamedIndicatorSets(), { id, name: trimmed, prefs: structuredClone(prefs) }];
+  /** @type {NamedIndicatorSet} */
+  const row = { id, name: trimmed, prefs: structuredClone(prefs) };
+  if (isChartSkinId(skin)) row.skin = skin;
+  const next = [...loadNamedIndicatorSets(), row];
   persist(next);
   return next;
 }

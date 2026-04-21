@@ -27,6 +27,7 @@ import {
 import { emaLineDataFromBars, smaLineDataFromBars } from "../lib/ema";
 import { vwapLineDataFromAlpacaBars } from "../lib/vwapFromBars";
 import { DEFAULT_CHART_INDICATOR_PREFS, chartHexToRgba } from "../storage/chartIndicatorPrefs";
+import { chartSkinColors } from "../lib/chartSkins";
 import { resolveChartEmaColor } from "../lib/chartEmaColors";
 import {
   CHART_INTERVAL_PRESETS,
@@ -60,21 +61,6 @@ function lineWidthForLwLineSeries(prefsWidth, pixelRatio) {
 const CHART_BUSINESS_DAY_TZ = "America/New_York";
 
 const FILL_ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
-
-/** Thinkorswim-style dark chart: pane color, grid, and candles closer to desktop TOS equity charts. */
-const TOS_CHART = {
-  bg: "#131722",
-  text: "#d1d4dc",
-  grid: "rgba(42, 46, 57, 0.72)",
-  border: "rgba(54, 60, 78, 0.88)",
-  candleUp: "#ffffff",
-  candleDown: "#e31937",
-  candleBorderUp: "#9aa5b1",
-  candleBorderDown: "#b71c1c",
-  wickUp: "#cfd8e3",
-  wickDown: "#ff5252",
-  crosshair: "rgba(255, 255, 255, 0.2)",
-};
 
 /**
  * @param {import("lightweight-charts").Time} t
@@ -264,6 +250,7 @@ function executionQuantityToMarkerFill(baseHex, qty, qMin, qMax) {
 
 /**
  * @param {{ buy: string, sell: string, size: number, sizingMode?: string }} markerPrefs
+ * @param {{ simpleSolid?: boolean }} [markerOptions] DAS-style: solid triangle colors, fixed size
  */
 function collectExecutionMarkers(
   fills,
@@ -275,8 +262,10 @@ function collectExecutionMarkers(
   chartInterval,
   lwBarsByTime,
   markerPrefs,
+  markerOptions,
 ) {
   if (!fills?.length) return [];
+  const simpleSolid = markerOptions?.simpleSolid === true;
 
   const periodSec = barPeriodSecondsForInterval(chartInterval);
   const barTimeSet = new Set(barTimesAsc);
@@ -329,13 +318,18 @@ function collectExecutionMarkers(
     const useSize = sizingMode === "size" || sizingMode === "both";
     /** @type {{ time: import('lightweight-charts').Time, price: number, isBuy: boolean, fill?: string, size?: number }} */
     const row = { ...rest };
-    if (useColor) {
-      row.fill = executionQuantityToMarkerFill(baseHex, quantity, qMin, qMax);
-    } else {
+    if (simpleSolid) {
       row.fill = baseHex;
-    }
-    if (useSize) {
-      row.size = executionQuantityToMarkerPixelSize(quantity, qMin, qMax, markerBaseSize);
+      row.size = markerBaseSize;
+    } else {
+      if (useColor) {
+        row.fill = executionQuantityToMarkerFill(baseHex, quantity, qMin, qMax);
+      } else {
+        row.fill = baseHex;
+      }
+      if (useSize) {
+        row.size = executionQuantityToMarkerPixelSize(quantity, qMin, qMax, markerBaseSize);
+      }
     }
     return row;
   });
@@ -357,8 +351,11 @@ function dedupeBarsByTime(lwBars) {
   });
 }
 
-/** One pass: dedupe by bar time, keep candles + volume aligned (intraday). */
-function barsToCandlesAndVolume(bars, daily) {
+/**
+ * One pass: dedupe by bar time, keep candles + volume aligned (intraday).
+ * @param {{ up: string, down: string }} [volumeColors]
+ */
+function barsToCandlesAndVolume(bars, daily, volumeColors) {
   if (daily) {
     const raw = bars.map((b) => alpacaBarToLightweight(b, true));
     return { lwBars: dedupeBarsByTime(raw), volBars: [] };
@@ -370,7 +367,7 @@ function barsToCandlesAndVolume(bars, daily) {
     if (!merged.has(key)) {
       merged.set(key, {
         lw,
-        vol: alpacaBarToVolumeHistogram(b, false),
+        vol: alpacaBarToVolumeHistogram(b, false, volumeColors),
       });
     }
   }
@@ -412,6 +409,8 @@ export default function TradeExecutionChart({
   onOpenIndicatorsCatalog = null,
   /** When set, context menu + caller toolbar can hide all MAs, VWAP, executions, and round-trip shading at once. */
   onClearAllIndicators = null,
+  /** @type {'tos'|'das'} */
+  chartSkinId = "tos",
 }) {
   const containerRef = useRef(null);
   const trendlineSvgRef = useRef(/** @type {SVGSVGElement | null} */ (null));
@@ -555,7 +554,11 @@ export default function TradeExecutionChart({
     if (!el || loading || error || !bars.length) return;
 
     const daily = isDailyInterval(chartInterval);
-    const { lwBars, volBars } = barsToCandlesAndVolume(bars, daily);
+    const skin = chartSkinColors(chartSkinId);
+    const { lwBars, volBars } = barsToCandlesAndVolume(bars, daily, {
+      up: skin.volumeUp,
+      down: skin.volumeDown,
+    });
 
     if (!lwBars.length) return;
 
@@ -587,16 +590,16 @@ export default function TradeExecutionChart({
 
     const chart = createChart(el, {
       layout: {
-        background: { type: ColorType.Solid, color: TOS_CHART.bg },
-        textColor: TOS_CHART.text,
+        background: { type: ColorType.Solid, color: skin.bg },
+        textColor: skin.text,
         attributionLogo: false,
       },
       localization: {
         timeFormatter: (t) => formatCrosshairTimeLabel(t, daily, displayTz) || "—",
       },
       grid: {
-        vertLines: { color: TOS_CHART.grid },
-        horzLines: { color: TOS_CHART.grid },
+        vertLines: { color: skin.grid },
+        horzLines: { color: skin.grid },
       },
       crosshair: {
         mode: CrosshairMode.Normal,
@@ -604,16 +607,16 @@ export default function TradeExecutionChart({
         // LargeDashed + width 1 matches LW internals (6px dash, 6px gap); custom horz line uses the same pattern.
         vertLine: {
           labelVisible: false,
-          color: TOS_CHART.crosshair,
+          color: skin.crosshair,
           width: 1,
           style: LineStyle.LargeDashed,
         },
         /* Library horz is drawn under our HTML session/round-trip overlays; draw our own in subscribeCrosshairMove. */
-        horzLine: { visible: false, labelVisible: false, color: TOS_CHART.crosshair },
+        horzLine: { visible: false, labelVisible: false, color: skin.crosshair },
       },
-      rightPriceScale: { borderColor: TOS_CHART.border },
+      rightPriceScale: { borderColor: skin.border },
       timeScale: {
-        borderColor: TOS_CHART.border,
+        borderColor: skin.border,
         timeVisible: !daily,
         secondsVisible: false,
         rightOffset: 8,
@@ -645,13 +648,13 @@ export default function TradeExecutionChart({
     );
 
     const series = chart.addSeries(CandlestickSeries, {
-      upColor: TOS_CHART.candleUp,
-      downColor: TOS_CHART.candleDown,
-      borderUpColor: TOS_CHART.candleBorderUp,
-      borderDownColor: TOS_CHART.candleBorderDown,
+      upColor: skin.candleUp,
+      downColor: skin.candleDown,
+      borderUpColor: skin.candleBorderUp,
+      borderDownColor: skin.candleBorderDown,
       borderVisible: true,
-      wickUpColor: TOS_CHART.wickUp,
-      wickDownColor: TOS_CHART.wickDown,
+      wickUpColor: skin.wickUp,
+      wickDownColor: skin.wickDown,
       lastValueVisible: false,
       priceLineVisible: false,
       crosshairMarkerVisible: false,
@@ -1133,6 +1136,7 @@ export default function TradeExecutionChart({
       chartInterval,
       lwBarsByTime,
       indicatorPrefs.markers,
+      { simpleSolid: chartSkinId === "das" },
     );
     /** @type {import('lightweight-charts').ISeriesPrimitive<import('lightweight-charts').Time> | null} */
     let markersPrimitive = null;
@@ -1421,6 +1425,7 @@ export default function TradeExecutionChart({
     onPatchRoundTripShading,
     onRemoveEmaLine,
     chartFillSpan,
+    chartSkinId,
   ]);
 
   useEffect(() => {
@@ -1626,7 +1631,7 @@ export default function TradeExecutionChart({
   }
 
   return (
-    <div className="trade-execution-chart-wrap">
+    <div className="trade-execution-chart-wrap" data-chart-skin={chartSkinId}>
       <div className="trade-execution-chart-stack">{stackBody}</div>
       {intervalBar}
     </div>

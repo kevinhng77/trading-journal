@@ -19,6 +19,9 @@ import {
   loadChartIndicatorPrefs,
   saveChartIndicatorPrefs,
 } from "../storage/chartIndicatorPrefs";
+import { addNamedIndicatorSet } from "../storage/chartIndicatorNamedSets";
+import { loadChartSkinId, saveChartSkinId } from "../storage/chartAppearancePersist";
+import ChartPresetsDropdown from "../components/ChartPresetsDropdown";
 import { useRawAndReportTrades } from "../hooks/useReportViewTrades";
 import { filterTradesForReport, reportFiltersActive } from "../lib/reportFilters";
 import {
@@ -122,6 +125,7 @@ export default function TradeDetail() {
   const [chartInterval, setChartInterval] = useState("1");
   const [fillTimeZone] = useState(() => loadFillTimeZone());
   const [indicatorPrefs, setIndicatorPrefs] = useState(() => loadChartIndicatorPrefs());
+  const [chartSkinId, setChartSkinId] = useState(() => loadChartSkinId());
   const [indicatorsCatalogOpen, setIndicatorsCatalogOpen] = useState(false);
   const [playbookSendOpen, setPlaybookSendOpen] = useState(false);
   const [chartToolbarMsg, setChartToolbarMsg] = useState(/** @type {string | null} */ (null));
@@ -228,6 +232,46 @@ export default function TradeDetail() {
   const clearAllChartIndicators = useCallback(() => {
     applyIndicatorPrefs(disableAllChartIndicators(indicatorPrefs));
   }, [applyIndicatorPrefs, indicatorPrefs]);
+
+  const applyFullChartSetup = useCallback((o) => {
+    applyIndicatorPrefs(o.prefs);
+    if (o.skin === "tos" || o.skin === "das") {
+      setChartSkinId(o.skin);
+      saveChartSkinId(o.skin);
+    }
+  }, [applyIndicatorPrefs]);
+
+  const saveChartSetupPrompt = useCallback(() => {
+    const name = window.prompt("Name this chart setup (indicators + chart look):", "");
+    if (name === null) return;
+    const trimmed = String(name).trim();
+    if (!trimmed) {
+      window.alert("Enter a name to save this setup.");
+      return;
+    }
+    addNamedIndicatorSet(trimmed, indicatorPrefs, chartSkinId);
+  }, [indicatorPrefs, chartSkinId]);
+
+  const applyDasSkin = useCallback(() => {
+    saveChartSkinId("das");
+    setChartSkinId("das");
+    applyIndicatorPrefs({
+      ...indicatorPrefs,
+      markers: {
+        ...indicatorPrefs.markers,
+        enabled: true,
+        shape: "triangle",
+        sizingMode: "color",
+        buy: "#00e676",
+        sell: "#ff5252",
+      },
+    });
+  }, [indicatorPrefs, applyIndicatorPrefs]);
+
+  const applyTosSkin = useCallback(() => {
+    saveChartSkinId("tos");
+    setChartSkinId("tos");
+  }, []);
 
   const patchEma = useCallback((id, partial) => {
     setIndicatorPrefs((prev) => {
@@ -623,6 +667,38 @@ export default function TradeDetail() {
             ) : null}
           </div>
           <div className="trade-detail-chart-tv-bar">
+            <div className="trade-detail-chart-tv-bar--skins">
+              <button
+                type="button"
+                className="chart-tv-toolbar-btn trade-detail-chart-skin-btn"
+                onClick={saveChartSetupPrompt}
+                title="Save indicators, executions style, and TOS/DAS chart colors under a name"
+              >
+                Save setup
+              </button>
+              <button
+                type="button"
+                className={`chart-tv-toolbar-btn trade-detail-chart-skin-btn${chartSkinId === "das" ? " is-active" : ""}`}
+                onClick={applyDasSkin}
+                title="DAS-style chart: black background, green grid, green/red candles, simple triangles"
+              >
+                DAS
+              </button>
+              <button
+                type="button"
+                className={`chart-tv-toolbar-btn trade-detail-chart-skin-btn${chartSkinId === "tos" ? " is-active" : ""}`}
+                onClick={applyTosSkin}
+                title="Thinkorswim-style dark chart colors"
+              >
+                TOS
+              </button>
+              <ChartPresetsDropdown
+                prefs={indicatorPrefs}
+                currentSkin={chartSkinId}
+                onChange={applyIndicatorPrefs}
+                onApplyFullSetup={applyFullChartSetup}
+              />
+            </div>
             <button
               type="button"
               className="chart-tv-toolbar-btn chart-tv-toolbar-btn--icon-only"
@@ -719,6 +795,7 @@ export default function TradeDetail() {
               onRemoveEmaLine={removeEmaLine}
               onOpenIndicatorsCatalog={() => setIndicatorsCatalogOpen(true)}
               onClearAllIndicators={clearAllChartIndicators}
+              chartSkinId={chartSkinId}
             />
           </Suspense>
         </div>

@@ -480,14 +480,20 @@ export function alpacaBarToLightweight(bar, daily) {
   };
 }
 
-export function alpacaBarToVolumeHistogram(bar, daily) {
+/**
+ * @param {object} bar - Alpaca bar
+ * @param {boolean} daily
+ * @param {{ up?: string, down?: string }} [volumeColors] optional bar colors (chart skin)
+ */
+export function alpacaBarToVolumeHistogram(bar, daily, volumeColors) {
   const candle = alpacaBarToLightweight(bar, daily);
   const up = bar.c >= bar.o;
+  const upC = volumeColors?.up ?? "rgba(8, 153, 129, 0.72)";
+  const downC = volumeColors?.down ?? "rgba(242, 54, 69, 0.72)";
   return {
     time: candle.time,
     value: bar.v ?? 0,
-    /* Thinkorswim-style: green up-volume, red down-volume */
-    color: up ? "rgba(8, 153, 129, 0.72)" : "rgba(242, 54, 69, 0.72)",
+    color: up ? upC : downC,
   };
 }
 
