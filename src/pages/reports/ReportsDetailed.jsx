@@ -321,7 +321,7 @@ export default function ReportsDetailed() {
     [scoped],
   );
   const byDur = useMemo(() => aggregateByReportDurationBuckets(scoped), [scoped]);
-  const intraMulti = useMemo(() => aggregateIntradayMultiday(scoped), [scoped]);
+  const intraMulti = useMemo(() => aggregateIntradayMultiday(scoped, filtered), [scoped, filtered]);
   const byHoldMin = useMemo(() => aggregateByHoldMinuteBuckets(scoped), [scoped]);
 
   const byPriceDetail = useMemo(() => aggregateByDetailedPriceBucket(scoped), [scoped]);

@@ -642,14 +642,19 @@ export function aggregateByReportDurationBuckets(trades) {
 
 /**
  * Intraday vs multiday (see {@link tradeIsMultiday} including open-leg pairing across rows).
+ *
+ * @param {object[]} trades Rows to count (e.g. last-N-days slice).
+ * @param {object[]|undefined} [pairingPool] Full cohort for cross-row pairing (e.g. all filter-matched trades).
+ *   If omitted, defaults to `trades` (pairing only sees the same slice — often wrong for charts).
  * @returns {{ name: string, trades: number, pnl: number }[]}
  */
-export function aggregateIntradayMultiday(trades) {
+export function aggregateIntradayMultiday(trades, pairingPool) {
+  const pool = Array.isArray(pairingPool) && pairingPool.length ? pairingPool : trades;
   const intra = { name: "Intraday", trades: 0, pnl: 0 };
   const multi = { name: "Multiday", trades: 0, pnl: 0 };
   for (const t of trades) {
     const p = tradeSignedAmountForAggregation(t);
-    if (tradeIsMultiday(t, trades)) {
+    if (tradeIsMultiday(t, pool)) {
       multi.trades += 1;
       multi.pnl += p;
     } else {

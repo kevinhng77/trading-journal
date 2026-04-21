@@ -16,6 +16,6 @@ Do not define “multiday” only from multiple `fill.date` on a single stored r
 
 - `tradeIsMultiday(trade, allTrades?)` — pass `allTrades` whenever you classify **intraday vs multiday** from a list (pairing needs the cohort).
 - `tradeMatchesDurationBucket(trade, bucket, allTrades?)` — for `intraday` / `multiday` buckets, pass the same trade list the UI filter uses **before** applying the duration filter (see `filterTradesForReport`: `poolForDuration`).
-- `aggregateIntradayMultiday(trades)` must use `tradeIsMultiday(t, trades)`, not the single-argument form.
+- `aggregateIntradayMultiday(rows, pairingPool?)` must call `tradeIsMultiday(t, pairingPool ?? rows)`; when rows are a **last-N-days slice**, pass the wider filter-matched list as `pairingPool` so split imports (e.g. BYND) still pair.
 
 Changing any of this without updating the others will break filters vs charts vs the BYND-style “two open rows, same symbol/size/side” case.
