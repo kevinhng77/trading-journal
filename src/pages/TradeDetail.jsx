@@ -138,8 +138,8 @@ export default function TradeDetail() {
   const [indicatorPrefs, setIndicatorPrefs] = useState(() => loadChartIndicatorPrefs());
   const [chartSkinId, setChartSkinId] = useState(() => loadChartSkinId());
   const [chartGridVisible, setChartGridVisible] = useState(() => loadChartGridVisible());
-  /** Tradervue-style execution chart: interactive (default) vs classic (diamond markers, calmer zoom). */
-  const [executionChartStyle, setExecutionChartStyle] = useState(/** @type {"interactive"|"classic"} */ ("interactive"));
+  /** Tradervue-style execution chart: interactive vs classic (default: diamond markers, calmer zoom). */
+  const [executionChartStyle, setExecutionChartStyle] = useState(/** @type {"interactive"|"classic"} */ ("classic"));
   /** Running P&amp;L: this row · all fills on session calendar day · entire symbol in journal. */
   const [runningPnlScope, setRunningPnlScope] = useState(/** @type {"trade"|"day"|"ticker"} */ ("trade"));
   const [indicatorsCatalogOpen, setIndicatorsCatalogOpen] = useState(false);
