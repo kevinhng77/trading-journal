@@ -1,4 +1,20 @@
 import { compareFillsBySessionThenTime } from "./fillRoundTrips.js";
+import { getNySessionUnixBounds } from "../api/alpacaBars.js";
+
+/** Drop duplicate `fill.id` rows (same execution on two stored trades). */
+function dedupeFillsById(fills) {
+  const seen = new Set();
+  const out = [];
+  for (const f of fills ?? []) {
+    const id = String(f?.id ?? "").trim();
+    if (id) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+    }
+    out.push(f);
+  }
+  return out.sort(compareFillsBySessionThenTime);
+}
 
 /**
  * @param {object[]} trades
@@ -26,7 +42,56 @@ export function collectFillsForSymbolOnCalendarDay(trades, symbolUpper, calendar
       if (fd === day) acc.push(f);
     }
   }
-  return acc.sort(compareFillsBySessionThenTime);
+  return dedupeFillsById(acc);
+}
+
+/**
+ * All fills for `symbol` across every stored trade (chronological, de-duped by fill id).
+ * @param {object[]} trades
+ * @param {string} symbolUpper
+ * @returns {object[]}
+ */
+export function collectFillsForSymbolAllJournal(trades, symbolUpper) {
+  const sym = String(symbolUpper ?? "")
+    .trim()
+    .toUpperCase();
+  if (!sym) return [];
+  const acc = [];
+  for (const t of trades ?? []) {
+    if (String(t?.symbol ?? "")
+      .trim()
+      .toUpperCase() !== sym) {
+      continue;
+    }
+    for (const f of t?.fills ?? []) acc.push(f);
+  }
+  return dedupeFillsById(acc);
+}
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Pad running P&amp;L points to the NY **extended** session window so the chart spans the full day.
+ * Prepends $0 at session start when the first fill is after open; appends flat tail through session end.
+ *
+ * @param {{ time: number, value: number }[]} points
+ * @param {string} calendarDayIso
+ * @returns {{ time: number, value: number }[]}
+ */
+export function extendRunningPnlWithSessionBookends(points, calendarDayIso) {
+  const day = String(calendarDayIso ?? "").trim().slice(0, 10);
+  if (!ISO_DAY.test(day) || !points?.length) return points ?? [];
+  const b = getNySessionUnixBounds(day);
+  const t0 = b.extendedOpen;
+  const t1 = b.extendedClose;
+  const sorted = [...points].filter((p) => p && Number.isFinite(p.time)).sort((a, c) => a.time - c.time);
+  if (!sorted.length) return [];
+  const out = [];
+  if (sorted[0].time > t0) out.push({ time: t0, value: 0 });
+  out.push(...sorted);
+  const last = sorted[sorted.length - 1];
+  if (last.time < t1) out.push({ time: t1, value: last.value });
+  return out;
 }
 
 /**

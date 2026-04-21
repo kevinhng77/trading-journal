@@ -6678,6 +6678,7 @@ a.journal-row-trade-link:visited {
 
 .trade-detail-running-pnl-scopes {
   display: inline-flex;
+  flex-wrap: wrap;
   border-radius: 8px;
   border: 1px solid var(--border);
   overflow: hidden;
@@ -6703,8 +6704,8 @@ a.journal-row-trade-link:visited {
 }
 
 .trade-detail-running-pnl-host {
-  height: 220px;
-  min-height: 180px;
+  height: 300px;
+  min-height: 220px;
   border-radius: 8px;
   overflow: hidden;
   border: 1px solid var(--border);
@@ -6730,6 +6731,14 @@ a.journal-row-trade-link:visited {
   color: var(--muted);
   padding: 4px 8px 2px;
   letter-spacing: 0.02em;
+}
+
+.running-pnl-chart-hint {
+  margin: 0;
+  padding: 0 8px 4px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: color-mix(in srgb, var(--muted) 92%, transparent);
 }
 
 .running-pnl-chart-host {

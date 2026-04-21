@@ -5,6 +5,7 @@ import {
   ColorType,
   createChart,
   CrosshairMode,
+  LineType,
   TickMarkType,
 } from "lightweight-charts";
 import { chartSkinColors } from "../lib/chartSkins";
@@ -37,8 +38,14 @@ function createTickFormatter(displayTz) {
  * @param {{ time: number, value: number }[]} points
  * @param {'tos'|'das'} chartSkinId
  * @param {string} [title]
+ * @param {string} [hint] helper line under title
  */
-export default function RunningPnlChart({ points = [], chartSkinId = "tos", title = "Running P&L" }) {
+export default function RunningPnlChart({
+  points = [],
+  chartSkinId = "tos",
+  title = "Running P&L",
+  hint = "Scroll wheel zoom · drag pan · double-click reset",
+}) {
   const hostRef = useRef(/** @type {HTMLDivElement | null} */ (null));
 
   useEffect(() => {
@@ -75,6 +82,7 @@ export default function RunningPnlChart({ points = [], chartSkinId = "tos", titl
         borderColor: skin.border,
         timeVisible: true,
         secondsVisible: false,
+        rightOffset: 14,
         tickMarkFormatter: createTickFormatter(DISPLAY_TZ),
       },
       handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
@@ -90,6 +98,7 @@ export default function RunningPnlChart({ points = [], chartSkinId = "tos", titl
       bottomLineColor: chartSkinId === "das" ? "#ff1744" : "#ef5350",
       bottomFillColor1: chartSkinId === "das" ? "rgba(255, 23, 68, 0.26)" : "rgba(239, 83, 80, 0.26)",
       lineWidth: 2,
+      lineType: LineType.WithSteps,
       lastValueVisible: true,
       priceLineVisible: false,
       crosshairMarkerVisible: true,
@@ -105,12 +114,23 @@ export default function RunningPnlChart({ points = [], chartSkinId = "tos", titl
       }
     });
 
+    function onDblClick() {
+      try {
+        chart.timeScale().fitContent();
+        chart.priceScale("right").applyOptions({ autoScale: true });
+      } catch {
+        /* ignore */
+      }
+    }
+    el.addEventListener("dblclick", onDblClick);
+
     const ro = new ResizeObserver(() => {
       chart.applyOptions({ width: el.clientWidth, height: el.clientHeight });
     });
     ro.observe(el);
 
     return () => {
+      el.removeEventListener("dblclick", onDblClick);
       ro.disconnect();
       chart.remove();
     };
@@ -119,6 +139,7 @@ export default function RunningPnlChart({ points = [], chartSkinId = "tos", titl
   return (
     <div className="running-pnl-chart">
       <div className="running-pnl-chart-title">{title}</div>
+      {hint ? <p className="running-pnl-chart-hint">{hint}</p> : null}
       <div className="running-pnl-chart-host" ref={hostRef} role="img" aria-label={title} />
     </div>
   );

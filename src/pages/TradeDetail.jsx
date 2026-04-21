@@ -48,7 +48,12 @@ import { tradeFeesPaid, tradeGrossPnl, tradeNetPnl } from "../lib/tradeExecution
 import { roundTripLegSummariesFromFills } from "../lib/fillRoundTrips";
 import { formatChartIntervalLabel } from "../lib/chartIntervals";
 import { fillWallTimeToUnixSeconds } from "../api/alpacaBars";
-import { collectFillsForSymbolOnCalendarDay, runningPnlAfterEachFill } from "../lib/runningPnlFromFills";
+import {
+  collectFillsForSymbolAllJournal,
+  collectFillsForSymbolOnCalendarDay,
+  extendRunningPnlWithSessionBookends,
+  runningPnlAfterEachFill,
+} from "../lib/runningPnlFromFills";
 import { formatPlaybookTradeTag } from "../lib/formatPlaybookTradeTag";
 import MetricHintIcon from "../components/MetricHintIcon";
 import { TRADE_SNAPSHOT_HINTS } from "../lib/metricHints";
@@ -135,8 +140,8 @@ export default function TradeDetail() {
   const [chartGridVisible, setChartGridVisible] = useState(() => loadChartGridVisible());
   /** Tradervue-style execution chart: interactive (default) vs classic (diamond markers, calmer zoom). */
   const [executionChartStyle, setExecutionChartStyle] = useState(/** @type {"interactive"|"classic"} */ ("interactive"));
-  /** Running P&amp;L series: this stored trade only vs all fills for symbol on this session calendar day. */
-  const [runningPnlScope, setRunningPnlScope] = useState(/** @type {"trade"|"day"} */ ("trade"));
+  /** Running P&amp;L: this row · all fills on session calendar day · entire symbol in journal. */
+  const [runningPnlScope, setRunningPnlScope] = useState(/** @type {"trade"|"day"|"ticker"} */ ("trade"));
   const [indicatorsCatalogOpen, setIndicatorsCatalogOpen] = useState(false);
   const [playbookSendOpen, setPlaybookSendOpen] = useState(false);
   const [chartToolbarMsg, setChartToolbarMsg] = useState(/** @type {string | null} */ (null));
@@ -370,17 +375,22 @@ export default function TradeDetail() {
   const runningPnlFills = useMemo(() => {
     if (!trade) return [];
     if (runningPnlScope === "trade") return fills;
-    return collectFillsForSymbolOnCalendarDay(rawTrades, trade.symbol, trade.date);
+    if (runningPnlScope === "day") return collectFillsForSymbolOnCalendarDay(rawTrades, trade.symbol, trade.date);
+    return collectFillsForSymbolAllJournal(rawTrades, trade.symbol);
   }, [trade, runningPnlScope, fills, rawTrades]);
 
   const runningPnlPoints = useMemo(() => {
     if (!trade) return [];
-    return runningPnlAfterEachFill(runningPnlFills, (f) => {
+    let pts = runningPnlAfterEachFill(runningPnlFills, (f) => {
       const d = String(f.date ?? trade.date).trim().slice(0, 10);
       const unix = fillWallTimeToUnixSeconds(d, f.time, fillTimeZone);
       return Number.isFinite(unix) ? unix : null;
     });
-  }, [runningPnlFills, trade, fillTimeZone]);
+    if (runningPnlScope === "day" && pts.length) {
+      pts = extendRunningPnlWithSessionBookends(pts, trade.date);
+    }
+    return pts;
+  }, [runningPnlFills, trade, fillTimeZone, runningPnlScope]);
 
   const tradeDetailHeaderHasChipsRow = useMemo(
     () => normalizeTagList(trade?.setups).length > 0 || normalizeTagList(trade?.tags).length > 0,
@@ -811,6 +821,14 @@ export default function TradeDetail() {
               >
                 {trade.symbol} · day
               </button>
+              <button
+                type="button"
+                className={`trade-detail-running-pnl-scope${runningPnlScope === "ticker" ? " is-active" : ""}`}
+                aria-pressed={runningPnlScope === "ticker"}
+                onClick={() => setRunningPnlScope("ticker")}
+              >
+                {trade.symbol} · all
+              </button>
             </div>
           </div>
           {runningPnlPoints.length === 0 ? (
@@ -823,7 +841,13 @@ export default function TradeDetail() {
                 key={`${tidNav}-${runningPnlScope}`}
                 points={runningPnlPoints}
                 chartSkinId={chartSkinId}
-                title={`${trade.symbol} ${trade.date} · ${runningPnlScope === "day" ? "day" : "trade"}`}
+                title={`${trade.symbol} · ${
+                  runningPnlScope === "ticker"
+                    ? "entire ticker (journal)"
+                    : runningPnlScope === "day"
+                      ? `full session ${trade.date}`
+                      : "this trade"
+                }`}
               />
             </div>
           )}
