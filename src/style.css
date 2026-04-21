@@ -6655,9 +6655,12 @@ a.journal-row-trade-link:visited {
 }
 
 .trade-detail-running-pnl-wrap {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
+  margin-top: 14px;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card-inner);
+  box-sizing: border-box;
 }
 
 .trade-detail-running-pnl-head {
@@ -6666,7 +6669,7 @@ a.journal-row-trade-link:visited {
   align-items: center;
   justify-content: space-between;
   gap: 8px 12px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .trade-detail-running-pnl-heading {
@@ -6679,17 +6682,18 @@ a.journal-row-trade-link:visited {
 .trade-detail-running-pnl-scopes {
   display: inline-flex;
   flex-wrap: wrap;
-  border-radius: 8px;
+  border-radius: 4px;
   border: 1px solid var(--border);
   overflow: hidden;
 }
 
 .trade-detail-running-pnl-scope {
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 600;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
   border: none;
-  background: var(--bg-card-inner);
+  background: var(--bg-well);
   color: var(--muted);
   cursor: pointer;
 }
@@ -6704,11 +6708,13 @@ a.journal-row-trade-link:visited {
 }
 
 .trade-detail-running-pnl-host {
-  height: 300px;
-  min-height: 220px;
-  border-radius: 8px;
+  width: 100%;
+  height: min(52vh, 520px);
+  min-height: 400px;
+  border-radius: 4px;
   overflow: hidden;
   border: 1px solid var(--border);
+  box-sizing: border-box;
 }
 
 .trade-detail-running-pnl-empty {
@@ -6726,11 +6732,12 @@ a.journal-row-trade-link:visited {
 
 .running-pnl-chart-title {
   flex-shrink: 0;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--muted);
-  padding: 4px 8px 2px;
-  letter-spacing: 0.02em;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  padding: 6px 10px 4px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .running-pnl-chart-hint {
