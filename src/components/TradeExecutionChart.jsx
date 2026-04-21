@@ -409,6 +409,8 @@ export default function TradeExecutionChart({
   onOpenIndicatorsCatalog = null,
   /** @type {'tos'|'das'} */
   chartSkinId = "tos",
+  /** Tradervue-style: classic = less zoom-on-wheel, Tradervue diamond execution markers via parent prefs. */
+  executionInteractionMode = "interactive",
   chartGridVisible = true,
   onToggleChartGrid = null,
 }) {
@@ -630,8 +632,14 @@ export default function TradeExecutionChart({
         rightOffset: 8,
         tickMarkFormatter: createChartTickMarkFormatter(displayTz, daily),
       },
-      handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
-      handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true },
+      handleScroll:
+        executionInteractionMode === "classic"
+          ? { mouseWheel: false, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false }
+          : { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
+      handleScale:
+        executionInteractionMode === "classic"
+          ? { axisPressedMouseMove: true, mouseWheel: false, pinch: false }
+          : { axisPressedMouseMove: true, mouseWheel: true, pinch: true },
       width: el.clientWidth,
       height: el.clientHeight,
     });
@@ -1434,6 +1442,7 @@ export default function TradeExecutionChart({
     onRemoveEmaLine,
     chartFillSpan,
     chartSkinId,
+    executionInteractionMode,
     chartGridVisible,
   ]);
 

@@ -6627,6 +6627,118 @@ a.journal-row-trade-link:visited {
   justify-content: flex-end;
 }
 
+.trade-detail-chart-mode-toggle {
+  display: inline-flex;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.trade-detail-chart-mode-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  background: var(--bg-card-inner);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.trade-detail-chart-mode-btn + .trade-detail-chart-mode-btn {
+  border-left: 1px solid var(--border);
+}
+
+.trade-detail-chart-mode-btn.is-active {
+  background: color-mix(in srgb, var(--accent-green) 18%, transparent);
+  color: #ecfdf5;
+}
+
+.trade-detail-running-pnl-wrap {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.trade-detail-running-pnl-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-bottom: 8px;
+}
+
+.trade-detail-running-pnl-heading {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--card-heading);
+}
+
+.trade-detail-running-pnl-scopes {
+  display: inline-flex;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.trade-detail-running-pnl-scope {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  background: var(--bg-card-inner);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.trade-detail-running-pnl-scope + .trade-detail-running-pnl-scope {
+  border-left: 1px solid var(--border);
+}
+
+.trade-detail-running-pnl-scope.is-active {
+  background: color-mix(in srgb, var(--accent-green) 14%, transparent);
+  color: #ecfdf5;
+}
+
+.trade-detail-running-pnl-host {
+  height: 220px;
+  min-height: 180px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.trade-detail-running-pnl-empty {
+  margin: 0;
+  padding: 16px;
+  font-size: 13px;
+}
+
+.running-pnl-chart {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.running-pnl-chart-title {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 4px 8px 2px;
+  letter-spacing: 0.02em;
+}
+
+.running-pnl-chart-host {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  position: relative;
+}
+
 .chart-presets-dropdown {
   position: relative;
   display: inline-flex;
