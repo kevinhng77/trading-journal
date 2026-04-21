@@ -253,27 +253,6 @@ export default function TradeDetail() {
     });
   }, []);
 
-  const applyDasSkin = useCallback(() => {
-    saveChartSkinId("das");
-    setChartSkinId("das");
-    applyIndicatorPrefs({
-      ...indicatorPrefs,
-      markers: {
-        ...indicatorPrefs.markers,
-        enabled: true,
-        shape: "triangle",
-        sizingMode: "color",
-        buy: "#00e676",
-        sell: "#ff5252",
-      },
-    });
-  }, [indicatorPrefs, applyIndicatorPrefs]);
-
-  const applyTosSkin = useCallback(() => {
-    saveChartSkinId("tos");
-    setChartSkinId("tos");
-  }, []);
-
   const patchEma = useCallback((id, partial) => {
     setIndicatorPrefs((prev) => {
       const next = {
@@ -674,8 +653,6 @@ export default function TradeDetail() {
               chartGridVisible={chartGridVisible}
               onChange={applyIndicatorPrefs}
               onApplyFullSetup={applyFullChartSetup}
-              onApplyDas={applyDasSkin}
-              onApplyTos={applyTosSkin}
             />
             <button
               type="button"

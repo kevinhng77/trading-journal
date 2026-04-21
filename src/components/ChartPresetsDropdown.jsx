@@ -16,8 +16,6 @@ import {
  * @param {boolean} props.chartGridVisible
  * @param {(p: import("../storage/chartIndicatorPrefs").ChartIndicatorPrefs) => void} props.onChange indicator-only (e.g. reset)
  * @param {(o: { prefs: import("../storage/chartIndicatorPrefs").ChartIndicatorPrefs, skin?: import("../lib/chartSkins").ChartSkinId, gridVisible?: boolean }) => void} props.onApplyFullSetup
- * @param {() => void} props.onApplyDas
- * @param {() => void} props.onApplyTos
  */
 export default function ChartPresetsDropdown({
   prefs,
@@ -25,8 +23,6 @@ export default function ChartPresetsDropdown({
   chartGridVisible,
   onChange,
   onApplyFullSetup,
-  onApplyDas,
-  onApplyTos,
 }) {
   const [open, setOpen] = useState(false);
   const [savedSets, setSavedSets] = useState(() => loadNamedIndicatorSets());
@@ -83,7 +79,7 @@ export default function ChartPresetsDropdown({
         aria-expanded={open}
         aria-haspopup="true"
         aria-label="Chart setups and options"
-        title="Save setup, DAS/TOS look, load saved setups, reset indicators"
+        title="Save and load chart setups (includes TOS/DAS look on each saved row)"
         onClick={toggleOpen}
       >
         <span className="chart-presets-grid-icon" aria-hidden>
@@ -99,37 +95,6 @@ export default function ChartPresetsDropdown({
             <div className="chart-presets-menu-actions">
               <button type="button" className="chart-presets-save-btn" role="menuitem" onClick={onSaveCurrent}>
                 Save setup…
-              </button>
-              <p className="chart-presets-menu-hint">
-                Stores MAs/VWAP, execution markers (shape, colors, sizing), round-trip shading, grid on/off, and TOS/DAS
-                colors.
-              </p>
-            </div>
-
-            <div className="chart-presets-skin-actions" role="group" aria-label="Chart color scheme">
-              <button
-                type="button"
-                className={`chart-presets-menu-item chart-presets-skin-btn${currentSkin === "das" ? " is-active" : ""}`}
-                role="menuitem"
-                onClick={() => {
-                  onApplyDas();
-                  setOpen(false);
-                }}
-                title="DAS-style chart: black background, green grid, simple green/red triangles"
-              >
-                DAS
-              </button>
-              <button
-                type="button"
-                className={`chart-presets-menu-item chart-presets-skin-btn${currentSkin === "tos" ? " is-active" : ""}`}
-                role="menuitem"
-                onClick={() => {
-                  onApplyTos();
-                  setOpen(false);
-                }}
-                title="Thinkorswim-style dark chart colors"
-              >
-                TOS
               </button>
             </div>
 
