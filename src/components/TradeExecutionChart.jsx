@@ -409,6 +409,8 @@ export default function TradeExecutionChart({
   onOpenIndicatorsCatalog = null,
   /** @type {'tos'|'das'} */
   chartSkinId = "tos",
+  /** DAS skin: show last price label on the right scale (DAS-style axis tag). */
+  dasLastPriceLabel = false,
   chartGridVisible = true,
   onToggleChartGrid = null,
 }) {
@@ -663,7 +665,7 @@ export default function TradeExecutionChart({
       borderVisible: true,
       wickUpColor: skin.wickUp,
       wickDownColor: skin.wickDown,
-      lastValueVisible: false,
+      lastValueVisible: Boolean(dasLastPriceLabel) && chartSkinId === "das",
       priceLineVisible: false,
       crosshairMarkerVisible: false,
       priceScaleId: "right",
@@ -802,7 +804,7 @@ export default function TradeExecutionChart({
         }
       }
 
-      const riskStroke = "#38bdf8";
+      const riskStroke = chartSkinId === "das" ? "#ffffff" : "#38bdf8";
       const risks = riskLinesRef.current ?? [];
       for (let ri = 0; ri < risks.length; ri += 1) {
         const R = risks[ri];
@@ -819,7 +821,8 @@ export default function TradeExecutionChart({
         ln.setAttribute("y1", String(y));
         ln.setAttribute("y2", String(y));
         ln.setAttribute("stroke", riskStroke);
-        ln.setAttribute("stroke-width", "2");
+        ln.setAttribute("stroke-width", chartSkinId === "das" ? "1" : "2");
+        if (chartSkinId === "das") ln.setAttribute("stroke-dasharray", "6 5");
         ln.setAttribute("pointer-events", "none");
         svg.appendChild(ln);
       }
@@ -1434,6 +1437,7 @@ export default function TradeExecutionChart({
     onRemoveEmaLine,
     chartFillSpan,
     chartSkinId,
+    dasLastPriceLabel,
     chartGridVisible,
   ]);
 

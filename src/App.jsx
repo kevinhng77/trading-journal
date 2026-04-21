@@ -20,10 +20,12 @@ import SettingsGeneralPage from "./pages/SettingsGeneralPage";
 import SettingsTradeImportPage from "./pages/SettingsTradeImportPage";
 import SettingsTradingAccountPage from "./pages/SettingsTradingAccountPage";
 import ImportTradesPage from "./pages/ImportTradesPage";
+import DasChartDemo from "./pages/DasChartDemo";
 
 function App() {
   return (
     <Routes>
+      <Route path="/chart-das" element={<DasChartDemo />} />
       <Route element={<ShellLayout />}>
         <Route path="/settings" element={<SettingsLayout />}>
           <Route index element={<Navigate to="general" replace />} />
