@@ -292,19 +292,3 @@ export function saveChartIndicatorPrefs(prefs) {
 export function resetChartIndicatorPrefs() {
   return structuredClone(DEFAULT_CHART_INDICATOR_PREFS);
 }
-
-/**
- * Turn off every overlay (MAs, VWAP, execution markers, round-trip shading). Line definitions stay for quick re-enable.
- * @param {ChartIndicatorPrefs} prefs
- * @returns {ChartIndicatorPrefs}
- */
-export function disableAllChartIndicators(prefs) {
-  const base = normalizeChartIndicatorPrefs(prefs);
-  return {
-    ...base,
-    emaLines: base.emaLines.map((l) => ({ ...l, enabled: false })),
-    vwap: { ...base.vwap, enabled: false },
-    roundTripShading: { ...base.roundTripShading, enabled: false },
-    markers: { ...base.markers, enabled: false },
-  };
-}

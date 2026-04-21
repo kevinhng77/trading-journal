@@ -15,7 +15,6 @@ import { findTradeByParam, neighborTradeIds, stableTradeId } from "../storage/tr
 import { loadFillTimeZone } from "../storage/fillTimePrefs";
 import {
   DEFAULT_ROUND_TRIP_SHADING,
-  disableAllChartIndicators,
   loadChartIndicatorPrefs,
   saveChartIndicatorPrefs,
 } from "../storage/chartIndicatorPrefs";
@@ -228,10 +227,6 @@ export default function TradeDetail() {
     setIndicatorPrefs(next);
     saveChartIndicatorPrefs(next);
   }, []);
-
-  const clearAllChartIndicators = useCallback(() => {
-    applyIndicatorPrefs(disableAllChartIndicators(indicatorPrefs));
-  }, [applyIndicatorPrefs, indicatorPrefs]);
 
   const applyFullChartSetup = useCallback((o) => {
     applyIndicatorPrefs(o.prefs);
@@ -702,27 +697,6 @@ export default function TradeDetail() {
             <button
               type="button"
               className="chart-tv-toolbar-btn chart-tv-toolbar-btn--icon-only"
-              onClick={clearAllChartIndicators}
-              aria-label="Remove all chart indicators"
-              title="Remove all indicators (MAs, VWAP, executions, round-trip shading)"
-            >
-              <svg
-                className="chart-tv-toolbar-catalog-icon"
-                viewBox="0 0 24 24"
-                width="20"
-                height="20"
-                aria-hidden
-              >
-                <path
-                  fill="currentColor"
-                  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z"
-                  opacity="0.92"
-                />
-              </svg>
-            </button>
-            <button
-              type="button"
-              className="chart-tv-toolbar-btn chart-tv-toolbar-btn--icon-only"
               onClick={() => void copyChartScreenshotToClipboard()}
               aria-label="Copy chart screenshot to clipboard"
               title="Copy chart screenshot to clipboard"
@@ -794,7 +768,6 @@ export default function TradeDetail() {
               onPatchRoundTripShading={patchRoundTripShading}
               onRemoveEmaLine={removeEmaLine}
               onOpenIndicatorsCatalog={() => setIndicatorsCatalogOpen(true)}
-              onClearAllIndicators={clearAllChartIndicators}
               chartSkinId={chartSkinId}
             />
           </Suspense>
