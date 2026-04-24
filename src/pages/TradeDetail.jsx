@@ -49,7 +49,6 @@ import { roundTripLegSummariesFromFills } from "../lib/fillRoundTrips";
 import { formatChartIntervalLabel } from "../lib/chartIntervals";
 import { fillWallTimeToUnixSeconds } from "../api/alpacaBars";
 import {
-  collectFillsForSymbolAllJournal,
   collectFillsForSymbolBeforeCalendarDay,
   collectFillsForSymbolOnCalendarDay,
   dedupeAscendingTimeLastValue,
@@ -144,8 +143,8 @@ export default function TradeDetail() {
   const [chartGridVisible, setChartGridVisible] = useState(() => loadChartGridVisible());
   /** Tradervue-style execution chart: interactive vs classic (default: diamond markers, calmer zoom). */
   const [executionChartStyle, setExecutionChartStyle] = useState(/** @type {"interactive"|"classic"} */ ("classic"));
-  /** Running P&amp;L: full symbol journal vs intraday session for this trade date. */
-  const [runningPnlScope, setRunningPnlScope] = useState(/** @type {"symbol"|"day"} */ ("symbol"));
+  /** Running P&amp;L: this trade only vs this symbol for the full session day. */
+  const [runningPnlScope, setRunningPnlScope] = useState(/** @type {"trade"|"day"} */ ("trade"));
   const [indicatorsCatalogOpen, setIndicatorsCatalogOpen] = useState(false);
   const [playbookSendOpen, setPlaybookSendOpen] = useState(false);
   const [chartToolbarMsg, setChartToolbarMsg] = useState(/** @type {string | null} */ (null));
@@ -378,11 +377,8 @@ export default function TradeDetail() {
 
   const runningPnlBundle = useMemo(() => {
     if (!trade) return { kind: "none" };
-    if (runningPnlScope === "symbol") {
-      return {
-        kind: "journal",
-        fills: collectFillsForSymbolAllJournal(rawTrades, trade.symbol),
-      };
+    if (runningPnlScope === "trade") {
+      return { kind: "trade", fills: trade.fills ?? [] };
     }
     return {
       kind: "intraday",
@@ -401,7 +397,7 @@ export default function TradeDetail() {
       return Number.isFinite(unix) ? unix : null;
     };
 
-    if (runningPnlBundle.kind === "journal") {
+    if (runningPnlBundle.kind === "trade") {
       const { fills } = runningPnlBundle;
       if (!fills.length) {
         return { runningPnlPoints: [], runningPnlFillMarkers: [], runningPnlShowEmpty: true };
@@ -849,11 +845,11 @@ export default function TradeDetail() {
               <button
                 type="button"
                 role="tab"
-                className={`trade-detail-running-pnl-scope${runningPnlScope === "symbol" ? " is-active" : ""}`}
-                aria-selected={runningPnlScope === "symbol"}
-                onClick={() => setRunningPnlScope("symbol")}
+                className={`trade-detail-running-pnl-scope${runningPnlScope === "trade" ? " is-active" : ""}`}
+                aria-selected={runningPnlScope === "trade"}
+                onClick={() => setRunningPnlScope("trade")}
               >
-                Journal
+                Trade
               </button>
               <button
                 type="button"
@@ -862,15 +858,15 @@ export default function TradeDetail() {
                 aria-selected={runningPnlScope === "day"}
                 onClick={() => setRunningPnlScope("day")}
               >
-                Intraday
+                Day
               </button>
             </div>
           </div>
           {runningPnlShowEmpty ? (
             <p className="trade-detail-running-pnl-empty trades-cell-muted">
               {runningPnlScope === "day"
-                ? `No BOT/SOLD fills on ${trade.date} (and no open position from earlier days) to plot intraday running P&amp;L.`
-                : "No BOT/SOLD fills for this symbol in the journal to plot running P&amp;L."}
+                ? `No BOT/SOLD fills on ${trade.date} (and no open ${trade.symbol} position from earlier days) to plot day running P&amp;L.`
+                : "No BOT/SOLD fills on this trade to plot running P&amp;L."}
             </p>
           ) : (
             <div className="trade-detail-running-pnl-host">
@@ -881,13 +877,13 @@ export default function TradeDetail() {
                 chartSkinId={chartSkinId}
                 hint={
                   runningPnlScope === "day"
-                    ? `${trade.symbol} · ${trade.date} NY extended session. Session start uses mark-to-market from the last fill before this date when you carry size.`
-                    : `${trade.symbol} · cumulative running P&amp;L across every stored fill for this symbol.`
+                    ? `${trade.symbol} · ${trade.date} NY extended session — running P&amp;L for this symbol that day (not your whole account). Session open carries MTM from the last ${trade.symbol} fill before this date when you hold size overnight.`
+                    : "Running P&amp;L for this journal trade only — each step is after a fill on this trade, from flat through how the position evolved."
                 }
                 ariaLabel={
                   runningPnlScope === "day"
-                    ? `${trade.symbol} intraday running P and L, ${trade.date}`
-                    : `${trade.symbol} journal running P and L`
+                    ? `${trade.symbol} day running P and L, ${trade.date}`
+                    : `${trade.symbol} trade running P and L`
                 }
               />
             </div>
