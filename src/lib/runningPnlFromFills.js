@@ -127,14 +127,6 @@ export function extendRunningPnlWithSessionBookends(points, calendarDayIso) {
 }
 
 /**
- * After each BOT/SOLD fill (chronological), cumulative realized FIFO P&amp;L plus mark-to-market
- * of any open inventory at that fill's price (Tradervue-style running P&amp;L steps).
- *
- * @param {object[]|undefined} fills
- * @param {(f: object) => number | null} getUnixForFill
- * @returns {{ time: number, value: number }[]}
- */
-/**
  * Sort by time, merge duplicate timestamps (keep last value).
  * @param {{ time: number, value: number }[]} points
  */
@@ -171,6 +163,9 @@ export function padSinglePointForChart(points) {
  */
 
 /**
+ * After each BOT/SOLD fill (chronological), cumulative realized FIFO P&amp;L plus mark-to-market
+ * of any open inventory at that fill's price (Tradervue-style running P&amp;L steps).
+ *
  * @param {object[]|undefined} fills
  * @param {(f: object) => number | null} getUnixForFill
  * @returns {{ points: { time: number, value: number }[], fillMarkers: RunningPnlFillMarker[] }}
@@ -238,6 +233,8 @@ export function runningPnlSeriesFromFills(fills, getUnixForFill) {
 }
 
 /**
+ * Same steps as {@link runningPnlSeriesFromFills} but returns only the line points.
+ *
  * @param {object[]|undefined} fills
  * @param {(f: object) => number | null} getUnixForFill
  * @returns {{ time: number, value: number }[]}
