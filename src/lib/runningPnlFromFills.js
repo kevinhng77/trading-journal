@@ -1,6 +1,24 @@
 import { compareFillsBySessionThenTime } from "./fillRoundTrips.js";
 import { getNySessionUnixBounds } from "../api/alpacaBars.js";
 
+/**
+ * True execution order: Unix when available (TZ-aware), else session date + wall time.
+ * Fixes same-day fills mis-ordered when hour strings omit leading zeros or formats differ.
+ *
+ * @param {(f: object) => number | null} getUnixForFill
+ * @returns {(a: object, b: object) => number}
+ */
+export function compareFillsChronologically(getUnixForFill) {
+  return (a, b) => {
+    const ua = getUnixForFill(a);
+    const ub = getUnixForFill(b);
+    const fa = ua != null && Number.isFinite(ua);
+    const fb = ub != null && Number.isFinite(ub);
+    if (fa && fb && ua !== ub) return ua - ub;
+    return compareFillsBySessionThenTime(a, b);
+  };
+}
+
 /** Drop duplicate `fill.id` rows (same execution on two stored trades). */
 function dedupeFillsById(fills) {
   const seen = new Set();
@@ -299,7 +317,7 @@ export function fifoStateAfterFills(fills, getUnixForFill) {
  * @returns {{ points: { time: number, value: number }[], fillMarkers: RunningPnlFillMarker[], finalFifoState: RunningPnlFifoState }}
  */
 export function runningPnlSeriesFromFills(fills, getUnixForFill, initialFifoState = null) {
-  const sorted = [...(fills || [])].sort(compareFillsBySessionThenTime);
+  const sorted = [...(fills || [])].sort(compareFillsChronologically(getUnixForFill));
   /** @type {{ time: number, value: number }[]} */
   const out = [];
   /** @type {RunningPnlFillMarker[]} */
@@ -401,7 +419,7 @@ export function portfolioTotalPnlFromBooks(books) {
  */
 export function portfolioBooksAfterFills(fills, getUnixForFill) {
   const books = /** @type {PortfolioSymBooks} */ (new Map());
-  const sorted = [...(fills || [])].sort(compareFillsBySessionThenTime);
+  const sorted = [...(fills || [])].sort(compareFillsChronologically(getUnixForFill));
   for (const f of sorted) {
     const sym = String(f?.symbol ?? "")
       .trim()
@@ -431,7 +449,7 @@ export function portfolioBooksAfterFills(fills, getUnixForFill) {
  */
 export function runningPnlPortfolioSeriesFromFills(fills, getUnixForFill, initialBooks = null) {
   const books = initialBooks ? clonePortfolioSymBooks(initialBooks) : /** @type {PortfolioSymBooks} */ (new Map());
-  const sorted = [...(fills || [])].sort(compareFillsBySessionThenTime);
+  const sorted = [...(fills || [])].sort(compareFillsChronologically(getUnixForFill));
   /** @type {{ time: number, value: number }[]} */
   const out = [];
   /** @type {RunningPnlFillMarker[]} */
