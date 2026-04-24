@@ -8583,10 +8583,11 @@ a.journal-row-trade-link:visited {
   width: 100%;
 }
 
-/* Trade detail Share: briefly expand chart host to viewport for capture (see chartImageCapture.js). */
+/* Trade detail Share: viewport-sized host for capture, positioned off-screen so nothing flashes on-screen. */
 .trade-execution-chart-host.trade-execution-chart-host--share-fullscreen {
   position: fixed !important;
-  inset: 0 !important;
+  top: 0 !important;
+  left: -100vw !important;
   width: 100vw !important;
   height: 100vh !important;
   max-width: none !important;
@@ -8596,7 +8597,8 @@ a.journal-row-trade-link:visited {
   flex: none !important;
   min-width: 0 !important;
   min-height: 0 !important;
-  z-index: 2147483000;
+  z-index: 0;
+  pointer-events: none !important;
 }
 
 html.trade-detail-chart-share-capturing,
