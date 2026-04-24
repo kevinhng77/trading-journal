@@ -12,48 +12,34 @@ import { chartSkinColors } from "../lib/chartSkins";
 
 const DISPLAY_TZ = "America/New_York";
 
-/** Tradervue-like fills + line contrast for dark chart skins. */
+/**
+ * Tradervue-style pastel mint / light coral fills on dark panes (reference uses white pane).
+ * #90EE90-ish green, #FFB6C1-ish pink; strokes read clearly on #131722 / black.
+ */
+const TRADERVUE_PNL_ON_DARK = {
+  tos: {
+    topFill1: "rgba(144, 238, 144, 0.5)",
+    topFill2: "rgba(178, 242, 178, 0.16)",
+    bottomFill1: "rgba(255, 182, 193, 0.48)",
+    bottomFill2: "rgba(255, 205, 210, 0.18)",
+    topLine: "#9ccc65",
+    bottomLine: "#e57373",
+    lineWidth: 2,
+  },
+  das: {
+    topFill1: "rgba(165, 214, 167, 0.46)",
+    topFill2: "rgba(200, 230, 201, 0.15)",
+    bottomFill1: "rgba(255, 183, 177, 0.46)",
+    bottomFill2: "rgba(255, 204, 188, 0.16)",
+    topLine: "#aed581",
+    bottomLine: "#ff8a65",
+    lineWidth: 2,
+  },
+};
+
 const RUN_PNL_PALETTE = {
-  trade: {
-    tos: {
-      topFill1: "rgba(129, 199, 132, 0.52)",
-      topFill2: "rgba(129, 199, 132, 0.14)",
-      bottomFill1: "rgba(239, 154, 154, 0.5)",
-      bottomFill2: "rgba(239, 154, 154, 0.14)",
-      topLine: "#dcedc8",
-      bottomLine: "#ffcdd2",
-      lineWidth: 2,
-    },
-    das: {
-      topFill1: "rgba(0, 230, 118, 0.45)",
-      topFill2: "rgba(0, 230, 118, 0.12)",
-      bottomFill1: "rgba(255, 82, 82, 0.42)",
-      bottomFill2: "rgba(255, 82, 82, 0.12)",
-      topLine: "#b9f6ca",
-      bottomLine: "#ffab91",
-      lineWidth: 2,
-    },
-  },
-  day: {
-    tos: {
-      topFill1: "rgba(165, 214, 167, 0.58)",
-      topFill2: "rgba(165, 214, 167, 0.16)",
-      bottomFill1: "rgba(255, 138, 171, 0.52)",
-      bottomFill2: "rgba(255, 138, 171, 0.16)",
-      topLine: "#f1f8e9",
-      bottomLine: "#fce4ec",
-      lineWidth: 2,
-    },
-    das: {
-      topFill1: "rgba(0, 200, 83, 0.48)",
-      topFill2: "rgba(0, 200, 83, 0.14)",
-      bottomFill1: "rgba(255, 23, 68, 0.44)",
-      bottomFill2: "rgba(255, 23, 68, 0.14)",
-      topLine: "#ccff90",
-      bottomLine: "#ff8a80",
-      lineWidth: 2,
-    },
-  },
+  trade: TRADERVUE_PNL_ON_DARK,
+  day: TRADERVUE_PNL_ON_DARK,
 };
 
 /**
