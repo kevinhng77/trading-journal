@@ -389,9 +389,9 @@ export default function TradeDetail() {
     };
   }, [trade, runningPnlScope, rawTrades]);
 
-  const { runningPnlPoints, runningPnlFillMarkers, runningPnlShowEmpty } = useMemo(() => {
+  const { runningPnlPoints, runningPnlShowEmpty } = useMemo(() => {
     if (!trade || runningPnlBundle.kind === "none") {
-      return { runningPnlPoints: [], runningPnlFillMarkers: [], runningPnlShowEmpty: true };
+      return { runningPnlPoints: [], runningPnlShowEmpty: true };
     }
     const getUnix = (f) => {
       const d = String(f.date ?? trade.date).trim().slice(0, 10);
@@ -402,13 +402,12 @@ export default function TradeDetail() {
     if (runningPnlBundle.kind === "trade") {
       const { fills } = runningPnlBundle;
       if (!fills.length) {
-        return { runningPnlPoints: [], runningPnlFillMarkers: [], runningPnlShowEmpty: true };
+        return { runningPnlPoints: [], runningPnlShowEmpty: true };
       }
-      const { points, fillMarkers } = runningPnlSeriesFromFills(fills, getUnix);
+      const { points } = runningPnlSeriesFromFills(fills, getUnix);
       const pts = padSinglePointForChart(dedupeAscendingTimeLastValue(points));
       return {
         runningPnlPoints: pts,
-        runningPnlFillMarkers: fillMarkers,
         runningPnlShowEmpty: pts.length === 0,
       };
     }
@@ -421,18 +420,19 @@ export default function TradeDetail() {
       return Number.isFinite(unix) ? unix : null;
     };
     const priorBooks = portfolioBooksAfterFills(priorFills, getUnixDay);
-    const carry = portfolioTotalPnlFromBooks(priorBooks);
-    if (!dayFills.length && carry === 0) {
-      return { runningPnlPoints: [], runningPnlFillMarkers: [], runningPnlShowEmpty: true };
-    }
-    const { points, fillMarkers } = runningPnlPortfolioSeriesFromFills(dayFills, getUnixDay, priorBooks);
-    let pts = dedupeAscendingTimeLastValue(points);
-    pts = extendRunningPnlWithSessionBookends(pts, trade.date, { sessionOpenValue: carry });
+    const W0 = portfolioTotalPnlFromBooks(priorBooks);
+    const { points } = runningPnlPortfolioSeriesFromFills(dayFills, getUnixDay, priorBooks);
+    let pts = dedupeAscendingTimeLastValue(
+      points.map((p) => ({
+        time: p.time,
+        value: Math.round((p.value - W0) * 100) / 100,
+      })),
+    );
+    pts = extendRunningPnlWithSessionBookends(pts, trade.date, { sessionOpenValue: 0 });
     pts = dedupeAscendingTimeLastValue(pts);
     const outPts = padSinglePointForChart(pts);
     return {
       runningPnlPoints: outPts,
-      runningPnlFillMarkers: fillMarkers,
       runningPnlShowEmpty: outPts.length === 0,
     };
   }, [runningPnlBundle, trade, fillTimeZone]);
@@ -880,19 +880,8 @@ export default function TradeDetail() {
               <RunningPnlChart
                 key={runningPnlScope === "day" ? `pnl-day-${trade.date}-${chartSkinId}` : `pnl-trade-${tidNav}-${chartSkinId}`}
                 points={runningPnlPoints}
-                fillMarkers={runningPnlFillMarkers}
                 chartSkinId={chartSkinId}
                 variant={runningPnlScope === "day" ? "day" : "trade"}
-                title={
-                  runningPnlScope === "day"
-                    ? `All symbols · ${trade.date}`
-                    : `${trade.symbol} · this trade`
-                }
-                hint={
-                  runningPnlScope === "day"
-                    ? `Same chart for every trade on ${trade.date}: combined running P&amp;L from all symbols’ fills that day (NY extended session). Open level includes overnight carry from prior calendar days.`
-                    : `Running P&amp;L for this journal trade only — each step is after a fill on ${trade.symbol} in this trade.`
-                }
                 ariaLabel={
                   runningPnlScope === "day"
                     ? `Portfolio day running P and L, ${trade.date}`
