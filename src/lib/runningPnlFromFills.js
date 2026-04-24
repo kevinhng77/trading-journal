@@ -102,6 +102,38 @@ export function extendRunningPnlWithSessionBookends(points, calendarDayIso) {
  * @param {(f: object) => number | null} getUnixForFill
  * @returns {{ time: number, value: number }[]}
  */
+/**
+ * Sort by time, merge duplicate timestamps (keep last value).
+ * @param {{ time: number, value: number }[]} points
+ */
+export function dedupeAscendingTimeLastValue(points) {
+  const sorted = [...(points ?? [])]
+    .filter((p) => p && Number.isFinite(p.time) && Number.isFinite(p.value))
+    .sort((a, b) => a.time - b.time);
+  /** @type {{ time: number, value: number }[]} */
+  const out = [];
+  for (const p of sorted) {
+    if (out.length && out[out.length - 1].time === p.time) {
+      out[out.length - 1] = { time: p.time, value: p.value };
+    } else {
+      out.push({ time: p.time, value: p.value });
+    }
+  }
+  return out;
+}
+
+/**
+ * lightweight-charts BaselineSeries needs at least two points to draw a segment reliably.
+ * @param {{ time: number, value: number }[]} points
+ */
+export function padSinglePointForChart(points) {
+  const p = dedupeAscendingTimeLastValue(points);
+  if (p.length === 0) return [];
+  if (p.length >= 2) return p;
+  const only = p[0];
+  return [only, { time: only.time + 120, value: only.value }];
+}
+
 export function runningPnlAfterEachFill(fills, getUnixForFill) {
   const sorted = [...(fills || [])].sort(compareFillsBySessionThenTime);
   /** @type {{ time: number, value: number }[]} */

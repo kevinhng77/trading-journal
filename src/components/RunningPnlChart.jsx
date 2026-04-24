@@ -37,14 +37,15 @@ function createTickFormatter(displayTz) {
  *
  * @param {{ time: number, value: number }[]} points
  * @param {'tos'|'das'} chartSkinId
- * @param {string} [title]
- * @param {string} [hint] helper line under title
+ * @param {string} [ariaLabel] screen reader label (no visible title unless `title` set)
+ * @param {string} [title] optional visible title above chart
  */
 export default function RunningPnlChart({
   points = [],
   chartSkinId = "tos",
-  title = "Running P&L",
-  hint = "Scroll wheel zoom · drag pan · double-click reset",
+  ariaLabel = "Running P and L chart",
+  title,
+  hint,
 }) {
   const hostRef = useRef(/** @type {HTMLDivElement | null} */ (null));
 
@@ -136,11 +137,14 @@ export default function RunningPnlChart({
     };
   }, [points, chartSkinId]);
 
+  const showTitle = typeof title === "string" && title.trim().length > 0;
+  const showHint = typeof hint === "string" && hint.trim().length > 0;
+
   return (
     <div className="running-pnl-chart">
-      <div className="running-pnl-chart-title">{title}</div>
-      {hint ? <p className="running-pnl-chart-hint">{hint}</p> : null}
-      <div className="running-pnl-chart-host" ref={hostRef} role="img" aria-label={title} />
+      {showTitle ? <div className="running-pnl-chart-title">{title}</div> : null}
+      {showHint ? <p className="running-pnl-chart-hint">{hint}</p> : null}
+      <div className="running-pnl-chart-host" ref={hostRef} role="img" aria-label={ariaLabel} />
     </div>
   );
 }

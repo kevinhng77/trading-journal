@@ -49,8 +49,11 @@ import { roundTripLegSummariesFromFills } from "../lib/fillRoundTrips";
 import { formatChartIntervalLabel } from "../lib/chartIntervals";
 import { fillWallTimeToUnixSeconds } from "../api/alpacaBars";
 import {
+  collectFillsForSymbolAllJournal,
   collectFillsForSymbolOnCalendarDay,
+  dedupeAscendingTimeLastValue,
   extendRunningPnlWithSessionBookends,
+  padSinglePointForChart,
   runningPnlAfterEachFill,
 } from "../lib/runningPnlFromFills";
 import { formatPlaybookTradeTag } from "../lib/formatPlaybookTradeTag";
@@ -139,8 +142,8 @@ export default function TradeDetail() {
   const [chartGridVisible, setChartGridVisible] = useState(() => loadChartGridVisible());
   /** Tradervue-style execution chart: interactive vs classic (default: diamond markers, calmer zoom). */
   const [executionChartStyle, setExecutionChartStyle] = useState(/** @type {"interactive"|"classic"} */ ("classic"));
-  /** Running P&amp;L: this trade ({symbol} P&amp;L) vs full calendar day (DAY). */
-  const [runningPnlScope, setRunningPnlScope] = useState(/** @type {"trade"|"day"} */ ("trade"));
+  /** Running P&amp;L: entire symbol in journal vs full calendar day session. */
+  const [runningPnlScope, setRunningPnlScope] = useState(/** @type {"symbol"|"day"} */ ("symbol"));
   const [indicatorsCatalogOpen, setIndicatorsCatalogOpen] = useState(false);
   const [playbookSendOpen, setPlaybookSendOpen] = useState(false);
   const [chartToolbarMsg, setChartToolbarMsg] = useState(/** @type {string | null} */ (null));
@@ -373,9 +376,9 @@ export default function TradeDetail() {
 
   const runningPnlFills = useMemo(() => {
     if (!trade) return [];
-    if (runningPnlScope === "trade") return fills;
+    if (runningPnlScope === "symbol") return collectFillsForSymbolAllJournal(rawTrades, trade.symbol);
     return collectFillsForSymbolOnCalendarDay(rawTrades, trade.symbol, trade.date);
-  }, [trade, runningPnlScope, fills, rawTrades]);
+  }, [trade, runningPnlScope, rawTrades]);
 
   const runningPnlPoints = useMemo(() => {
     if (!trade) return [];
@@ -384,10 +387,12 @@ export default function TradeDetail() {
       const unix = fillWallTimeToUnixSeconds(d, f.time, fillTimeZone);
       return Number.isFinite(unix) ? unix : null;
     });
+    pts = dedupeAscendingTimeLastValue(pts);
     if (runningPnlScope === "day" && pts.length) {
       pts = extendRunningPnlWithSessionBookends(pts, trade.date);
+      pts = dedupeAscendingTimeLastValue(pts);
     }
-    return pts;
+    return padSinglePointForChart(pts);
   }, [runningPnlFills, trade, fillTimeZone, runningPnlScope]);
 
   const tradeDetailHeaderHasChipsRow = useMemo(
@@ -800,21 +805,22 @@ export default function TradeDetail() {
           </Suspense>
         </div>
         <div className="trade-detail-running-pnl-wrap">
-          <div className="trade-detail-running-pnl-head">
-            <h3 className="trade-detail-running-pnl-heading">Running P&amp;L</h3>
-            <div className="trade-detail-running-pnl-scopes" role="group" aria-label="Running P&amp;L scope">
+          <div className="trade-detail-running-pnl-head trade-detail-running-pnl-head--tabs-only">
+            <div className="trade-detail-running-pnl-scopes" role="tablist" aria-label="Running P&amp;L">
               <button
                 type="button"
-                className={`trade-detail-running-pnl-scope${runningPnlScope === "trade" ? " is-active" : ""}`}
-                aria-pressed={runningPnlScope === "trade"}
-                onClick={() => setRunningPnlScope("trade")}
+                role="tab"
+                className={`trade-detail-running-pnl-scope${runningPnlScope === "symbol" ? " is-active" : ""}`}
+                aria-selected={runningPnlScope === "symbol"}
+                onClick={() => setRunningPnlScope("symbol")}
               >
-                {trade.symbol} P&amp;L
+                {trade.symbol}
               </button>
               <button
                 type="button"
+                role="tab"
                 className={`trade-detail-running-pnl-scope${runningPnlScope === "day" ? " is-active" : ""}`}
-                aria-pressed={runningPnlScope === "day"}
+                aria-selected={runningPnlScope === "day"}
                 onClick={() => setRunningPnlScope("day")}
               >
                 DAY
@@ -831,10 +837,10 @@ export default function TradeDetail() {
                 key={`${tidNav}-${runningPnlScope}`}
                 points={runningPnlPoints}
                 chartSkinId={chartSkinId}
-                title={
+                ariaLabel={
                   runningPnlScope === "day"
-                    ? `DAY · ${trade.symbol} · ${trade.date}`
-                    : `${trade.symbol} P&L · this trade`
+                    ? `${trade.symbol} running P and L, full day`
+                    : `${trade.symbol} running P and L, all journal fills`
                 }
               />
             </div>

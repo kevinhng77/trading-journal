@@ -6672,6 +6672,11 @@ a.journal-row-trade-link:visited {
   margin-bottom: 10px;
 }
 
+.trade-detail-running-pnl-head--tabs-only {
+  justify-content: flex-start;
+  margin-bottom: 10px;
+}
+
 .trade-detail-running-pnl-heading {
   margin: 0;
   font-size: 14px;
