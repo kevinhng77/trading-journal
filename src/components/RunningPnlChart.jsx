@@ -4,6 +4,7 @@ import {
   BaselineSeries,
   ColorType,
   createChart,
+  createSeriesMarkers,
   CrosshairMode,
   LineType,
   TickMarkType,
@@ -36,12 +37,14 @@ function createTickFormatter(displayTz) {
  * Running P&amp;L (stepped at fills). Interactive pan/zoom; uses same dark skins as execution chart.
  *
  * @param {{ time: number, value: number }[]} points
+ * @param {{ time: number, value: number, kind: 'buy'|'sell', id?: string }[]} [fillMarkers] buy/sell markers on the P&amp;L line (price-positioned)
  * @param {'tos'|'das'} chartSkinId
  * @param {string} [ariaLabel] screen reader label (no visible title unless `title` set)
  * @param {string} [title] optional visible title above chart
  */
 export default function RunningPnlChart({
   points = [],
+  fillMarkers = [],
   chartSkinId = "tos",
   ariaLabel = "Running P and L chart",
   title,
@@ -92,11 +95,14 @@ export default function RunningPnlChart({
       height: el.clientHeight,
     });
 
+    const buyMarkerColor = chartSkinId === "das" ? "#00e676" : "#4caf50";
+    const sellMarkerColor = chartSkinId === "das" ? "#ff1744" : "#ef5350";
+
     const series = chart.addSeries(BaselineSeries, {
       baseValue: { type: "price", price: 0 },
-      topLineColor: chartSkinId === "das" ? "#00e676" : "#4caf50",
+      topLineColor: buyMarkerColor,
       topFillColor1: chartSkinId === "das" ? "rgba(0, 230, 118, 0.28)" : "rgba(76, 175, 80, 0.28)",
-      bottomLineColor: chartSkinId === "das" ? "#ff1744" : "#ef5350",
+      bottomLineColor: sellMarkerColor,
       bottomFillColor1: chartSkinId === "das" ? "rgba(255, 23, 68, 0.26)" : "rgba(239, 83, 80, 0.26)",
       lineWidth: 2,
       lineType: LineType.WithSteps,
@@ -106,6 +112,24 @@ export default function RunningPnlChart({
     });
 
     if (data.length) series.setData(data);
+
+    const markerRows = (fillMarkers ?? [])
+      .filter((m) => m && typeof m.time === "number" && Number.isFinite(m.value) && (m.kind === "buy" || m.kind === "sell"))
+      .map((m) => ({
+        time: m.time,
+        position: "atPriceMiddle",
+        price: m.value,
+        shape: m.kind === "buy" ? "circle" : "square",
+        color: m.kind === "buy" ? buyMarkerColor : sellMarkerColor,
+        size: 2,
+        ...(m.id ? { id: m.id } : {}),
+      }));
+
+    /** @type {{ detach: () => void } | null} */
+    let markersApi = null;
+    if (markerRows.length) {
+      markersApi = createSeriesMarkers(series, markerRows, { autoScale: true });
+    }
 
     requestAnimationFrame(() => {
       try {
@@ -133,17 +157,33 @@ export default function RunningPnlChart({
     return () => {
       el.removeEventListener("dblclick", onDblClick);
       ro.disconnect();
+      try {
+        markersApi?.detach();
+      } catch {
+        /* ignore */
+      }
       chart.remove();
     };
-  }, [points, chartSkinId]);
+  }, [points, chartSkinId, fillMarkers]);
 
   const showTitle = typeof title === "string" && title.trim().length > 0;
   const showHint = typeof hint === "string" && hint.trim().length > 0;
+  const showLegend = Array.isArray(fillMarkers) && fillMarkers.length > 0;
 
   return (
     <div className="running-pnl-chart">
       {showTitle ? <div className="running-pnl-chart-title">{title}</div> : null}
       {showHint ? <p className="running-pnl-chart-hint">{hint}</p> : null}
+      {showLegend ? (
+        <div className="running-pnl-chart-legend" aria-hidden="true">
+          <span className="running-pnl-chart-legend-item">
+            <span className="running-pnl-chart-legend-swatch running-pnl-chart-legend-swatch--buy" /> Buys
+          </span>
+          <span className="running-pnl-chart-legend-item">
+            <span className="running-pnl-chart-legend-swatch running-pnl-chart-legend-swatch--sell" /> Sells
+          </span>
+        </div>
+      ) : null}
       <div className="running-pnl-chart-host" ref={hostRef} role="img" aria-label={ariaLabel} />
     </div>
   );

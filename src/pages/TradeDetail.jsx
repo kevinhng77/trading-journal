@@ -50,11 +50,11 @@ import { formatChartIntervalLabel } from "../lib/chartIntervals";
 import { fillWallTimeToUnixSeconds } from "../api/alpacaBars";
 import {
   collectFillsForSymbolAllJournal,
-  collectFillsForSymbolOnCalendarDay,
+  collectFillsForSymbolOnOrBeforeCalendarDay,
   dedupeAscendingTimeLastValue,
   extendRunningPnlWithSessionBookends,
   padSinglePointForChart,
-  runningPnlAfterEachFill,
+  runningPnlSeriesFromFills,
 } from "../lib/runningPnlFromFills";
 import { formatPlaybookTradeTag } from "../lib/formatPlaybookTradeTag";
 import MetricHintIcon from "../components/MetricHintIcon";
@@ -377,22 +377,26 @@ export default function TradeDetail() {
   const runningPnlFills = useMemo(() => {
     if (!trade) return [];
     if (runningPnlScope === "symbol") return collectFillsForSymbolAllJournal(rawTrades, trade.symbol);
-    return collectFillsForSymbolOnCalendarDay(rawTrades, trade.symbol, trade.date);
+    return collectFillsForSymbolOnOrBeforeCalendarDay(rawTrades, trade.symbol, trade.date);
   }, [trade, runningPnlScope, rawTrades]);
 
-  const runningPnlPoints = useMemo(() => {
-    if (!trade) return [];
-    let pts = runningPnlAfterEachFill(runningPnlFills, (f) => {
+  const { runningPnlPoints, runningPnlFillMarkers } = useMemo(() => {
+    if (!trade) return { runningPnlPoints: [], runningPnlFillMarkers: [] };
+    const getUnix = (f) => {
       const d = String(f.date ?? trade.date).trim().slice(0, 10);
       const unix = fillWallTimeToUnixSeconds(d, f.time, fillTimeZone);
       return Number.isFinite(unix) ? unix : null;
-    });
-    pts = dedupeAscendingTimeLastValue(pts);
+    };
+    const { points, fillMarkers } = runningPnlSeriesFromFills(runningPnlFills, getUnix);
+    let pts = dedupeAscendingTimeLastValue(points);
     if (runningPnlScope === "day" && pts.length) {
       pts = extendRunningPnlWithSessionBookends(pts, trade.date);
       pts = dedupeAscendingTimeLastValue(pts);
     }
-    return padSinglePointForChart(pts);
+    return {
+      runningPnlPoints: padSinglePointForChart(pts),
+      runningPnlFillMarkers: fillMarkers,
+    };
   }, [runningPnlFills, trade, fillTimeZone, runningPnlScope]);
 
   const tradeDetailHeaderHasChipsRow = useMemo(
@@ -836,10 +840,11 @@ export default function TradeDetail() {
               <RunningPnlChart
                 key={`${tidNav}-${runningPnlScope}`}
                 points={runningPnlPoints}
+                fillMarkers={runningPnlFillMarkers}
                 chartSkinId={chartSkinId}
                 ariaLabel={
                   runningPnlScope === "day"
-                    ? `${trade.symbol} running P and L, full day`
+                    ? `${trade.symbol} running P and L through ${trade.date}`
                     : `${trade.symbol} running P and L, all journal fills`
                 }
               />

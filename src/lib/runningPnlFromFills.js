@@ -46,6 +46,38 @@ export function collectFillsForSymbolOnCalendarDay(trades, symbolUpper, calendar
 }
 
 /**
+ * Fills for `symbol` on any calendar day up to and including `calendarDay` (YYYY-MM-DD),
+ * so running P&amp;L through a trade day includes prior-session entries (multiday positions).
+ *
+ * @param {object[]} trades
+ * @param {string} symbolUpper
+ * @param {string} calendarDay YYYY-MM-DD
+ * @returns {object[]}
+ */
+export function collectFillsForSymbolOnOrBeforeCalendarDay(trades, symbolUpper, calendarDay) {
+  const sym = String(symbolUpper ?? "")
+    .trim()
+    .toUpperCase();
+  const day = String(calendarDay ?? "").trim().slice(0, 10);
+  if (!sym || day.length !== 10) return [];
+  const acc = [];
+  for (const t of trades ?? []) {
+    if (String(t?.symbol ?? "")
+      .trim()
+      .toUpperCase() !== sym) {
+      continue;
+    }
+    for (const f of t?.fills ?? []) {
+      const fd = String(f?.date ?? t?.date ?? "")
+        .trim()
+        .slice(0, 10);
+      if (fd.length === 10 && fd <= day) acc.push(f);
+    }
+  }
+  return dedupeFillsById(acc);
+}
+
+/**
  * All fills for `symbol` across every stored trade (chronological, de-duped by fill id).
  * @param {object[]} trades
  * @param {string} symbolUpper
@@ -134,10 +166,21 @@ export function padSinglePointForChart(points) {
   return [only, { time: only.time + 120, value: only.value }];
 }
 
-export function runningPnlAfterEachFill(fills, getUnixForFill) {
+/**
+ * @typedef {{ time: number, value: number, kind: "buy"|"sell", id?: string }} RunningPnlFillMarker
+ */
+
+/**
+ * @param {object[]|undefined} fills
+ * @param {(f: object) => number | null} getUnixForFill
+ * @returns {{ points: { time: number, value: number }[], fillMarkers: RunningPnlFillMarker[] }}
+ */
+export function runningPnlSeriesFromFills(fills, getUnixForFill) {
   const sorted = [...(fills || [])].sort(compareFillsBySessionThenTime);
   /** @type {{ time: number, value: number }[]} */
   const out = [];
+  /** @type {RunningPnlFillMarker[]} */
+  const fillMarkers = [];
   /** @type {{ q: number, p: number }[]} */
   const longLots = [];
   /** @type {{ q: number, p: number }[]} */
@@ -185,7 +228,20 @@ export function runningPnlAfterEachFill(fills, getUnixForFill) {
     for (const L of longLots) unrealized += L.q * (px - L.p);
     for (const S of shortLots) unrealized += S.q * (S.p - px);
 
-    out.push({ time: u, value: Math.round((realized + unrealized) * 100) / 100 });
+    const value = Math.round((realized + unrealized) * 100) / 100;
+    out.push({ time: u, value });
+    const kind = side === "BOT" || side === "BUY" ? "buy" : "sell";
+    const idRaw = String(f?.id ?? "").trim();
+    fillMarkers.push(idRaw ? { time: u, value, kind, id: idRaw } : { time: u, value, kind });
   }
-  return out;
+  return { points: out, fillMarkers };
+}
+
+/**
+ * @param {object[]|undefined} fills
+ * @param {(f: object) => number | null} getUnixForFill
+ * @returns {{ time: number, value: number }[]}
+ */
+export function runningPnlAfterEachFill(fills, getUnixForFill) {
+  return runningPnlSeriesFromFills(fills, getUnixForFill).points;
 }
