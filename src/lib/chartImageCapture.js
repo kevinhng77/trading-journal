@@ -9,16 +9,48 @@ const TRADE_BUNDLE_CAPTURE_BG = "#161b26";
 /**
  * Rasterize the chart host element (canvas + overlays) to a PNG blob.
  * @param {HTMLElement} el
+ * @param {{ pixelRatio?: number, backgroundColor?: string }} [opts]
  * @returns {Promise<Blob>}
  */
-export async function captureChartElementAsPngBlob(el) {
+export async function captureChartElementAsPngBlob(el, opts = {}) {
+  const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+  const pixelRatio =
+    typeof opts.pixelRatio === "number" && Number.isFinite(opts.pixelRatio)
+      ? Math.max(1, Math.min(3, opts.pixelRatio))
+      : Math.min(2, dpr);
   const blob = await toBlob(el, {
     cacheBust: true,
-    pixelRatio: Math.min(2, typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1),
-    backgroundColor: CHART_CAPTURE_BG,
+    pixelRatio,
+    backgroundColor: opts.backgroundColor ?? CHART_CAPTURE_BG,
   });
   if (!blob) throw new Error("Could not capture chart.");
   return blob;
+}
+
+const FULLSCREEN_CAPTURE_CLASS = "trade-execution-chart-host--share-fullscreen";
+const CAPTURE_SCROLL_LOCK_CLASS = "trade-detail-chart-share-capturing";
+
+/**
+ * Sizes the chart host to the viewport so lightweight-charts can resize, runs `fn`, then restores layout.
+ * @template T
+ * @param {HTMLElement} host
+ * @param {() => Promise<T>} fn
+ * @returns {Promise<T>}
+ */
+export async function withChartHostFullscreenForCapture(host, fn) {
+  const root = document.documentElement;
+  host.classList.add(FULLSCREEN_CAPTURE_CLASS);
+  root.classList.add(CAPTURE_SCROLL_LOCK_CLASS);
+  document.body.classList.add(CAPTURE_SCROLL_LOCK_CLASS);
+  try {
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await new Promise((r) => setTimeout(r, 120));
+    return await fn();
+  } finally {
+    host.classList.remove(FULLSCREEN_CAPTURE_CLASS);
+    root.classList.remove(CAPTURE_SCROLL_LOCK_CLASS);
+    document.body.classList.remove(CAPTURE_SCROLL_LOCK_CLASS);
+  }
 }
 
 /**

@@ -274,18 +274,26 @@ function collectExecutionMarkers(
   const out = [];
   for (const f of fills) {
     const side = String(f.side || "").toUpperCase();
-    const isBuy = side === "BOT";
-    const isSell = side === "SOLD";
+    const isBuy = side === "BOT" || side === "BUY";
+    const isSell = side === "SOLD" || side === "SLD" || side === "SELL";
     if (!isBuy && !isSell) continue;
 
     const price = Number(f.price);
     if (Number.isNaN(price)) continue;
 
+    const fillDayForIntraday =
+      f.date != null && String(f.date).trim()
+        ? String(f.date).trim().slice(0, 10)
+        : String(tradeDate).trim().slice(0, 10);
+
     let time;
     if (daily) {
-      time = dailyMarkerTime ?? tradeDate;
+      time =
+        f.date != null && String(f.date).trim()
+          ? String(f.date).trim().slice(0, 10)
+          : dailyMarkerTime ?? tradeDate;
     } else {
-      const u = fillWallTimeToUnixSeconds(tradeDate, f.time, fillTimeZone);
+      const u = fillWallTimeToUnixSeconds(fillDayForIntraday, f.time, fillTimeZone);
       time = snapToBarPeriodOpen(barTimesAsc, barTimeSet, u, periodSec);
     }
 

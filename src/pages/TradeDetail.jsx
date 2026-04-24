@@ -33,7 +33,6 @@ import {
   REPORT_FILTERS_STORAGE_KEY,
 } from "../storage/reportFiltersPersist";
 import ChartIndicatorsModal from "../components/ChartIndicatorsModal";
-import RunningPnlChart from "../components/RunningPnlChart.jsx";
 const TradeExecutionChart = lazy(() => import("../components/TradeExecutionChart.jsx"));
 import TradeNotesEditor from "../components/TradeNotesEditor";
 import TradeTagsEditor from "../components/TradeTagsEditor";
@@ -41,24 +40,11 @@ import TradeSetupsEditor from "../components/TradeSetupsEditor";
 import PlaybookChartSendModal from "../components/PlaybookChartSendModal";
 import {
   captureChartElementAsPngBlob,
-  captureDomElementAsPngBlob,
-  stackPngBlobsVertical,
+  withChartHostFullscreenForCapture,
 } from "../lib/chartImageCapture";
 import { tradeFeesPaid, tradeGrossPnl, tradeNetPnl } from "../lib/tradeExecutionMetrics";
 import { roundTripLegSummariesFromFills } from "../lib/fillRoundTrips";
 import { formatChartIntervalLabel } from "../lib/chartIntervals";
-import { fillWallTimeToUnixSeconds } from "../api/alpacaBars";
-import {
-  collectAllFillsBeforeCalendarDay,
-  collectAllFillsOnCalendarDay,
-  dedupeAscendingTimeLastValue,
-  extendRunningPnlWithSessionBookends,
-  padSinglePointForChart,
-  portfolioBooksAfterFills,
-  portfolioTotalPnlFromBooks,
-  runningPnlPortfolioSeriesFromFills,
-  runningPnlSeriesFromFills,
-} from "../lib/runningPnlFromFills";
 import { formatPlaybookTradeTag } from "../lib/formatPlaybookTradeTag";
 import MetricHintIcon from "../components/MetricHintIcon";
 import { TRADE_SNAPSHOT_HINTS } from "../lib/metricHints";
@@ -145,8 +131,6 @@ export default function TradeDetail() {
   const [chartGridVisible, setChartGridVisible] = useState(() => loadChartGridVisible());
   /** Tradervue-style execution chart: interactive vs classic (default: diamond markers, calmer zoom). */
   const [executionChartStyle, setExecutionChartStyle] = useState(/** @type {"interactive"|"classic"} */ ("classic"));
-  /** Running P&amp;L: this trade only vs this symbol for the full session day. */
-  const [runningPnlScope, setRunningPnlScope] = useState(/** @type {"trade"|"day"} */ ("trade"));
   const [indicatorsCatalogOpen, setIndicatorsCatalogOpen] = useState(false);
   const [playbookSendOpen, setPlaybookSendOpen] = useState(false);
   const [chartToolbarMsg, setChartToolbarMsg] = useState(/** @type {string | null} */ (null));
@@ -154,9 +138,6 @@ export default function TradeDetail() {
   /** Applied Trades/Journal/Reports filters — prev/next chart nav only walks trades in this set. */
   const [appliedNavFilters, setAppliedNavFilters] = useState(() => loadPersistedReportFilters());
   const chartWrapRef = useRef(null);
-  const tradeShareBundleRef = useRef(/** @type {HTMLDivElement | null} */ (null));
-  const tradeSharePanelsRef = useRef(/** @type {HTMLDivElement | null} */ (null));
-  const tradeShareChartSectionRef = useRef(/** @type {HTMLElement | null} */ (null));
   const chartIntervalLabel = useMemo(() => formatChartIntervalLabel(chartInterval), [chartInterval]);
 
   const getChartCaptureEl = useCallback(() => {
@@ -211,35 +192,19 @@ export default function TradeDetail() {
     }
   }
 
-  async function copyTradeShareBundleToClipboard() {
-    const bundleEl = tradeShareBundleRef.current;
-    const panelsEl = tradeSharePanelsRef.current;
-    const chartSectionEl = tradeShareChartSectionRef.current;
-    if (!bundleEl) {
-      setChartToolbarMsg("Nothing to capture yet.");
-      return;
-    }
-    if (!navigator.clipboard || typeof ClipboardItem === "undefined") {
-      setChartToolbarMsg("Clipboard image copy is not supported in this browser.");
-      return;
-    }
+  async function copyFullscreenChartShareToClipboard() {
+    const host = getChartCaptureEl();
+    if (!host) return;
+    if (!navigator.clipboard || typeof ClipboardItem === "undefined") return;
     setShareBusy(true);
     try {
-      /** @type {Blob} */
-      let blob;
-      if (panelsEl && chartSectionEl) {
-        const [chartBlob, panelsBlob] = await Promise.all([
-          captureDomElementAsPngBlob(chartSectionEl),
-          captureDomElementAsPngBlob(panelsEl),
-        ]);
-        blob = await stackPngBlobsVertical(chartBlob, panelsBlob);
-      } else {
-        blob = await captureDomElementAsPngBlob(bundleEl);
-      }
+      const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+      const blob = await withChartHostFullscreenForCapture(host, () =>
+        captureChartElementAsPngBlob(host, { pixelRatio: Math.min(2.5, Math.max(1.5, dpr)) }),
+      );
       await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
-      setChartToolbarMsg("Chart, snapshot, and notes copied to clipboard.");
     } catch {
-      setChartToolbarMsg("Could not copy the image. Wait for the chart to load, then try again.");
+      /* silent — avoid chart toolbar copy status for Share */
     } finally {
       setShareBusy(false);
     }
@@ -377,66 +342,6 @@ export default function TradeDetail() {
     };
   }, [executionChartStyle, indicatorPrefs]);
 
-  const runningPnlBundle = useMemo(() => {
-    if (!trade) return { kind: "none" };
-    if (runningPnlScope === "trade") {
-      return { kind: "trade", fills: trade.fills ?? [] };
-    }
-    return {
-      kind: "intraday",
-      priorFills: collectAllFillsBeforeCalendarDay(rawTrades, trade.date),
-      dayFills: collectAllFillsOnCalendarDay(rawTrades, trade.date),
-    };
-  }, [trade, runningPnlScope, rawTrades]);
-
-  const { runningPnlPoints, runningPnlShowEmpty } = useMemo(() => {
-    if (!trade || runningPnlBundle.kind === "none") {
-      return { runningPnlPoints: [], runningPnlShowEmpty: true };
-    }
-    const getUnix = (f) => {
-      const d = String(f.date ?? trade.date).trim().slice(0, 10);
-      const unix = fillWallTimeToUnixSeconds(d, f.time, fillTimeZone);
-      return Number.isFinite(unix) ? unix : null;
-    };
-
-    if (runningPnlBundle.kind === "trade") {
-      const { fills } = runningPnlBundle;
-      if (!fills.length) {
-        return { runningPnlPoints: [], runningPnlShowEmpty: true };
-      }
-      const { points } = runningPnlSeriesFromFills(fills, getUnix);
-      const pts = padSinglePointForChart(dedupeAscendingTimeLastValue(points));
-      return {
-        runningPnlPoints: pts,
-        runningPnlShowEmpty: pts.length === 0,
-      };
-    }
-
-    const { priorFills, dayFills } = runningPnlBundle;
-    const getUnixDay = (f) => {
-      const d = String(f.date ?? "").trim().slice(0, 10);
-      if (d.length !== 10) return null;
-      const unix = fillWallTimeToUnixSeconds(d, f.time, fillTimeZone);
-      return Number.isFinite(unix) ? unix : null;
-    };
-    const priorBooks = portfolioBooksAfterFills(priorFills, getUnixDay);
-    const W0 = portfolioTotalPnlFromBooks(priorBooks);
-    const { points } = runningPnlPortfolioSeriesFromFills(dayFills, getUnixDay, priorBooks);
-    let pts = dedupeAscendingTimeLastValue(
-      points.map((p) => ({
-        time: p.time,
-        value: Math.round((p.value - W0) * 100) / 100,
-      })),
-    );
-    pts = extendRunningPnlWithSessionBookends(pts, trade.date, { sessionOpenValue: 0 });
-    pts = dedupeAscendingTimeLastValue(pts);
-    const outPts = padSinglePointForChart(pts);
-    return {
-      runningPnlPoints: outPts,
-      runningPnlShowEmpty: outPts.length === 0,
-    };
-  }, [runningPnlBundle, trade, fillTimeZone]);
-
   const tradeDetailHeaderHasChipsRow = useMemo(
     () => normalizeTagList(trade?.setups).length > 0 || normalizeTagList(trade?.tags).length > 0,
     [trade?.setups, trade?.tags],
@@ -531,10 +436,10 @@ export default function TradeDetail() {
             <button
               type="button"
               className="trade-detail-header-share-btn"
-              onClick={() => void copyTradeShareBundleToClipboard()}
+              onClick={() => void copyFullscreenChartShareToClipboard()}
               disabled={shareBusy}
-              title="Copy chart, snapshot, and notes as one image (chart on top)"
-              aria-label="Copy chart, snapshot, and notes as one image to clipboard"
+              title="Copy chart as a full-screen image to clipboard"
+              aria-label="Copy enlarged full-screen chart image to clipboard"
             >
               <svg
                 className="trade-detail-header-share-icon"
@@ -606,8 +511,8 @@ export default function TradeDetail() {
         </div>
       </div>
 
-      <div ref={tradeShareBundleRef} className="trade-detail-share-bundle">
-        <div ref={tradeSharePanelsRef} className="trade-detail-panels">
+      <div className="trade-detail-share-bundle">
+        <div className="trade-detail-panels">
         <section className="card trade-detail-stats">
           <h2 className="trade-detail-section-title">Snapshot</h2>
           <dl className="trade-detail-stat-grid">
@@ -720,11 +625,7 @@ export default function TradeDetail() {
         </section>
         </div>
 
-        <section
-        ref={tradeShareChartSectionRef}
-        className="card trade-detail-chart-section trade-detail-chart-section--primary"
-        aria-label="Execution chart"
-      >
+        <section className="card trade-detail-chart-section trade-detail-chart-section--primary" aria-label="Execution chart">
         <div className="trade-detail-chart-toolbar">
           <div className="trade-detail-chart-toolbar-start">
             <div
@@ -845,51 +746,6 @@ export default function TradeDetail() {
               onToggleChartGrid={toggleChartGrid}
             />
           </Suspense>
-        </div>
-        <div className="trade-detail-running-pnl-wrap">
-          <div className="trade-detail-running-pnl-head trade-detail-running-pnl-head--tabs-only">
-            <div className="trade-detail-running-pnl-scopes" role="tablist" aria-label="Running P&amp;L">
-              <button
-                type="button"
-                role="tab"
-                className={`trade-detail-running-pnl-scope${runningPnlScope === "trade" ? " is-active" : ""}`}
-                aria-selected={runningPnlScope === "trade"}
-                onClick={() => setRunningPnlScope("trade")}
-              >
-                Trade
-              </button>
-              <button
-                type="button"
-                role="tab"
-                className={`trade-detail-running-pnl-scope${runningPnlScope === "day" ? " is-active" : ""}`}
-                aria-selected={runningPnlScope === "day"}
-                onClick={() => setRunningPnlScope("day")}
-              >
-                Day
-              </button>
-            </div>
-          </div>
-          {runningPnlShowEmpty ? (
-            <p className="trade-detail-running-pnl-empty trades-cell-muted">
-              {runningPnlScope === "day"
-                ? `No BOT/SOLD fills on ${trade.date} (and no portfolio carry from earlier days) to plot day running P&amp;L.`
-                : "No BOT/SOLD fills on this trade to plot running P&amp;L."}
-            </p>
-          ) : (
-            <div className="trade-detail-running-pnl-host">
-              <RunningPnlChart
-                key={runningPnlScope === "day" ? `pnl-day-${trade.date}-${chartSkinId}` : `pnl-trade-${tidNav}-${chartSkinId}`}
-                points={runningPnlPoints}
-                chartSkinId={chartSkinId}
-                variant={runningPnlScope === "day" ? "day" : "trade"}
-                ariaLabel={
-                  runningPnlScope === "day"
-                    ? `Portfolio day running P and L, ${trade.date}`
-                    : `${trade.symbol} trade running P and L`
-                }
-              />
-            </div>
-          )}
         </div>
         <PlaybookChartSendModal
           open={playbookSendOpen}
