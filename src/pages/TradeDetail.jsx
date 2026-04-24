@@ -38,10 +38,7 @@ import TradeNotesEditor from "../components/TradeNotesEditor";
 import TradeTagsEditor from "../components/TradeTagsEditor";
 import TradeSetupsEditor from "../components/TradeSetupsEditor";
 import PlaybookChartSendModal from "../components/PlaybookChartSendModal";
-import {
-  captureChartElementAsPngBlob,
-  withChartHostFullscreenForCapture,
-} from "../lib/chartImageCapture";
+import { captureChartElementAsPngBlob } from "../lib/chartImageCapture";
 import { tradeFeesPaid, tradeGrossPnl, tradeNetPnl } from "../lib/tradeExecutionMetrics";
 import { roundTripLegSummariesFromFills } from "../lib/fillRoundTrips";
 import { formatChartIntervalLabel } from "../lib/chartIntervals";
@@ -134,10 +131,10 @@ export default function TradeDetail() {
   const [indicatorsCatalogOpen, setIndicatorsCatalogOpen] = useState(false);
   const [playbookSendOpen, setPlaybookSendOpen] = useState(false);
   const [chartToolbarMsg, setChartToolbarMsg] = useState(/** @type {string | null} */ (null));
-  const [shareBusy, setShareBusy] = useState(false);
   /** Applied Trades/Journal/Reports filters — prev/next chart nav only walks trades in this set. */
   const [appliedNavFilters, setAppliedNavFilters] = useState(() => loadPersistedReportFilters());
   const chartWrapRef = useRef(null);
+  const shareCaptureInFlightRef = useRef(false);
   const chartIntervalLabel = useMemo(() => formatChartIntervalLabel(chartInterval), [chartInterval]);
 
   const getChartCaptureEl = useCallback(() => {
@@ -192,21 +189,23 @@ export default function TradeDetail() {
     }
   }
 
-  async function copyFullscreenChartShareToClipboard() {
+  async function copyChartShareToClipboard() {
     const host = getChartCaptureEl();
     if (!host) return;
     if (!navigator.clipboard || typeof ClipboardItem === "undefined") return;
-    setShareBusy(true);
+    if (shareCaptureInFlightRef.current) return;
+    shareCaptureInFlightRef.current = true;
     try {
       const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
-      const blob = await withChartHostFullscreenForCapture(host, () =>
-        captureChartElementAsPngBlob(host, { pixelRatio: Math.min(2.5, Math.max(1.5, dpr)) }),
-      );
+      const blob = await captureChartElementAsPngBlob(host, {
+        pixelRatio: Math.min(3, Math.max(2, dpr)),
+        cacheBust: false,
+      });
       await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
     } catch {
       /* silent — avoid chart toolbar copy status for Share */
     } finally {
-      setShareBusy(false);
+      shareCaptureInFlightRef.current = false;
     }
   }
 
@@ -436,10 +435,9 @@ export default function TradeDetail() {
             <button
               type="button"
               className="trade-detail-header-share-btn"
-              onClick={() => void copyFullscreenChartShareToClipboard()}
-              disabled={shareBusy}
-              title="Copy chart as a full-screen image to clipboard"
-              aria-label="Copy enlarged full-screen chart image to clipboard"
+              onClick={() => void copyChartShareToClipboard()}
+              title="Copy chart image to clipboard (high resolution, no layout change)"
+              aria-label="Copy chart image to clipboard"
             >
               <svg
                 className="trade-detail-header-share-icon"
