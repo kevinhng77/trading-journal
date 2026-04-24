@@ -6714,9 +6714,10 @@ a.journal-row-trade-link:visited {
 
 .trade-detail-running-pnl-host {
   width: 100%;
-  height: min(52vh, 520px);
-  min-height: 400px;
-  border-radius: 4px;
+  height: clamp(520px, 58vh, 680px);
+  min-height: 520px;
+  max-height: 680px;
+  border-radius: 6px;
   overflow: hidden;
   border: 1px solid var(--border);
   box-sizing: border-box;

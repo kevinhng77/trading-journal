@@ -34,7 +34,7 @@ function createTickFormatter(displayTz) {
 }
 
 /**
- * Running P&amp;L (stepped at fills). Interactive pan/zoom; uses same dark skins as execution chart.
+ * Running P&amp;L (stepped at fills). Mouse wheel / pinch zoom only (no pan); uses same dark skins as execution chart.
  *
  * @param {{ time: number, value: number }[]} points
  * @param {{ time: number, value: number, kind: 'buy'|'sell', id?: string }[]} [fillMarkers] buy/sell markers on the P&amp;L line (price-positioned)
@@ -89,8 +89,18 @@ export default function RunningPnlChart({
         rightOffset: 14,
         tickMarkFormatter: createTickFormatter(DISPLAY_TZ),
       },
-      handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
-      handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true },
+      handleScroll: {
+        mouseWheel: false,
+        pressedMouseMove: false,
+        horzTouchDrag: false,
+        vertTouchDrag: false,
+      },
+      handleScale: {
+        mouseWheel: true,
+        pinch: true,
+        axisPressedMouseMove: { time: false, price: false },
+        axisDoubleClickReset: { time: false, price: false },
+      },
       width: el.clientWidth,
       height: el.clientHeight,
     });
@@ -134,20 +144,11 @@ export default function RunningPnlChart({
     requestAnimationFrame(() => {
       try {
         chart.timeScale().fitContent();
-      } catch {
-        /* ignore */
-      }
-    });
-
-    function onDblClick() {
-      try {
-        chart.timeScale().fitContent();
         chart.priceScale("right").applyOptions({ autoScale: true });
       } catch {
         /* ignore */
       }
-    }
-    el.addEventListener("dblclick", onDblClick);
+    });
 
     const ro = new ResizeObserver(() => {
       chart.applyOptions({ width: el.clientWidth, height: el.clientHeight });
@@ -155,7 +156,6 @@ export default function RunningPnlChart({
     ro.observe(el);
 
     return () => {
-      el.removeEventListener("dblclick", onDblClick);
       ro.disconnect();
       try {
         markersApi?.detach();

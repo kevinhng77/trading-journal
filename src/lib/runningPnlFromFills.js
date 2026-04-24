@@ -46,15 +46,14 @@ export function collectFillsForSymbolOnCalendarDay(trades, symbolUpper, calendar
 }
 
 /**
- * Fills for `symbol` on any calendar day up to and including `calendarDay` (YYYY-MM-DD),
- * so running P&amp;L through a trade day includes prior-session entries (multiday positions).
+ * Fills strictly before `calendarDay` (same symbol), for FIFO carry into an intraday session.
  *
  * @param {object[]} trades
  * @param {string} symbolUpper
  * @param {string} calendarDay YYYY-MM-DD
  * @returns {object[]}
  */
-export function collectFillsForSymbolOnOrBeforeCalendarDay(trades, symbolUpper, calendarDay) {
+export function collectFillsForSymbolBeforeCalendarDay(trades, symbolUpper, calendarDay) {
   const sym = String(symbolUpper ?? "")
     .trim()
     .toUpperCase();
@@ -71,7 +70,7 @@ export function collectFillsForSymbolOnOrBeforeCalendarDay(trades, symbolUpper, 
       const fd = String(f?.date ?? t?.date ?? "")
         .trim()
         .slice(0, 10);
-      if (fd.length === 10 && fd <= day) acc.push(f);
+      if (fd.length === 10 && fd < day) acc.push(f);
     }
   }
   return dedupeFillsById(acc);
@@ -104,22 +103,31 @@ const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * Pad running P&amp;L points to the NY **extended** session window so the chart spans the full day.
- * Prepends $0 at session start when the first fill is after open; appends flat tail through session end.
+ * Prepends a point at session open when the first fill is after open (`sessionOpenValue` for intraday carry, else 0).
+ * Appends a flat tail through session end.
  *
  * @param {{ time: number, value: number }[]} points
  * @param {string} calendarDayIso
+ * @param {{ sessionOpenValue?: number }} [opts]
  * @returns {{ time: number, value: number }[]}
  */
-export function extendRunningPnlWithSessionBookends(points, calendarDayIso) {
+export function extendRunningPnlWithSessionBookends(points, calendarDayIso, opts) {
   const day = String(calendarDayIso ?? "").trim().slice(0, 10);
-  if (!ISO_DAY.test(day) || !points?.length) return points ?? [];
+  if (!ISO_DAY.test(day)) return points ?? [];
   const b = getNySessionUnixBounds(day);
   const t0 = b.extendedOpen;
   const t1 = b.extendedClose;
-  const sorted = [...points].filter((p) => p && Number.isFinite(p.time)).sort((a, c) => a.time - c.time);
-  if (!sorted.length) return [];
+  const openValRaw = opts?.sessionOpenValue;
+  const openVal = Number.isFinite(openValRaw) ? openValRaw : 0;
+  const sorted = [...(points ?? [])].filter((p) => p && Number.isFinite(p.time)).sort((a, c) => a.time - c.time);
+  if (!sorted.length) {
+    return [
+      { time: t0, value: openVal },
+      { time: t1, value: openVal },
+    ];
+  }
   const out = [];
-  if (sorted[0].time > t0) out.push({ time: t0, value: 0 });
+  if (sorted[0].time > t0) out.push({ time: t0, value: openVal });
   out.push(...sorted);
   const last = sorted[sorted.length - 1];
   if (last.time < t1) out.push({ time: t1, value: last.value });
@@ -163,24 +171,44 @@ export function padSinglePointForChart(points) {
  */
 
 /**
+ * @typedef {{ longLots: { q: number, p: number }[], shortLots: { q: number, p: number }[], realized: number }} RunningPnlFifoState
+ */
+
+/**
+ * FIFO book state after processing `fills` (for continuing intraday running P&amp;L from a prior session).
+ *
+ * @param {object[]|undefined} fills
+ * @param {(f: object) => number | null} getUnixForFill
+ * @returns {RunningPnlFifoState}
+ */
+export function fifoStateAfterFills(fills, getUnixForFill) {
+  return runningPnlSeriesFromFills(fills, getUnixForFill).finalFifoState;
+}
+
+/**
  * After each BOT/SOLD fill (chronological), cumulative realized FIFO P&amp;L plus mark-to-market
  * of any open inventory at that fill's price (Tradervue-style running P&amp;L steps).
  *
  * @param {object[]|undefined} fills
  * @param {(f: object) => number | null} getUnixForFill
- * @returns {{ points: { time: number, value: number }[], fillMarkers: RunningPnlFillMarker[] }}
+ * @param {RunningPnlFifoState | null} [initialFifoState] continue from prior fills (intraday leg)
+ * @returns {{ points: { time: number, value: number }[], fillMarkers: RunningPnlFillMarker[], finalFifoState: RunningPnlFifoState }}
  */
-export function runningPnlSeriesFromFills(fills, getUnixForFill) {
+export function runningPnlSeriesFromFills(fills, getUnixForFill, initialFifoState = null) {
   const sorted = [...(fills || [])].sort(compareFillsBySessionThenTime);
   /** @type {{ time: number, value: number }[]} */
   const out = [];
   /** @type {RunningPnlFillMarker[]} */
   const fillMarkers = [];
   /** @type {{ q: number, p: number }[]} */
-  const longLots = [];
+  const longLots = initialFifoState
+    ? initialFifoState.longLots.map((x) => ({ q: x.q, p: x.p }))
+    : [];
   /** @type {{ q: number, p: number }[]} */
-  const shortLots = [];
-  let realized = 0;
+  const shortLots = initialFifoState
+    ? initialFifoState.shortLots.map((x) => ({ q: x.q, p: x.p }))
+    : [];
+  let realized = initialFifoState ? initialFifoState.realized : 0;
 
   for (const f of sorted) {
     const side = String(f?.side || "").toUpperCase();
@@ -229,7 +257,12 @@ export function runningPnlSeriesFromFills(fills, getUnixForFill) {
     const idRaw = String(f?.id ?? "").trim();
     fillMarkers.push(idRaw ? { time: u, value, kind, id: idRaw } : { time: u, value, kind });
   }
-  return { points: out, fillMarkers };
+  const finalFifoState = {
+    longLots: longLots.map((x) => ({ q: x.q, p: x.p })),
+    shortLots: shortLots.map((x) => ({ q: x.q, p: x.p })),
+    realized,
+  };
+  return { points: out, fillMarkers, finalFifoState };
 }
 
 /**
@@ -239,6 +272,6 @@ export function runningPnlSeriesFromFills(fills, getUnixForFill) {
  * @param {(f: object) => number | null} getUnixForFill
  * @returns {{ time: number, value: number }[]}
  */
-export function runningPnlAfterEachFill(fills, getUnixForFill) {
-  return runningPnlSeriesFromFills(fills, getUnixForFill).points;
+export function runningPnlAfterEachFill(fills, getUnixForFill, initialFifoState = null) {
+  return runningPnlSeriesFromFills(fills, getUnixForFill, initialFifoState).points;
 }
