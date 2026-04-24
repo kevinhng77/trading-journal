@@ -6734,6 +6734,7 @@ a.journal-row-trade-link:visited {
   flex-direction: column;
   height: 100%;
   min-height: 0;
+  overflow: hidden;
 }
 
 .running-pnl-chart-title {
@@ -6741,9 +6742,10 @@ a.journal-row-trade-link:visited {
   font-size: 12px;
   font-weight: 700;
   color: var(--text);
-  padding: 6px 10px 4px;
-  letter-spacing: 0.04em;
+  padding: 8px 12px 4px;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
 }
 
 .running-pnl-chart-hint {
@@ -6765,6 +6767,15 @@ a.journal-row-trade-link:visited {
   color: var(--muted);
 }
 
+.running-pnl-chart-legend--tradervue {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 20px;
+  row-gap: 6px;
+  padding: 6px 12px 8px;
+  align-items: center;
+}
+
 .running-pnl-chart-legend-item {
   display: inline-flex;
   align-items: center;
@@ -6775,6 +6786,13 @@ a.journal-row-trade-link:visited {
   width: 8px;
   height: 8px;
   flex-shrink: 0;
+}
+
+.running-pnl-chart-legend-swatch--area {
+  width: 14px;
+  height: 10px;
+  border-radius: 2px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
 }
 
 .running-pnl-chart-legend-swatch--buy {

@@ -99,7 +99,111 @@ export function collectFillsForSymbolAllJournal(trades, symbolUpper) {
   return dedupeFillsById(acc);
 }
 
+/**
+ * Every fill on `calendarDay` across all symbols (deduped by fill id). Fills include `symbol` when missing.
+ *
+ * @param {object[]} trades
+ * @param {string} calendarDay YYYY-MM-DD
+ * @returns {object[]}
+ */
+export function collectAllFillsOnCalendarDay(trades, calendarDay) {
+  const day = String(calendarDay ?? "").trim().slice(0, 10);
+  if (day.length !== 10) return [];
+  const acc = [];
+  for (const t of trades ?? []) {
+    const symT = String(t?.symbol ?? "")
+      .trim()
+      .toUpperCase();
+    for (const f of t?.fills ?? []) {
+      const fd = String(f?.date ?? t?.date ?? "")
+        .trim()
+        .slice(0, 10);
+      if (fd !== day) continue;
+      const symF = String(f?.symbol ?? "")
+        .trim()
+        .toUpperCase();
+      acc.push(symF ? f : { ...f, symbol: symT });
+    }
+  }
+  return dedupeFillsById(acc);
+}
+
+/**
+ * All fills on calendar days strictly before `calendarDay` (portfolio carry).
+ *
+ * @param {object[]} trades
+ * @param {string} calendarDay YYYY-MM-DD
+ * @returns {object[]}
+ */
+export function collectAllFillsBeforeCalendarDay(trades, calendarDay) {
+  const day = String(calendarDay ?? "").trim().slice(0, 10);
+  if (day.length !== 10) return [];
+  const acc = [];
+  for (const t of trades ?? []) {
+    const symT = String(t?.symbol ?? "")
+      .trim()
+      .toUpperCase();
+    for (const f of t?.fills ?? []) {
+      const fd = String(f?.date ?? t?.date ?? "")
+        .trim()
+        .slice(0, 10);
+      if (fd.length !== 10 || fd >= day) continue;
+      const symF = String(f?.symbol ?? "")
+        .trim()
+        .toUpperCase();
+      acc.push(symF ? f : { ...f, symbol: symT });
+    }
+  }
+  return dedupeFillsById(acc);
+}
+
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** @param {{ q: number, p: number }[]} longLots @param {{ q: number, p: number }[]} shortLots */
+function unrealizedFromLotsAtMark(longLots, shortLots, markPx) {
+  if (!Number.isFinite(markPx)) return 0;
+  let unrealized = 0;
+  for (const L of longLots) unrealized += L.q * (markPx - L.p);
+  for (const S of shortLots) unrealized += S.q * (S.p - markPx);
+  return unrealized;
+}
+
+/**
+ * Mutates `book`: FIFO apply BOT/SOLD at `px`, subtracts `fee` from realized.
+ * @param {{ longLots: { q: number, p: number }[], shortLots: { q: number, p: number }[], realized: number, lastPx: number }} book
+ */
+function applyExecutableFillToBook(book, side, q, px, fee) {
+  let realized = book.realized;
+  const longLots = book.longLots;
+  const shortLots = book.shortLots;
+  if (Number.isFinite(fee)) realized -= fee;
+
+  if (side === "BOT" || side === "BUY") {
+    let rem = q;
+    while (rem > 0 && shortLots.length) {
+      const s = shortLots[0];
+      const t = Math.min(rem, s.q);
+      realized += t * (s.p - px);
+      s.q -= t;
+      rem -= t;
+      if (s.q <= 1e-9) shortLots.shift();
+    }
+    if (rem > 0) longLots.push({ q: rem, p: px });
+  } else {
+    let rem = q;
+    while (rem > 0 && longLots.length) {
+      const L = longLots[0];
+      const t = Math.min(rem, L.q);
+      realized += t * (px - L.p);
+      L.q -= t;
+      rem -= t;
+      if (L.q <= 1e-9) longLots.shift();
+    }
+    if (rem > 0) shortLots.push({ q: rem, p: px });
+  }
+  book.realized = realized;
+  book.lastPx = px;
+}
 
 /**
  * Pad running P&amp;L points to the NY **extended** session window so the chart spans the full day.
@@ -208,7 +312,13 @@ export function runningPnlSeriesFromFills(fills, getUnixForFill, initialFifoStat
   const shortLots = initialFifoState
     ? initialFifoState.shortLots.map((x) => ({ q: x.q, p: x.p }))
     : [];
-  let realized = initialFifoState ? initialFifoState.realized : 0;
+
+  const book = {
+    longLots,
+    shortLots,
+    realized: initialFifoState ? initialFifoState.realized : 0,
+    lastPx: NaN,
+  };
 
   for (const f of sorted) {
     const side = String(f?.side || "").toUpperCase();
@@ -221,46 +331,19 @@ export function runningPnlSeriesFromFills(fills, getUnixForFill, initialFifoStat
     if (side !== "BOT" && side !== "BUY" && side !== "SOLD" && side !== "SLD" && side !== "SELL") continue;
 
     const fee = (Number(f?.commission) || 0) + (Number(f?.miscFees) || 0);
-    if (Number.isFinite(fee)) realized -= fee;
+    applyExecutableFillToBook(book, side, q, px, fee);
 
-    if (side === "BOT" || side === "BUY") {
-      let rem = q;
-      while (rem > 0 && shortLots.length) {
-        const s = shortLots[0];
-        const t = Math.min(rem, s.q);
-        realized += t * (s.p - px);
-        s.q -= t;
-        rem -= t;
-        if (s.q <= 1e-9) shortLots.shift();
-      }
-      if (rem > 0) longLots.push({ q: rem, p: px });
-    } else {
-      let rem = q;
-      while (rem > 0 && longLots.length) {
-        const L = longLots[0];
-        const t = Math.min(rem, L.q);
-        realized += t * (px - L.p);
-        L.q -= t;
-        rem -= t;
-        if (L.q <= 1e-9) longLots.shift();
-      }
-      if (rem > 0) shortLots.push({ q: rem, p: px });
-    }
-
-    let unrealized = 0;
-    for (const L of longLots) unrealized += L.q * (px - L.p);
-    for (const S of shortLots) unrealized += S.q * (S.p - px);
-
-    const value = Math.round((realized + unrealized) * 100) / 100;
+    const unrealized = unrealizedFromLotsAtMark(book.longLots, book.shortLots, book.lastPx);
+    const value = Math.round((book.realized + unrealized) * 100) / 100;
     out.push({ time: u, value });
     const kind = side === "BOT" || side === "BUY" ? "buy" : "sell";
     const idRaw = String(f?.id ?? "").trim();
     fillMarkers.push(idRaw ? { time: u, value, kind, id: idRaw } : { time: u, value, kind });
   }
   const finalFifoState = {
-    longLots: longLots.map((x) => ({ q: x.q, p: x.p })),
-    shortLots: shortLots.map((x) => ({ q: x.q, p: x.p })),
-    realized,
+    longLots: book.longLots.map((x) => ({ q: x.q, p: x.p })),
+    shortLots: book.shortLots.map((x) => ({ q: x.q, p: x.p })),
+    realized: book.realized,
   };
   return { points: out, fillMarkers, finalFifoState };
 }
@@ -274,4 +357,108 @@ export function runningPnlSeriesFromFills(fills, getUnixForFill, initialFifoStat
  */
 export function runningPnlAfterEachFill(fills, getUnixForFill, initialFifoState = null) {
   return runningPnlSeriesFromFills(fills, getUnixForFill, initialFifoState).points;
+}
+
+/** @typedef {Map<string, { longLots: { q: number, p: number }[], shortLots: { q: number, p: number }[], realized: number, lastPx: number }>} PortfolioSymBooks */
+
+/** @param {PortfolioSymBooks} books @param {string} sym */
+function getPortfolioSymBook(books, sym) {
+  if (!books.has(sym)) {
+    books.set(sym, { longLots: [], shortLots: [], realized: 0, lastPx: NaN });
+  }
+  return books.get(sym);
+}
+
+/** @param {PortfolioSymBooks} src */
+function clonePortfolioSymBooks(src) {
+  const m = /** @type {PortfolioSymBooks} */ (new Map());
+  for (const [k, v] of src) {
+    m.set(k, {
+      longLots: v.longLots.map((x) => ({ q: x.q, p: x.p })),
+      shortLots: v.shortLots.map((x) => ({ q: x.q, p: x.p })),
+      realized: v.realized,
+      lastPx: v.lastPx,
+    });
+  }
+  return m;
+}
+
+/** Total portfolio P&amp;L: sum of each symbol realized + MTM at that symbol's last trade price. */
+export function portfolioTotalPnlFromBooks(books) {
+  let sum = 0;
+  for (const b of books.values()) {
+    sum += b.realized + unrealizedFromLotsAtMark(b.longLots, b.shortLots, b.lastPx);
+  }
+  return Math.round(sum * 100) / 100;
+}
+
+/**
+ * FIFO books after processing fills (all symbols). Used as opening state for a session day.
+ *
+ * @param {object[]|undefined} fills
+ * @param {(f: object) => number | null} getUnixForFill
+ * @returns {PortfolioSymBooks}
+ */
+export function portfolioBooksAfterFills(fills, getUnixForFill) {
+  const books = /** @type {PortfolioSymBooks} */ (new Map());
+  const sorted = [...(fills || [])].sort(compareFillsBySessionThenTime);
+  for (const f of sorted) {
+    const sym = String(f?.symbol ?? "")
+      .trim()
+      .toUpperCase();
+    if (!sym) continue;
+    const side = String(f?.side || "").toUpperCase();
+    const q = Math.abs(Number(f?.quantity));
+    const px = Number(f?.price);
+    const u = getUnixForFill(f);
+    if (u == null || !Number.isFinite(u)) continue;
+    if (!Number.isFinite(q) || q <= 0 || !Number.isFinite(px)) continue;
+    if (side !== "BOT" && side !== "BUY" && side !== "SOLD" && side !== "SLD" && side !== "SELL") continue;
+    const fee = (Number(f?.commission) || 0) + (Number(f?.miscFees) || 0);
+    const book = getPortfolioSymBook(books, sym);
+    applyExecutableFillToBook(book, side, q, px, fee);
+  }
+  return books;
+}
+
+/**
+ * Running P&amp;L after each fill, **all symbols** in one series (Tradervue-style full-day curve).
+ *
+ * @param {object[]|undefined} fills
+ * @param {(f: object) => number | null} getUnixForFill
+ * @param {PortfolioSymBooks | null} [initialBooks]
+ * @returns {{ points: { time: number, value: number }[], fillMarkers: RunningPnlFillMarker[] }}
+ */
+export function runningPnlPortfolioSeriesFromFills(fills, getUnixForFill, initialBooks = null) {
+  const books = initialBooks ? clonePortfolioSymBooks(initialBooks) : /** @type {PortfolioSymBooks} */ (new Map());
+  const sorted = [...(fills || [])].sort(compareFillsBySessionThenTime);
+  /** @type {{ time: number, value: number }[]} */
+  const out = [];
+  /** @type {RunningPnlFillMarker[]} */
+  const fillMarkers = [];
+
+  for (const f of sorted) {
+    const sym = String(f?.symbol ?? "")
+      .trim()
+      .toUpperCase();
+    if (!sym) continue;
+    const side = String(f?.side || "").toUpperCase();
+    const q = Math.abs(Number(f?.quantity));
+    const px = Number(f?.price);
+    const u = getUnixForFill(f);
+    if (u == null || !Number.isFinite(u)) continue;
+    if (!Number.isFinite(q) || q <= 0 || !Number.isFinite(px)) continue;
+    if (side !== "BOT" && side !== "BUY" && side !== "SOLD" && side !== "SLD" && side !== "SELL") continue;
+
+    const fee = (Number(f?.commission) || 0) + (Number(f?.miscFees) || 0);
+    const book = getPortfolioSymBook(books, sym);
+    applyExecutableFillToBook(book, side, q, px, fee);
+
+    const value = portfolioTotalPnlFromBooks(books);
+    out.push({ time: u, value });
+    const kind = side === "BOT" || side === "BUY" ? "buy" : "sell";
+    const idRaw = String(f?.id ?? "").trim();
+    fillMarkers.push(idRaw ? { time: u, value, kind, id: idRaw } : { time: u, value, kind });
+  }
+  return { points: out, fillMarkers };
 }
