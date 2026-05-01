@@ -4,13 +4,22 @@ import { HashRouter } from "react-router-dom";
 import App from "./App";
 import "./style.css";
 import { applyStoredUiTheme } from "./storage/uiTheme";
+import { hydrateTradesStorageCache } from "./storage/storage";
 
 applyStoredUiTheme();
 
-ReactDOM.createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
-    <HashRouter>
-      <App />
-    </HashRouter>
-  </React.StrictMode>
-);
+const rootEl = document.getElementById("root");
+
+hydrateTradesStorageCache()
+  .catch((err) => {
+    console.warn("tj: trade storage hydrate failed — reload may fix", err);
+  })
+  .finally(() => {
+    ReactDOM.createRoot(rootEl).render(
+      <React.StrictMode>
+        <HashRouter>
+          <App />
+        </HashRouter>
+      </React.StrictMode>,
+    );
+  });

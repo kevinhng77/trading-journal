@@ -1,3 +1,6 @@
+import { invalidateTradesCacheForAccount } from "./tradesCache.js";
+import { idbDeleteTrades } from "./tradesIndexedDb.js";
+
 /**
  * Broker / account profiles: separate trade lists and related notes per account bucket.
  * Accounts are user-defined (add/remove); each has an import format (Schwab/TOS vs DAS parser).
@@ -159,6 +162,8 @@ export function clearAccountStorage(accountId) {
   } catch {
     /* ignore */
   }
+  invalidateTradesCacheForAccount(accountId);
+  void idbDeleteTrades(accountId).catch(() => {});
   window.dispatchEvent(new Event("tj-trades-updated"));
 }
 

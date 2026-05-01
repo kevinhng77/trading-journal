@@ -4,12 +4,18 @@ import { sumSchwabLineConsiderationFromFills } from "../lib/schwabConsiderationP
 import {
   ensureTradesMigratedForAccounts,
   getActiveAccountId,
+  listTradingAccounts,
   tradesStorageKey,
 } from "./tradingAccounts";
 import { clearStarredTradeIdsForAccount } from "./starredItems.js";
 import { collapseOppositeOpenSwingPairs } from "../lib/mergeOppositeOpenSwings.js";
+import { idbGetTrades, idbPutTrades, openTradesDb } from "./tradesIndexedDb.js";
+import { getTradesCache, setTradesCache } from "./tradesCache.js";
 
 export const TRADES_UPDATED_EVENT = "tj-trades-updated";
+
+/** `"idb"` uses IndexedDB (much larger quota); `"localStorage"` is the legacy ~5MB sync fallback. */
+let tradesPersistBackend = /** @type {"idb" | "localStorage"} */ ("idb");
 
 /** BOT/SOLD cash-grid fills: recompute stored `pnl` so bad merges / string amounts cannot drift (e.g. −$859). */
 function isSchwabStyleCashFills(trade) {
@@ -30,24 +36,136 @@ function normalizeTradePnlFromFills(trade) {
   return trade;
 }
 
+function finalizeLoadedRows(rows) {
+  const normalized = (Array.isArray(rows) ? rows : []).map(normalizeTradePnlFromFills);
+  return collapseOppositeOpenSwingPairs(normalized);
+}
+
+/**
+ * Load trade arrays into memory (and migrate localStorage → IndexedDB when possible).
+ * Call once before rendering React (`main.jsx`).
+ */
+export async function hydrateTradesStorageCache() {
+  ensureTradesMigratedForAccounts();
+  tradesPersistBackend = "idb";
+  try {
+    await openTradesDb();
+  } catch {
+    tradesPersistBackend = "localStorage";
+    console.warn(
+      "tj: IndexedDB unavailable — trades stay in localStorage only (smaller browser quota). Try another browser or disable strict tracking.",
+    );
+  }
+
+  const accounts = listTradingAccounts();
+  for (const { id } of accounts) {
+    /** @type {unknown[]} */
+    let rows;
+
+    if (tradesPersistBackend === "idb") {
+      const fromIdb = await idbGetTrades(id);
+      if (fromIdb !== undefined) {
+        rows = fromIdb;
+      } else {
+        const raw = typeof localStorage !== "undefined" ? localStorage.getItem(tradesStorageKey(id)) : null;
+        try {
+          rows = raw ? JSON.parse(raw) : [];
+          if (!Array.isArray(rows)) rows = [];
+        } catch {
+          rows = [];
+        }
+      }
+    } else {
+      const raw = typeof localStorage !== "undefined" ? localStorage.getItem(tradesStorageKey(id)) : null;
+      try {
+        rows = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(rows)) rows = [];
+      } catch {
+        rows = [];
+      }
+    }
+
+    const { next, changed } = finalizeLoadedRows(rows);
+    setTradesCache(id, next);
+
+    if (changed && Array.isArray(next) && next.length === 0) {
+      clearStarredTradeIdsForAccount(id);
+    }
+
+    try {
+      if (tradesPersistBackend === "idb") {
+        await idbPutTrades(id, next);
+        try {
+          localStorage.removeItem(tradesStorageKey(id));
+        } catch {
+          /* ignore */
+        }
+      } else {
+        localStorage.setItem(tradesStorageKey(id), JSON.stringify(next));
+      }
+    } catch (e) {
+      if (e && e.name === "QuotaExceededError") {
+        console.warn("tj: quota while hydrating trades", id, e);
+      }
+    }
+  }
+}
+
+/** @param {string} accountId @param {unknown[]} trades */
+function persistTradesFireAndForget(accountId, trades) {
+  const key = tradesStorageKey(accountId);
+  if (tradesPersistBackend === "localStorage") {
+    try {
+      localStorage.setItem(key, JSON.stringify(trades));
+    } catch (e) {
+      if (e && e.name === "QuotaExceededError") {
+        throw new Error(
+          "Browser storage is full. Clear old trades or export a smaller CSV (e.g. one week), then try again.",
+        );
+      }
+      throw e;
+    }
+    return;
+  }
+
+  void idbPutTrades(accountId, trades)
+    .then(() => {
+      try {
+        localStorage.removeItem(key);
+      } catch {
+        /* ignore */
+      }
+    })
+    .catch((err) => {
+      console.warn("tj: IndexedDB save failed; retrying localStorage", err);
+      tradesPersistBackend = "localStorage";
+      try {
+        localStorage.setItem(key, JSON.stringify(trades));
+      } catch (e) {
+        if (e && e.name === "QuotaExceededError") {
+          console.error("tj: localStorage quota after IDB failure", e);
+        }
+      }
+    });
+}
+
 /** @param {string} accountId */
 export function loadTradesForAccount(accountId) {
   try {
     ensureTradesMigratedForAccounts();
-    const key = tradesStorageKey(accountId);
-    const raw = localStorage.getItem(key);
-    const arr = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(arr)) return [];
-    const normalized = arr.map(normalizeTradePnlFromFills);
+    const cached = getTradesCache(accountId);
+    /** @type {unknown[]} */
+    const rawList = cached !== undefined ? cached : [];
+    const normalized = rawList.map(normalizeTradePnlFromFills);
     const { next, changed } = collapseOppositeOpenSwingPairs(normalized);
     if (changed) {
+      setTradesCache(accountId, next);
       try {
-        localStorage.setItem(key, JSON.stringify(next));
+        persistTradesFireAndForget(accountId, next);
         if (Array.isArray(next) && next.length === 0) {
           clearStarredTradeIdsForAccount(accountId);
         }
         window.dispatchEvent(new Event(TRADES_UPDATED_EVENT));
-        return next.map(normalizeTradePnlFromFills);
       } catch (e) {
         if (e && e.name === "QuotaExceededError") {
           console.warn("tj: could not persist opposite-open swing merge (quota)", e);
@@ -55,6 +173,7 @@ export function loadTradesForAccount(accountId) {
         }
         throw e;
       }
+      return next.map(normalizeTradePnlFromFills);
     }
     return normalized;
   } catch {
@@ -68,11 +187,11 @@ export function loadTrades() {
 
 /** @param {string} accountId @param {unknown[]} trades */
 export function saveTradesForAccount(accountId, trades) {
+  const arr = Array.isArray(trades) ? [...trades] : [];
+  const { next } = collapseOppositeOpenSwingPairs(arr);
+  setTradesCache(accountId, next);
   try {
-    const key = tradesStorageKey(accountId);
-    const arr = Array.isArray(trades) ? [...trades] : [];
-    const { next } = collapseOppositeOpenSwingPairs(arr);
-    localStorage.setItem(key, JSON.stringify(next));
+    persistTradesFireAndForget(accountId, next);
     if (Array.isArray(next) && next.length === 0) {
       clearStarredTradeIdsForAccount(accountId);
     }
