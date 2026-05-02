@@ -8583,48 +8583,6 @@ a.journal-row-trade-link:visited {
   width: 100%;
 }
 
-.trade-execution-chart-host--with-capture-meta > .trade-execution-chart-capture-meta {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 9;
-  display: flex;
-  align-items: center;
-  min-height: 30px;
-  padding: 5px 12px 7px;
-  box-sizing: border-box;
-  pointer-events: none;
-  background: linear-gradient(180deg, rgba(10, 12, 18, 0.97) 0%, rgba(10, 12, 18, 0.55) 70%, transparent 100%);
-}
-
-.trade-execution-chart-capture-meta-text {
-  font-size: 13px;
-  font-weight: 700;
-  font-family: inherit;
-  letter-spacing: 0.03em;
-  color: rgba(226, 232, 240, 0.95);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
-.trade-execution-chart-pane {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-}
-
-.trade-execution-chart-host--with-capture-meta > .trade-execution-chart-pane {
-  top: 30px;
-}
-
-.trade-execution-chart-host--with-capture-meta .trade-execution-chart-legend-slot {
-  top: 36px;
-}
-
 .trade-execution-chart-host--risk-mark .trade-execution-chart-canvas {
   cursor: crosshair;
 }
@@ -8723,7 +8681,7 @@ a.journal-row-trade-link:visited {
   color: #94a3b8;
 }
 
-.trade-execution-chart-pane > .trade-execution-chart-canvas {
+.trade-execution-chart-host > .trade-execution-chart-canvas {
   position: absolute;
   inset: 0;
   width: 100%;

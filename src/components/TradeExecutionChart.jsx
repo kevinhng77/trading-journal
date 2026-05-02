@@ -62,15 +62,6 @@ const CHART_BUSINESS_DAY_TZ = "America/New_York";
 
 const FILL_ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Trade anchor date for clipboard / share screenshot strip (`YYYY-MM-DD`). */
-function formatTradeSessionDateForCapture(iso) {
-  const s = String(iso ?? "").trim();
-  if (!s) return "";
-  const d = parseISO(`${s.slice(0, 10)}T12:00:00`);
-  if (Number.isNaN(d.getTime())) return s.slice(0, 10);
-  return format(d, "MMM d, yyyy");
-}
-
 /**
  * @param {import("lightweight-charts").Time} t
  * @param {boolean} daily
@@ -529,12 +520,6 @@ export default function TradeExecutionChart({
     if (!minD || !maxD) return null;
     return { start: minD, end: maxD };
   }, [fills]);
-
-  const captureMetaLabel = useMemo(() => {
-    const sym = String(symbol ?? "").trim() || "—";
-    const dStr = formatTradeSessionDateForCapture(tradeDate);
-    return dStr ? `${sym} · ${dStr}` : sym;
-  }, [symbol, tradeDate]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1548,42 +1533,37 @@ export default function TradeExecutionChart({
     stackBody = (
       <>
         <div
-          className={`trade-execution-chart-host trade-execution-chart-host--with-capture-meta${
-            riskLineMarkMode ? " trade-execution-chart-host--risk-mark" : ""
-          }${trendlineDrawMode ? " trade-execution-chart-host--numbered-notes" : ""}`}
+          className={`trade-execution-chart-host${riskLineMarkMode ? " trade-execution-chart-host--risk-mark" : ""}${
+            trendlineDrawMode ? " trade-execution-chart-host--numbered-notes" : ""
+          }`}
           onContextMenu={(e) => {
             e.preventDefault();
             setChartContextMenu({ x: e.clientX, y: e.clientY });
           }}
         >
-          <div className="trade-execution-chart-capture-meta" aria-hidden="true">
-            <span className="trade-execution-chart-capture-meta-text">{captureMetaLabel}</span>
+          <div className="trade-execution-chart trade-execution-chart-canvas" ref={containerRef} />
+          <svg
+            ref={trendlineSvgRef}
+            className="trade-chart-trendlines-overlay"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden
+          />
+          <div ref={crosshairHLineRef} className="trade-chart-crosshair-hline" aria-hidden>
+            <svg className="trade-chart-crosshair-hline-svg" preserveAspectRatio="none" aria-hidden>
+              <line
+                x1="0"
+                y1="1"
+                x2="100%"
+                y2="1"
+                className="trade-chart-crosshair-hline-line"
+                vectorEffect="nonScalingStroke"
+              />
+            </svg>
           </div>
-          <div className="trade-execution-chart-pane">
-            <div className="trade-execution-chart trade-execution-chart-canvas" ref={containerRef} />
-            <svg
-              ref={trendlineSvgRef}
-              className="trade-chart-trendlines-overlay"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden
-            />
-            <div ref={crosshairHLineRef} className="trade-chart-crosshair-hline" aria-hidden>
-              <svg className="trade-chart-crosshair-hline-svg" preserveAspectRatio="none" aria-hidden>
-                <line
-                  x1="0"
-                  y1="1"
-                  x2="100%"
-                  y2="1"
-                  className="trade-chart-crosshair-hline-line"
-                  vectorEffect="nonScalingStroke"
-                />
-              </svg>
-            </div>
-            <div ref={crosshairPriceRef} className="trade-chart-crosshair-price" aria-hidden />
-            <div ref={crosshairTimeRef} className="trade-chart-crosshair-time" aria-hidden />
-            <div ref={roundTripShadeRef} className="trade-chart-roundtrip-shades" aria-hidden />
-            <div ref={sessionShadeRef} className="trade-chart-session-shades" aria-hidden />
-          </div>
+          <div ref={crosshairPriceRef} className="trade-chart-crosshair-price" aria-hidden />
+          <div ref={crosshairTimeRef} className="trade-chart-crosshair-time" aria-hidden />
+          <div ref={roundTripShadeRef} className="trade-chart-roundtrip-shades" aria-hidden />
+          <div ref={sessionShadeRef} className="trade-chart-session-shades" aria-hidden />
           <div className="trade-execution-chart-legend-slot">
             <button
               type="button"
