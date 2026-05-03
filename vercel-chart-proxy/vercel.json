@@ -9,6 +9,10 @@
     {
       "source": "/api/massive/(.*)",
       "destination": "/api/proxy?service=massive&p=$1"
+    },
+    {
+      "source": "/api/oura/(.*)",
+      "destination": "/api/proxy?service=oura&p=$1"
     }
   ]
 }

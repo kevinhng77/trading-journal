@@ -45,6 +45,7 @@ export default defineConfig(({ mode }) => {
   const alpacaKey = envAlpacaValue(env.ALPACA_API_KEY_ID);
   const alpacaSecret = envAlpacaValue(env.ALPACA_API_SECRET_KEY);
   const massiveApiKey = envAlpacaValue(env.MASSIVE_API_KEY);
+  const ouraPat = envAlpacaValue(env.OURA_PERSONAL_ACCESS_TOKEN);
 
   return {
     plugins: [react()],
@@ -71,6 +72,17 @@ export default defineConfig(({ mode }) => {
               const pathWithQuery = proxyReq.path || "";
               const sep = pathWithQuery.includes("?") ? "&" : "?";
               proxyReq.path = `${pathWithQuery}${sep}apiKey=${encodeURIComponent(massiveApiKey)}`;
+            });
+          },
+        },
+        "/api/oura": {
+          target: "https://api.ouraring.com",
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/oura/, ""),
+          configure: (proxy) => {
+            proxy.on("proxyReq", (proxyReq) => {
+              if (!ouraPat) return;
+              proxyReq.setHeader("Authorization", `Bearer ${ouraPat}`);
             });
           },
         },

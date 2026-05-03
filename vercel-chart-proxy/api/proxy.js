@@ -1,6 +1,6 @@
 /**
- * Single serverless entry for Alpaca + Massive (rewrites from /api/alpaca/* and /api/massive/*).
- * Env: ALPACA_API_KEY_ID, ALPACA_API_SECRET_KEY, MASSIVE_API_KEY, optional ALLOWED_ORIGIN
+ * Single serverless entry for Alpaca + Massive + Oura (URL rewrites under /api/).
+ * Env: ALPACA_API_KEY_ID, ALPACA_API_SECRET_KEY, MASSIVE_API_KEY, OURA_PERSONAL_ACCESS_TOKEN, optional ALLOWED_ORIGIN
  */
 
 function corsAllowOrigin() {
@@ -30,10 +30,34 @@ module.exports = async (req, res) => {
     const service = String(u.searchParams.get("service") || "").toLowerCase();
     const pathPart = String(u.searchParams.get("p") || "").replace(/^\/+/, "");
 
-    if (service !== "alpaca" && service !== "massive") {
+    if (service !== "alpaca" && service !== "massive" && service !== "oura") {
       res.statusCode = 400;
       res.setHeader("content-type", "application/json");
-      res.end(JSON.stringify({ error: "Invalid or missing service (alpaca|massive)" }));
+      res.end(JSON.stringify({ error: "Invalid or missing service (alpaca|massive|oura)" }));
+      return;
+    }
+
+    if (service === "oura") {
+      const token = process.env.OURA_PERSONAL_ACCESS_TOKEN;
+      if (!token) {
+        res.statusCode = 500;
+        res.setHeader("content-type", "application/json");
+        res.end(JSON.stringify({ error: "Missing OURA_PERSONAL_ACCESS_TOKEN on Vercel" }));
+        return;
+      }
+      const target = new URL(`https://api.ouraring.com/${pathPart}`);
+      u.searchParams.forEach((value, key) => {
+        if (key === "service" || key === "p") return;
+        target.searchParams.set(key, value);
+      });
+      const upstream = await fetch(target.toString(), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const text = await upstream.text();
+      const ct = upstream.headers.get("content-type");
+      if (ct) res.setHeader("content-type", ct);
+      res.statusCode = upstream.status;
+      res.end(text);
       return;
     }
 

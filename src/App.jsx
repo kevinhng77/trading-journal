@@ -20,6 +20,7 @@ import SettingsGeneralPage from "./pages/SettingsGeneralPage";
 import SettingsTradeImportPage from "./pages/SettingsTradeImportPage";
 import SettingsTradingAccountPage from "./pages/SettingsTradingAccountPage";
 import ImportTradesPage from "./pages/ImportTradesPage";
+import Oura from "./pages/Oura";
 
 function App() {
   return (
@@ -47,6 +48,7 @@ function App() {
         <Route path="/journal" element={<Journal />} />
         <Route path="/star" element={<StarReview />} />
         <Route path="/playbook" element={<Playbook />} />
+        <Route path="/oura" element={<Oura />} />
         <Route path="/import-trades" element={<ImportTradesPage />} />
       </Route>
     </Routes>
