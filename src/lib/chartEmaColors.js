@@ -1,36 +1,35 @@
 /**
- * Thinkorswim-style MA colors on a dark chart (STI / flexible-grid layouts):
- * short blue → red → gold → cyan on long; purple for mid; orange for fast alt periods.
- * Used for rendering; well-known periods map to fixed hues, others use stored prefs or a fallback cycle.
+ * Thinkorswim MA colors (STI chart legend: 200 cyan, 100 orange, 50 red, 20 blue; short EMA magenta).
+ * Well-known periods use fixed hues; others use stored prefs or a fallback cycle.
  */
 
 /** @type {Record<number, string>} */
 const TOS_EMA_BY_PERIOD = {
-  8: "#ff4d4d",
-  9: "#ff4d4d",
-  10: "#4169e1",
-  12: "#ff4d4d",
-  20: "#3366ff",
-  21: "#3366ff",
+  8: "#ff5ca8",
+  9: "#ff5ca8",
+  10: "#ff5ca8",
+  12: "#ff5ca8",
+  20: "#2962ff",
+  21: "#2962ff",
   34: "#ff9900",
-  50: "#ffd700",
-  55: "#ffd700",
-  89: "#00ffff",
-  100: "#ffcc00",
+  50: "#ff0000",
+  55: "#ff0000",
+  89: "#bc00ff",
+  100: "#ffa500",
   144: "#bc00ff",
   200: "#00ffff",
 };
 
-/** When period is not in {@link TOS_EMA_BY_PERIOD}, cycle these (TOS flexible-grid order). */
+/** Flexible-grid / extra studies when period is not in {@link TOS_EMA_BY_PERIOD}. */
 export const TOS_EMA_FALLBACK_CYCLE = [
+  "#ff5ca8",
   "#ff9900",
   "#00ffff",
   "#bc00ff",
-  "#4169e1",
-  "#ffcc00",
-  "#ff4d4d",
-  "#ffd700",
-  "#3366ff",
+  "#ffa500",
+  "#ff0000",
+  "#2962ff",
+  "#ffff00",
 ];
 
 /**
