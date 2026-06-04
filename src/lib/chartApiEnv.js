@@ -28,6 +28,21 @@ export function assertLiveChartProxyOrThrow() {
   throw err;
 }
 
+/** Same-origin `/api/oura` in dev; production uses `VITE_CHART_API_ORIGIN` when deployed with proxy env (see vercel-chart-proxy). */
+export function isOuraProxyAvailable() {
+  return isLiveChartDataAvailable();
+}
+
+/** @throws {Error & { code?: string }} */
+export function assertOuraProxyOrThrow() {
+  if (isOuraProxyAvailable()) return;
+  const err = new Error(
+    "Oura needs npm run dev with OURA_PERSONAL_ACCESS_TOKEN in .env or keys.env, or set VITE_CHART_API_ORIGIN on a deployment that forwards /api/oura with that token (see vercel-chart-proxy).",
+  );
+  err.code = "OURA_PROXY_UNAVAILABLE";
+  throw err;
+}
+
 /**
  * @param {"alpaca"|"massive"} service
  * @param {string} pathAndQuery - path starting with `/v2/...` plus optional `?query`

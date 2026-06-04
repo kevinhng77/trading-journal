@@ -64,6 +64,10 @@ function Sidebar() {
           Playbook
         </NavLink>
 
+        <NavLink to="/oura" className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}>
+          Oura
+        </NavLink>
+
         <NavLink
           to="/star"
           className={({ isActive }) => `nav-link nav-link--star ${isActive ? "active" : ""}`}

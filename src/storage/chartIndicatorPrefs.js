@@ -3,7 +3,7 @@ const STORAGE_KEY = "tradingJournalChartIndicators";
 /** Max EMA lines per chart (performance / UI). */
 export const MAX_EMA_LINES = 24;
 
-import { TOS_EMA_FALLBACK_CYCLE } from "../lib/chartEmaColors";
+import { TOS_EMA_FALLBACK_CYCLE, tosEmaColorForPeriod } from "../lib/chartEmaColors";
 
 /** @typedef {'triangle' | 'circle' | 'square' | 'diamond'} MarkerShape */
 /** @typedef {'color' | 'size' | 'both'} MarkerSizingMode */
@@ -16,7 +16,7 @@ import { TOS_EMA_FALLBACK_CYCLE } from "../lib/chartEmaColors";
 
 export const DEFAULT_VWAP = /** @type {VwapPrefs} */ ({
   enabled: false,
-  color: "#ffeb3b",
+  color: "#bf5fff",
   width: 1,
   lineStyle: 0,
 });
@@ -30,9 +30,9 @@ export const DEFAULT_ROUND_TRIP_SHADING = /** @type {RoundTripShadingPrefs} */ (
 });
 
 export const DEFAULT_CHART_INDICATOR_PREFS = /** @type {ChartIndicatorPrefs} */ ({
-  version: 7,
+  version: 8,
   markers: {
-    /* Buys: vivid emerald that still reads on white TOS-up candles; sells: soft rose (not same as candle down red) */
+    /* Buys/sells: read on teal TOS-up candles; sells avoid magenta down-candle hue */
     buy: "#2ecd75",
     sell: "#f87171",
     size: 12,
@@ -42,11 +42,11 @@ export const DEFAULT_CHART_INDICATOR_PREFS = /** @type {ChartIndicatorPrefs} */ 
   },
   roundTripShading: { ...DEFAULT_ROUND_TRIP_SHADING },
   emaLines: [
-    { id: "ema10", kind: "ema", enabled: true, period: 10, color: "#ff5ca8", width: 1, lineStyle: 0 },
-    { id: "ema20", kind: "ema", enabled: true, period: 20, color: "#f44336", width: 1, lineStyle: 0 },
-    { id: "ema50", kind: "ema", enabled: true, period: 50, color: "#ffa726", width: 1, lineStyle: 0 },
-    { id: "ema100", kind: "ema", enabled: true, period: 100, color: "#26c6da", width: 1, lineStyle: 0 },
-    { id: "ema200", kind: "ema", enabled: true, period: 200, color: "#2962ff", width: 1, lineStyle: 0 },
+    { id: "ema10", kind: "ema", enabled: true, period: 10, color: "#4169e1", width: 1, lineStyle: 0 },
+    { id: "ema20", kind: "ema", enabled: true, period: 20, color: "#3366ff", width: 1, lineStyle: 0 },
+    { id: "ema50", kind: "ema", enabled: true, period: 50, color: "#ffd700", width: 1, lineStyle: 0 },
+    { id: "ema100", kind: "ema", enabled: true, period: 100, color: "#ffcc00", width: 1, lineStyle: 0 },
+    { id: "ema200", kind: "ema", enabled: true, period: 200, color: "#00ffff", width: 1, lineStyle: 0 },
   ],
   vwap: { ...DEFAULT_VWAP },
 });
@@ -209,7 +209,17 @@ export function normalizeChartIndicatorPrefs(data) {
     base.emaLines.sort((a, b) => a.period - b.period);
   }
 
-  base.version = 7;
+  if (prevVersion < 8) {
+    for (const line of base.emaLines) {
+      const tos = tosEmaColorForPeriod(line.period);
+      if (tos) line.color = tos;
+    }
+    if (base.vwap.color === "#ffeb3b" || base.vwap.color === "#ffff00") {
+      base.vwap.color = DEFAULT_VWAP.color;
+    }
+  }
+
+  base.version = 8;
   return base;
 }
 
@@ -238,7 +248,9 @@ export function createEmaLineDraft(existingLines, kind = "ema") {
     typeof crypto !== "undefined" && crypto.randomUUID
       ? `ma-${crypto.randomUUID()}`
       : `ma-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
-  const color = TOS_EMA_FALLBACK_CYCLE[existingLines.length % TOS_EMA_FALLBACK_CYCLE.length];
+  const color =
+    tosEmaColorForPeriod(period) ??
+    TOS_EMA_FALLBACK_CYCLE[existingLines.length % TOS_EMA_FALLBACK_CYCLE.length];
   return { id, kind, enabled: true, period, color, width: 1, lineStyle: 0 };
 }
 

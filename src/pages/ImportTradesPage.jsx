@@ -56,7 +56,7 @@ export default function ImportTradesPage() {
           ? parseDasTradesCsv(text, { groupingMode })
           : parseThinkorswimAccountCsv(text, {
               groupingMode,
-              fillsSource: "cashTrdOnly",
+              fillsSource: "cashTrdPlusAth",
             });
       if (trades.length === 0) {
         window.alert(

@@ -28,3 +28,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Xcode / SwiftPM (iOS helper projects)
+**/DerivedData/
+*.xcuserstate
+**/xcuserdata/
+*.ipa
+*.dSYM.zip

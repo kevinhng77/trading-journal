@@ -147,10 +147,55 @@ function fillExecutionDedupKey(f) {
   return `${f.date}|${t}|${String(f.symbol).toUpperCase()}|${f.side}|${f.quantity}`;
 }
 
-/** @param {string} line */
-function isAccountTradeHistoryTableHeader(line) {
-  const t = line.trim();
-  return t.includes("Exec Time") && t.includes("Symbol") && (t.includes("Net Price") || t.includes("Price"));
+/**
+ * Header row after "Account Trade History" / "Account Order History" — column indices vary by export.
+ * @param {string} line
+ * @returns {{
+ *   timeIdx: number,
+ *   spreadIdx: number,
+ *   sideIdx: number,
+ *   qtyIdx: number,
+ *   symbolIdx: number,
+ *   effectivePriceIdx: number,
+ *   statusIdx: number,
+ * } | null}
+ */
+function parseAthHeaderColumns(line) {
+  const fields = parseCsvLine(line);
+  if (fields.length < 8) return null;
+  const upper = fields.map((f) => stripCell(f).trim().toUpperCase());
+  const cellIdx = (name) => upper.findIndex((u) => u === name);
+
+  let timeIdx = -1;
+  for (const n of ["EXEC TIME", "TIME PLACED"]) {
+    const j = cellIdx(n);
+    if (j >= 0) {
+      timeIdx = j;
+      break;
+    }
+  }
+  const spreadIdx = cellIdx("SPREAD");
+  const sideIdx = cellIdx("SIDE");
+  const qtyIdx = cellIdx("QTY");
+  const symbolIdx = cellIdx("SYMBOL");
+  const statusIdx = cellIdx("STATUS");
+  const netPriceIdx = cellIdx("NET PRICE");
+  const priceOnlyIdx = upper.findIndex((u) => u === "PRICE");
+
+  if (timeIdx < 0 || spreadIdx < 0 || sideIdx < 0 || qtyIdx < 0 || symbolIdx < 0) return null;
+
+  const effectivePriceIdx = netPriceIdx >= 0 ? netPriceIdx : priceOnlyIdx;
+  if (effectivePriceIdx < 0) return null;
+
+  return {
+    timeIdx,
+    spreadIdx,
+    sideIdx,
+    qtyIdx,
+    symbolIdx,
+    effectivePriceIdx,
+    statusIdx,
+  };
 }
 
 function isProfitsAndLossesTableHeader(line) {
@@ -217,24 +262,33 @@ function parseSchwabExecDateTime(cell) {
 }
 
 /**
- * Schwab "Account Trade History" grid (leading comma rows) — carries fills for the full statement
- * range when the Cash Balance TRD block is only a short tail.
+ * Schwab **Account Trade History** / **Account Order History** grids (leading comma rows) — carries fills
+ * for the full statement range when the Cash Balance TRD block is empty or only a short tail.
+ * Prefer **Account Trade History** sections first so **Net Price** beats Order History **PRICE** (`~` on MKT).
  * @param {string[]} lines
  */
 function parseAccountTradeHistoryFills(lines) {
+  /** @type {{ line: number, section: "trade" | "order" }[]} */
+  const sectionStarts = [];
+  for (let si = 0; si < lines.length; si += 1) {
+    const t = lines[si].trim();
+    if (t === "Account Trade History") sectionStarts.push({ line: si, section: "trade" });
+    else if (t === "Account Order History") sectionStarts.push({ line: si, section: "order" });
+  }
+  sectionStarts.sort((a, b) => {
+    const p = (a.section === "trade" ? 0 : 1) - (b.section === "trade" ? 0 : 1);
+    return p !== 0 ? p : a.line - b.line;
+  });
+
   const out = [];
-  let i = 0;
-  while (i < lines.length) {
-    if (lines[i].trim() !== "Account Trade History") {
-      i += 1;
-      continue;
-    }
-    const headerLine = lines[i + 1];
-    if (!headerLine || !isAccountTradeHistoryTableHeader(headerLine)) {
-      i += 1;
-      continue;
-    }
-    i += 2;
+  const seen = new Set();
+
+  for (const { line: start } of sectionStarts) {
+    const headerLine = lines[start + 1];
+    const col = headerLine ? parseAthHeaderColumns(headerLine) : null;
+    if (!col) continue;
+
+    let i = start + 2;
     while (i < lines.length) {
       const line = lines[i];
       if (!line.trim()) {
@@ -245,32 +299,45 @@ function parseAccountTradeHistoryFills(lines) {
       if ((fields[0] ?? "").trim() !== "") {
         break;
       }
-      const rawExec = stripCell(fields[1] ?? "");
+
+      const rawExec = stripCell(fields[col.timeIdx] ?? "");
       const parsedDt = parseSchwabExecDateTime(rawExec);
       if (!parsedDt) {
         break;
       }
 
-      const spread = stripCell(fields[2] ?? "").toUpperCase();
+      if (col.statusIdx >= 0) {
+        const st = stripCell(fields[col.statusIdx] ?? "").toUpperCase();
+        if (st && st !== "FILLED") {
+          i += 1;
+          continue;
+        }
+      }
+
+      const spread = stripCell(fields[col.spreadIdx] ?? "").toUpperCase();
       if (spread !== "STOCK" && spread !== "ETF") {
         i += 1;
         continue;
       }
 
-      const sideRaw = stripCell(fields[3] ?? "").toUpperCase();
+      const sideRaw = stripCell(fields[col.sideIdx] ?? "").toUpperCase();
       if (sideRaw !== "BUY" && sideRaw !== "SELL") {
         i += 1;
         continue;
       }
 
-      const qty = Math.abs(Number(String(fields[4] ?? "").replace(/^\+/, "")));
-      const symbol = stripCell(fields[6] ?? "").toUpperCase();
+      const qty = Math.abs(Number(String(fields[col.qtyIdx] ?? "").replace(/^\+/, "")));
+      const symbol = stripCell(fields[col.symbolIdx] ?? "").toUpperCase();
       if (!symbol || !Number.isFinite(qty) || qty === 0) {
         i += 1;
         continue;
       }
 
-      const netPriceRaw = stripCell(fields[11] ?? fields[10] ?? "");
+      const netPriceRaw = stripCell(fields[col.effectivePriceIdx] ?? "");
+      if (netPriceRaw === "~") {
+        i += 1;
+        continue;
+      }
       const price = Number.parseFloat(netPriceRaw.replace(/,/g, ""));
       if (!Number.isFinite(price) || price <= 0) {
         i += 1;
@@ -287,10 +354,8 @@ function parseAccountTradeHistoryFills(lines) {
 
       const amount = side === "BOT" ? -qty * price : qty * price;
       const netCash = amount;
-      const fillId = `ath-${sessionDate}-${time}-${symbol}-${qty}-${side}-${i + 1}`;
-
-      out.push({
-        id: fillId,
+      const fill = {
+        id: "",
         date: sessionDate,
         time,
         ref: "",
@@ -302,8 +367,16 @@ function parseAccountTradeHistoryFills(lines) {
         misc: 0,
         comm: 0,
         netCash,
-        description: `${sideRaw} ${fields[4] ?? ""} ${symbol} @${price}`,
-      });
+        description: `${sideRaw} ${fields[col.qtyIdx] ?? ""} ${symbol} @${price}`,
+      };
+      const k = fillExecutionDedupKey(fill);
+      if (seen.has(k)) {
+        i += 1;
+        continue;
+      }
+      seen.add(k);
+      fill.id = `ath-${sessionDate}-${time}-${symbol}-${qty}-${side}-${i + 1}`;
+      out.push(fill);
       i += 1;
     }
   }

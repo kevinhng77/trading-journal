@@ -1,20 +1,22 @@
 /** @typedef {'tos' | 'das'} ChartSkinId */
 
-/** Thinkorswim-style dark chart (default). */
+/**
+ * Thinkorswim-style dark chart: charcoal pane, teal up / magenta down candles, subtle grid.
+ */
 export const CHART_SKIN_TOS = {
-  bg: "#131722",
-  text: "#d1d4dc",
-  grid: "rgba(42, 46, 57, 0.72)",
-  border: "rgba(54, 60, 78, 0.88)",
-  candleUp: "#ffffff",
-  candleDown: "#e31937",
-  candleBorderUp: "#9aa5b1",
-  candleBorderDown: "#b71c1c",
-  wickUp: "#cfd8e3",
-  wickDown: "#ff5252",
-  crosshair: "rgba(255, 255, 255, 0.2)",
-  volumeUp: "rgba(8, 153, 129, 0.72)",
-  volumeDown: "rgba(242, 54, 69, 0.72)",
+  bg: "#0b0e11",
+  text: "#b8bcc8",
+  grid: "rgba(36, 38, 44, 0.72)",
+  border: "rgba(42, 46, 54, 0.88)",
+  candleUp: "#00bfa5",
+  candleDown: "#ff3b69",
+  candleBorderUp: "#00bfa5",
+  candleBorderDown: "#ff3b69",
+  wickUp: "#00bfa5",
+  wickDown: "#ff3b69",
+  crosshair: "rgba(200, 206, 216, 0.32)",
+  volumeUp: "rgba(0, 191, 165, 0.68)",
+  volumeDown: "rgba(255, 59, 105, 0.68)",
 };
 
 /** DAS-style: black pane, green grid/axis, classic green/red candles, blue volume. */

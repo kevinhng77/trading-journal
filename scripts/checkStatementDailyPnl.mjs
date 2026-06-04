@@ -1,5 +1,5 @@
 /**
- * Print calendar-style day P&amp;L (merge grouping, Cash Balance TRD only) from a statement CSV.
+ * Print calendar-style day P&amp;L (merge grouping; Cash TRD + Account Trade History when enabled) from a statement CSV.
  *
  * Usage: node scripts/checkStatementDailyPnl.mjs <path-to-AccountStatement.csv>
  */
@@ -16,7 +16,7 @@ if (!csvPath) {
 const text = readFileSync(csvPath, "utf8");
 const { trades, errors } = parseThinkorswimAccountCsv(text, {
   groupingMode: "merge",
-  fillsSource: "cashTrdOnly",
+  fillsSource: "cashTrdPlusAth",
 });
 const g = groupTradesByDate(trades);
 
